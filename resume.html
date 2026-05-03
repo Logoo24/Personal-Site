@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Resume - Logan Randall</title>
+  <meta name="description" content="Logan Randall's resume - education, experience, skills, and selected projects." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231F7A4D'/%3E%3Ctext x='50%25' y='58%25' text-anchor='middle' font-family='-apple-system,Segoe UI,Inter,sans-serif' font-size='15' font-weight='700' fill='%23FAFAFA'%3ELB%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    @media print {
+      .nav, .footer, .hero, .scroll-cue, .btn-row { display: none !important; }
+      body { background: white; color: black; }
+      .resume-print { padding-top: 0 !important; }
+      .reveal { opacity: 1 !important; transform: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="nav">
+    <a href="index.html" class="nav-brand">Logan Randall</a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="about.html">About</a></li>
+      <li><a href="blog.html">Blog</a></li>
+      <li><a href="projects.html">Projects</a></li>
+      <li><a href="resume.html">Resume</a></li>
+    </ul>
+    <div class="nav-right">
+      <span class="theme-toggle-wrap">
+        <button class="theme-toggle" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <span class="moon" aria-hidden="true">◐</span>
+          <span class="sun" aria-hidden="true">☀</span>
+        </button>
+        <span class="theme-hint"><span class="hint-arrow" aria-hidden="true">↑</span><span class="hint-text">try dark mode!</span></span>
+      </span>
+      <button class="nav-toggle" aria-label="Toggle menu">☰</button>
+    </div>
+  </nav>
+
+  <header class="hero" style="min-height: 55vh;">
+    <div class="hero-orb one" style="top:25%; right:5%; width:280px; height:280px;"></div>
+    <div class="container hero-content">
+      <span class="eyebrow">Resume</span>
+      <h1 class="hero-title" style="font-size: clamp(2.5rem, 6vw, 5rem);">
+        Education, work, and <span class="accent">things I can do.</span>
+      </h1>
+      <div class="btn-row" style="margin-top:2rem;">
+        <button onclick="window.print()" class="btn btn-primary">Print / save as PDF <span class="arrow">⎙</span></button>
+        <a href="mailto:hello@loganbrandall.com" class="btn btn-ghost">Get in touch</a>
+      </div>
+    </div>
+  </header>
+
+  <section class="resume-print" style="padding-top: 1rem;">
+    <div class="narrow">
+
+      <!-- ========== EDUCATION ========== -->
+      <div class="resume-section reveal">
+        <h3>Education</h3>
+        <div class="resume-item">
+          <div class="when">2024 - Present</div>
+          <div>
+            <h4>Bachelor of Arts (in progress)</h4>
+            <div class="where">Your University · Major TBD</div>
+            <p>Coursework in [add majors / focus areas]. Activities: [add clubs, leadership]. GPA: [add if you'd like].</p>
+          </div>
+        </div>
+        <div class="resume-item">
+          <div class="when">2020 - 2024</div>
+          <div>
+            <h4>High School Diploma</h4>
+            <div class="where">Your High School</div>
+            <p>Honors: [add honors]. Activities: [add activities].</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== EXPERIENCE ========== -->
+      <div class="resume-section reveal">
+        <h3>Experience</h3>
+        <div class="resume-item">
+          <div class="when">Summer 2025</div>
+          <div>
+            <h4>Job title</h4>
+            <div class="where">Company name · Location</div>
+            <p>One sentence describing what you did and why it mattered. Quantify impact when you can - "wrote X reports that influenced Y", "managed events with N attendees", that kind of thing.</p>
+          </div>
+        </div>
+        <div class="resume-item">
+          <div class="when">2024 - Present</div>
+          <div>
+            <h4>Another role</h4>
+            <div class="where">Organization name · Campus</div>
+            <p>Quick description of your responsibilities and what you learned.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== SELECTED PROJECTS ========== -->
+      <div class="resume-section reveal">
+        <h3>Selected projects</h3>
+        <div class="resume-item">
+          <div class="when">2026</div>
+          <div>
+            <h4>loganbrandall.com</h4>
+            <div class="where">Personal website</div>
+            <p>Designed and built a personal portfolio and writing site from scratch. Hand-coded HTML/CSS/JavaScript with GSAP scroll animations. Deployed on Cloudflare Pages.</p>
+          </div>
+        </div>
+        <div class="resume-item">
+          <div class="when">2025</div>
+          <div>
+            <h4>Project name</h4>
+            <div class="where">Class or independent</div>
+            <p>One-line description of what it is and what you did.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== SKILLS ========== -->
+      <div class="resume-section reveal">
+        <h3>Skills</h3>
+        <h4 style="font-family: var(--sans); margin: 1rem 0 0.75rem;">Writing & research</h4>
+        <div class="skills-grid">
+          <span class="skill-pill">Long-form essays</span>
+          <span class="skill-pill">Academic writing</span>
+          <span class="skill-pill">Editing</span>
+          <span class="skill-pill">Source synthesis</span>
+        </div>
+        <h4 style="font-family: var(--sans); margin: 1.5rem 0 0.75rem;">Tools & technical</h4>
+        <div class="skills-grid">
+          <span class="skill-pill">HTML / CSS</span>
+          <span class="skill-pill">JavaScript (basics)</span>
+          <span class="skill-pill">Microsoft Office</span>
+          <span class="skill-pill">Google Workspace</span>
+          <span class="skill-pill">Notion</span>
+        </div>
+        <h4 style="font-family: var(--sans); margin: 1.5rem 0 0.75rem;">Other</h4>
+        <div class="skills-grid">
+          <span class="skill-pill">Public speaking</span>
+          <span class="skill-pill">Project management</span>
+          <span class="skill-pill">Spanish (intermediate)</span>
+        </div>
+      </div>
+
+      <!-- ========== AWARDS ========== -->
+      <div class="resume-section reveal">
+        <h3>Awards & honors</h3>
+        <div class="resume-item">
+          <div class="when">2025</div>
+          <div>
+            <h4>Award name</h4>
+            <div class="where">Awarding body</div>
+            <p>Brief description of why.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="reveal" style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--line); color: var(--text-muted); font-size: 0.95rem;">
+        <p>References available on request. Reach me at <a href="mailto:hello@loganbrandall.com">hello@loganbrandall.com</a>.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div>
+        <div class="footer-brand">Logan Randall</div>
+        <p class="text-muted" style="margin-top:.5rem; font-size:.9rem;">A small corner of the internet.</p>
+      </div>
+      <ul class="footer-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="blog.html">Blog</a></li>
+        <li><a href="projects.html">Projects</a></li>
+        <li><a href="resume.html">Resume</a></li>
+      </ul>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span data-year></span> Logan Randall. All rights reserved.</span>
+      <a href="admin/" class="footer-signin">Sign in</a>
+    </div>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

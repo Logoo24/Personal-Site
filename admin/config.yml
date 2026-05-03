@@ -1,0 +1,47 @@
+# Decap CMS configuration
+# Docs: https://decapcms.org/docs/configuration-options/
+#
+# IMPORTANT: After deploying, edit the `repo:` line below to your GitHub repo
+# in the form `username/repo-name`, then commit. See SETUP.md "Part 5" for
+# the full one-time auth setup (registering the OAuth app, etc.)
+
+backend:
+  name: github
+  repo: USERNAME/loganbrandall.com   # <-- change to your-github-username/your-repo-name
+  branch: main
+  base_url: https://decap-proxy-loganbrandall.YOUR-CF-WORKER-SUBDOMAIN.workers.dev
+  # ^ change to your Cloudflare Worker URL after deploying it (see SETUP.md Part 5)
+
+# Where uploaded images go inside the repo
+media_folder: "images/uploads"
+public_folder: "/images/uploads"
+
+# Show a preview of the post while editing
+show_preview_links: true
+
+# What you can edit through the admin
+collections:
+  - name: "posts"
+    label: "Blog posts"
+    label_singular: "Post"
+    folder: "_posts"             # source markdown lives here
+    create: true
+    delete: true
+    slug: "{{slug}}"
+    summary: "{{title}} - {{date | date('MMM D, YYYY')}}"
+    fields:
+      - { label: "Title", name: "title", widget: "string" }
+      - { label: "Publish date", name: "date", widget: "datetime", date_format: "YYYY-MM-DD", time_format: false, format: "YYYY-MM-DD" }
+      - label: "Category"
+        name: "category"
+        widget: "select"
+        default: "essay"
+        options:
+          - { label: "Essay", value: "essay" }
+          - { label: "Class notes", value: "class" }
+          - { label: "Research", value: "research" }
+          - { label: "Project write-up", value: "project" }
+      - { label: "Short summary", name: "summary", widget: "string", hint: "1-2 sentences shown on the blog list page." }
+      - { label: "Reading time (minutes)", name: "readMinutes", widget: "number", default: 4, value_type: "int", min: 1, max: 90 }
+      - { label: "Hidden draft? (won't appear on site)", name: "draft", widget: "boolean", default: false, required: false }
+      - { label: "Body", name: "body", widget: "markdown" }
