@@ -7,9 +7,11 @@ readMinutes: 1
 draft: false
 ---
 
-I'm currently taking a Web Business Creation course at BYU-Idaho, and each week I'll be posting a short reflection on what I'm learning. This week's focus was on choosing a business, which sounds simple until you actually try to do it!
+I'm currently taking a Web Business Creation course at BYU-Idaho, and each week I'll be posting a short reflection on what I'm learning. This week's focus was on choosing a business.
 
 The biggest lesson for me this week was that the business model matters before the product does. Service, affiliate, dropshipping, and merchant models all have different costs and skills involved. So it is important to pick the model first, and then you set your rules for which products fit that model.
+
+We are supposed to be thinking about ideas for the business we are going to launch and operate this semester. I already have a pretty good idea of what I want to do. (Stay tuned for more on that in the future!) Reading about all these different business models was a bit overwhelming for me at first, but it's really interesting to me how much of an impact these models can have on your business plans.
 
 The demand and competition assignment taught me something else... low competition can both good and bad. Sometimes nobody's competing because nobody is making money. Steady demand is better than seasonal spikes for a small operator on a small budget.
 
