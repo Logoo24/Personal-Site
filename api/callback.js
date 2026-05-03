@@ -41,18 +41,32 @@ export default async function handler(req, res) {
   res.send(`<!doctype html>
 <html><head><title>Authorizing...</title></head>
 <body style="font-family:system-ui;padding:2rem;text-align:center;">
-<p>Finishing login... you can close this window.</p>
+<p id="status">Finishing login... you can close this window.</p>
 <script>
 (function () {
+  var sent = false;
   function send() {
-    if (!window.opener) return;
-    window.opener.postMessage(${JSON.stringify(message)}, '*');
+    if (!window.opener) {
+      document.getElementById('status').textContent = 'No opener window found. Try logging in again.';
+      return;
+    }
+    sent = true;
+    try { window.opener.postMessage(${JSON.stringify(message)}, '*'); } catch (e) {}
   }
+  // Listen for Decap's handshake first
   window.addEventListener('message', function (e) {
-    if (e.data === 'authorizing:github') send();
+    if (e.data === 'authorizing:github' || (typeof e.data === 'string' && e.data.indexOf('authorizing:') === 0)) {
+      send();
+    }
   });
+  // Send immediately too, in case Decap is already listening
   send();
-  setTimeout(function () { window.close(); }, 800);
+  // Re-send a few times in case of timing issues
+  setTimeout(send, 300);
+  setTimeout(send, 800);
+  setTimeout(send, 1500);
+  // Close window after giving plenty of time
+  setTimeout(function () { window.close(); }, 2500);
 })();
 </script>
 </body></html>`);
