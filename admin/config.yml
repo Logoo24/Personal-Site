@@ -2,15 +2,16 @@
 # Docs: https://decapcms.org/docs/configuration-options/
 #
 # IMPORTANT: After deploying, edit the `repo:` line below to your GitHub repo
-# in the form `username/repo-name`, then commit. See SETUP.md "Part 5" for
-# the full one-time auth setup (registering the OAuth app, etc.)
+# in the form `username/repo-name`. The OAuth proxy lives at /api/auth and
+# /api/callback as Vercel serverless functions. See SETUP.md Part 5 for the
+# one-time GitHub OAuth app + env var setup.
 
 backend:
   name: github
   repo: Logoo24/Personal-Site   # <-- change to your-github-username/your-repo-name
   branch: main
-  base_url: https://loganbrandall.com
-  # ^ change to your Cloudflare Worker URL after deploying it (see SETUP.md Part 5)
+  base_url: https://loganbrandall.com   # <-- your live domain (or your-project.vercel.app)
+  auth_endpoint: api/auth
 
 # Where uploaded images go inside the repo
 media_folder: "images/uploads"
