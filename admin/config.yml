@@ -10,7 +10,7 @@ backend:
   name: github
   repo: Logoo24/Personal-Site   # <-- change to your-github-username/your-repo-name
   branch: main
-  base_url: https://loganbrandall.com   # <-- your live domain (or your-project.vercel.app)
+  base_url: https://www.loganbrandall.com   # <-- your live domain (or your-project.vercel.app)
   auth_endpoint: api/auth
 
 # Where uploaded images go inside the repo
