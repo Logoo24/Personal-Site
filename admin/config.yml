@@ -7,9 +7,9 @@
 
 backend:
   name: github
-  repo: USERNAME/loganbrandall.com   # <-- change to your-github-username/your-repo-name
+  repo: Logoo24/Personal-Site   # <-- change to your-github-username/your-repo-name
   branch: main
-  base_url: https://decap-proxy-loganbrandall.YOUR-CF-WORKER-SUBDOMAIN.workers.dev
+  base_url: https://loganbrandall.com
   # ^ change to your Cloudflare Worker URL after deploying it (see SETUP.md Part 5)
 
 # Where uploaded images go inside the repo
