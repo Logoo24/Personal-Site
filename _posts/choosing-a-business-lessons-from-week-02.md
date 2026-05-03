@@ -3,7 +3,7 @@ title: 'Choosing a Business: Lessons from Week 02'
 date: 2026-05-02
 category: project
 summary: Some updates on my work in my web business creation class this week.
-readMinutes: 4
+readMinutes: 1
 draft: false
 ---
 
