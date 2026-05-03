@@ -3,10 +3,5 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".",
   "framework": null,
-  "functions": {
-    "api/*.js": {
-      "runtime": "@vercel/node@5.0.0"
-    }
-  },
   "cleanUrls": true
 }
