@@ -44,20 +44,25 @@
 
   <header class="hero" style="min-height: 55vh;">
     <div class="hero-orb one" style="top:25%; right:5%; width:280px; height:280px;"></div>
-    <div class="container hero-content">
-      <span class="eyebrow">Resume</span>
-      <h1 class="hero-title" style="font-size: clamp(2.5rem, 6vw, 5rem);">
-        Education, work, and <span class="accent">things I can do.</span>
-      </h1>
-      <div class="btn-row" style="margin-top:2rem;">
-        <button onclick="window.print()" class="btn btn-primary">Print / save as PDF <span class="arrow">⎙</span></button>
-        <a href="mailto:hello@loganbrandall.com" class="btn btn-ghost">Get in touch</a>
+    <div class="container hero-content hero-content--split" data-render="resume-hero">
+      <div class="hero-text">
+        <span class="eyebrow">Resume</span>
+        <h1 class="hero-title" style="font-size: clamp(2.5rem, 6vw, 5rem);">
+          Education, work, and <span class="accent">things I can do.</span>
+        </h1>
+        <div class="btn-row" style="margin-top:2rem;">
+          <button onclick="window.print()" class="btn btn-primary">Print / save as PDF <span class="arrow">⎙</span></button>
+          <a href="mailto:hello@loganbrandall.com" class="btn btn-ghost">Get in touch</a>
+        </div>
+      </div>
+      <div class="hero-photo hero-photo--portrait hero-photo--small">
+        <img data-image="resume_hero" src="/images/placeholders/portrait.svg" alt="Logan Randall" />
       </div>
     </div>
   </header>
 
   <section class="resume-print" style="padding-top: 1rem;">
-    <div class="narrow">
+    <div class="narrow" data-render="resume-content">
 
       <!-- ========== EDUCATION ========== -->
       <div class="resume-section reveal">

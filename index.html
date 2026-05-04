@@ -42,17 +42,22 @@
   <header class="hero">
     <div class="hero-orb one"></div>
     <div class="hero-orb two"></div>
-    <div class="container hero-content">
-      <span class="eyebrow">Welcome</span>
-      <h1 class="hero-title">
-        Hi, I'm Logan. <span class="accent">Here's what I'm up to.</span>
-      </h1>
-      <p class="hero-lede">
-        A college student who likes building, writing, and figuring out what's next. Stick around for projects, class notes, and the occasional essay.
-      </p>
-      <div class="btn-row">
-        <a href="about.html" class="btn btn-primary">Learn more about me <span class="arrow">→</span></a>
-        <a href="projects.html" class="btn btn-ghost">See my projects</a>
+    <div class="container hero-content hero-content--split" data-render="homepage-hero">
+      <div class="hero-text">
+        <span class="eyebrow">Welcome</span>
+        <h1 class="hero-title">
+          Hi, I'm Logan. <span class="accent">Here's what I'm up to.</span>
+        </h1>
+        <p class="hero-lede">
+          A college student who likes building, writing, and figuring out what's next. Stick around for projects, class notes, and the occasional essay.
+        </p>
+        <div class="btn-row">
+          <a href="about.html" class="btn btn-primary">Learn more about me <span class="arrow">→</span></a>
+          <a href="projects.html" class="btn btn-ghost">See my projects</a>
+        </div>
+      </div>
+      <div class="hero-photo hero-photo--cutout">
+        <img data-image="hero_cutout" src="/images/placeholders/hero-cutout.svg" alt="Logan Randall" />
       </div>
     </div>
     <div class="scroll-cue"><span class="line"></span><span>Scroll</span></div>
@@ -82,7 +87,7 @@
   </section>
 
   <!-- ============= FEATURED PROJECTS ============= -->
-  <section style="padding-top:0;">
+  <section style="padding-top:0;" data-render="featured-projects">
     <div class="container">
       <div class="section-head reveal">
         <span class="eyebrow">Selected work</span>

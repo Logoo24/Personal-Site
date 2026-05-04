@@ -1,0 +1,70 @@
+{
+  "eyebrow": "Resume",
+  "title_main": "Education, work, and",
+  "title_accent": "things I can do.",
+  "education": [
+    {
+      "when": "2024 - Present",
+      "title": "Bachelor of Arts (in progress)",
+      "where": "Your University · Major TBD",
+      "description": "Coursework in [add majors / focus areas]. Activities: [add clubs, leadership]. GPA: [add if you'd like]."
+    },
+    {
+      "when": "2020 - 2024",
+      "title": "High School Diploma",
+      "where": "Your High School",
+      "description": "Honors: [add honors]. Activities: [add activities]."
+    }
+  ],
+  "experience": [
+    {
+      "when": "Summer 2025",
+      "title": "Job title",
+      "where": "Company name · Location",
+      "description": "One sentence describing what you did and why it mattered. Quantify impact when you can - 'wrote X reports that influenced Y', 'managed events with N attendees', that kind of thing."
+    },
+    {
+      "when": "2024 - Present",
+      "title": "Another role",
+      "where": "Organization name · Campus",
+      "description": "Quick description of your responsibilities and what you learned."
+    }
+  ],
+  "projects": [
+    {
+      "when": "2026",
+      "title": "loganbrandall.com",
+      "where": "Personal website",
+      "description": "Designed and built a personal portfolio and writing site from scratch. Hand-coded HTML/CSS/JavaScript with GSAP scroll animations. Deployed on Cloudflare Pages."
+    },
+    {
+      "when": "2025",
+      "title": "Project name",
+      "where": "Class or independent",
+      "description": "One-line description of what it is and what you did."
+    }
+  ],
+  "skills": [
+    {
+      "category": "Writing & research",
+      "items": "Long-form essays, Academic writing, Editing, Source synthesis"
+    },
+    {
+      "category": "Tools & technical",
+      "items": "HTML / CSS, JavaScript (basics), Microsoft Office, Google Workspace, Notion"
+    },
+    {
+      "category": "Other",
+      "items": "Public speaking, Project management, Spanish (intermediate)"
+    }
+  ],
+  "awards": [
+    {
+      "when": "2025",
+      "title": "Award name",
+      "where": "Awarding body",
+      "description": "Brief description of why."
+    }
+  ],
+  "footer_note": "References available on request. Reach me at hello@loganbrandall.com."
+}

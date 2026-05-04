@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" fill="none" aria-hidden="true">
+  <rect width="400" height="500" rx="14" fill="#1F7A4D" fill-opacity="0.08"/>
+  <circle cx="200" cy="200" r="62" fill="#1F7A4D" fill-opacity="0.28"/>
+  <path d="M118 380c0-58 37-104 82-104s82 46 82 104z" fill="#1F7A4D" fill-opacity="0.28"/>
+  <text x="200" y="445" text-anchor="middle" font-family="-apple-system, Segoe UI, Inter, sans-serif" font-size="13" fill="#1F7A4D" opacity="0.7" font-weight="700" letter-spacing="3">PHOTO HERE</text>
+</svg>

@@ -91,55 +91,287 @@
     else document.addEventListener('DOMContentLoaded', fn);
   }
 
-  /* ---------- ROTATING HERO ---------- */
-  var HERO_KEY = 'lb-hero-idx';
+  /* ---------- CONTENT LOADERS (managed via /admin) ---------- */
+  // Tiny element helper.
+  function el(tag, props) {
+    var e = document.createElement(tag);
+    if (!props) return e;
+    for (var key in props) {
+      if (!Object.prototype.hasOwnProperty.call(props, key)) continue;
+      var v = props[key];
+      if (v == null) continue;
+      if (key === 'class') e.className = v;
+      else if (key === 'text') e.textContent = v;
+      else if (key === 'html') e.innerHTML = v;
+      else if (key === 'children') {
+        v.forEach(function (c) { if (c) e.appendChild(c); });
+      } else e.setAttribute(key, v);
+    }
+    return e;
+  }
+
+  function fetchJSON(url) {
+    return fetch(url, { cache: 'no-cache' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .catch(function () { return null; });
+  }
+
+  // ---- Site images ----
+  function applySiteImages(data) {
+    if (!data) return;
+    document.querySelectorAll('[data-image]').forEach(function (node) {
+      var key = node.getAttribute('data-image');
+      var src = data[key];
+      if (!src) return;
+      if (node.tagName === 'IMG') {
+        if (node.getAttribute('src') !== src) node.setAttribute('src', src);
+      } else {
+        node.style.backgroundImage = "url('" + src + "')";
+      }
+    });
+  }
+
+  // ---- Homepage hero (rotating) ----
+  // In-code defaults so the page works even if the JSON fetch fails.
   var heroVariants = [
     {
       eyebrow: "Welcome",
-      titleMain: "Hi, I'm Logan.",
-      titleAccent: "Here's what I'm up to.",
+      title_main: "Hi, I'm Logan.",
+      title_accent: "Here's what I'm up to.",
       lede: "A college student who likes building, writing, and figuring out what's next. Stick around for projects, class notes, and the occasional essay."
     },
     {
       eyebrow: "Hi there",
-      titleMain: "Logan Randall",
-      titleAccent: "Welcome to my website!",
+      title_main: "Logan Randall",
+      title_accent: "Welcome to my website!",
       lede: "Glad you found your way here. Have a look around - projects, blog posts, and a bit about who I am are all a click away."
     },
     {
       eyebrow: "Currently",
-      titleMain: "Logan Randall.",
-      titleAccent: "A site about what I'm doing.",
+      title_main: "Logan Randall.",
+      title_accent: "A site about what I'm doing.",
       lede: "Projects in progress, classes I'm taking, and the occasional essay - a running snapshot of what I'm working on right now."
     }
   ];
 
-  function rotateHeroText() {
-    var heroContent = document.querySelector('.hero-content');
-    if (!heroContent) return;
-    var stored = parseInt(getStored(HERO_KEY), 10);
-    var nextIdx;
-    if (isNaN(stored)) {
-      // First-ever visit: keep the static HTML (variant 0), just record it.
-      nextIdx = 0;
-      setStored(HERO_KEY, '0');
-      return;
-    }
-    nextIdx = (stored + 1) % heroVariants.length;
-    setStored(HERO_KEY, String(nextIdx));
-    var v = heroVariants[nextIdx];
+  function applyHeroVariant(idx) {
+    var heroContent = document.querySelector('[data-render="homepage-hero"]');
+    if (!heroContent || !heroVariants.length) return;
+    var v = heroVariants[idx % heroVariants.length];
     var eyebrow = heroContent.querySelector('.eyebrow');
     var title = heroContent.querySelector('.hero-title');
     var lede = heroContent.querySelector('.hero-lede');
     if (eyebrow) eyebrow.textContent = v.eyebrow;
     if (title) {
-      title.textContent = v.titleMain + ' ';
+      title.textContent = (v.title_main || '') + ' ';
       var accent = document.createElement('span');
       accent.className = 'accent';
-      accent.textContent = v.titleAccent;
+      accent.textContent = v.title_accent || '';
       title.appendChild(accent);
     }
-    if (lede) lede.textContent = v.lede;
+    if (lede) lede.textContent = v.lede || '';
+  }
+
+  function rotateHeroText() {
+    if (!document.querySelector('[data-render="homepage-hero"]')) return;
+    var stored = parseInt(getStored(HERO_KEY), 10);
+    var nextIdx;
+    if (isNaN(stored)) {
+      nextIdx = 0;
+      setStored(HERO_KEY, '0');
+    } else {
+      nextIdx = (stored + 1) % heroVariants.length;
+      setStored(HERO_KEY, String(nextIdx));
+    }
+    applyHeroVariant(nextIdx);
+  }
+  var HERO_KEY = 'lb-hero-idx';
+
+  function applyHeroVariants(data) {
+    if (!data || !Array.isArray(data.variants) || !data.variants.length) return;
+    heroVariants = data.variants;
+    // Re-apply the current rotation index now that we have fresh data.
+    var stored = parseInt(getStored(HERO_KEY), 10);
+    if (isNaN(stored)) stored = 0;
+    applyHeroVariant(stored);
+  }
+
+  // ---- Featured projects (homepage) ----
+  function applyFeaturedProjects(data) {
+    if (!data) return;
+    var section = document.querySelector('[data-render="featured-projects"]');
+    if (!section) return;
+    var head = section.querySelector('.section-head');
+    if (head) {
+      var eb = head.querySelector('.eyebrow');
+      var h2 = head.querySelector('h2');
+      var p = head.querySelector('p');
+      if (eb && data.eyebrow) eb.textContent = data.eyebrow;
+      if (h2 && data.title) h2.textContent = data.title;
+      if (p && data.description) p.textContent = data.description;
+    }
+    var grid = section.querySelector('.grid');
+    if (!grid || !Array.isArray(data.items)) return;
+    grid.innerHTML = '';
+    data.items.forEach(function (item) {
+      grid.appendChild(el('article', { class: 'card', children: [
+        el('span', { class: 'card-tag', text: item.tag || '' }),
+        el('h3', { text: item.title || '' }),
+        el('p', { text: item.description || '' }),
+        el('div', { class: 'card-meta', children: [
+          el('span', { text: item.tech || '' }),
+          el('span', { text: item.status || '' })
+        ]})
+      ]}));
+    });
+  }
+
+  // ---- About page ----
+  function applyAboutPage(data) {
+    if (!data) return;
+    // Hero text
+    var heroContent = document.querySelector('.about-page .hero-content, [data-render="about-hero"]');
+    if (heroContent) {
+      var eb = heroContent.querySelector('.eyebrow');
+      var title = heroContent.querySelector('.hero-title');
+      if (eb && data.eyebrow) eb.textContent = data.eyebrow;
+      if (title && (data.title_main || data.title_accent)) {
+        title.textContent = (data.title_main || '') + ' ';
+        var span = document.createElement('span');
+        span.className = 'accent';
+        span.textContent = data.title_accent || '';
+        title.appendChild(span);
+      }
+    }
+    // Body content
+    var body = document.querySelector('[data-render="about-content"]');
+    if (!body) return;
+    body.innerHTML = '';
+    if (data.lead) {
+      body.appendChild(el('p', { class: 'reveal', style: 'font-size:1.2rem; color: var(--text);', text: data.lead }));
+    }
+    (data.sections || []).forEach(function (s) {
+      body.appendChild(el('h2', { class: 'reveal', style: 'margin-top:3rem;', text: s.heading || '' }));
+      body.appendChild(el('p', { class: 'reveal', text: s.body || '' }));
+    });
+    if (data.quote && data.quote.text) {
+      var q = '"' + data.quote.text + '"';
+      if (data.quote.author) q += ' - ' + data.quote.author;
+      body.appendChild(el('blockquote', {
+        class: 'reveal',
+        style: 'margin-top:3rem; padding: 1rem 2rem; border-left: 3px solid var(--accent); font-style: italic; color: var(--text-soft); font-size: 1.15rem;',
+        text: q
+      }));
+    }
+    if (data.practical_heading) {
+      body.appendChild(el('h2', { class: 'reveal', style: 'margin-top:3rem;', text: data.practical_heading }));
+    }
+    if (Array.isArray(data.practical) && data.practical.length) {
+      var ul = el('ul', { class: 'reveal', style: 'padding-left:1.5rem; line-height:2;' });
+      data.practical.forEach(function (item) {
+        var li = el('li');
+        li.innerHTML = linkifyEmails(escapeHTML(item));
+        ul.appendChild(li);
+      });
+      body.appendChild(ul);
+    }
+  }
+
+  function escapeHTML(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+  }
+  function linkifyEmails(s) {
+    return s.replace(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g,
+      '<a href="mailto:$1">$1</a>');
+  }
+
+  // ---- Resume page ----
+  function resumeItem(item) {
+    return el('div', { class: 'resume-item', children: [
+      el('div', { class: 'when', text: item.when || '' }),
+      el('div', { children: [
+        el('h4', { text: item.title || '' }),
+        item.where ? el('div', { class: 'where', text: item.where }) : null,
+        item.description ? el('p', { text: item.description }) : null
+      ]})
+    ]});
+  }
+
+  function resumeSection(heading, items) {
+    if (!Array.isArray(items) || !items.length) return null;
+    var sec = el('div', { class: 'resume-section reveal', children: [
+      el('h3', { text: heading })
+    ]});
+    items.forEach(function (it) { sec.appendChild(resumeItem(it)); });
+    return sec;
+  }
+
+  function applyResumePage(data) {
+    if (!data) return;
+    var heroContent = document.querySelector('.resume-page .hero-content, [data-render="resume-hero"]');
+    if (heroContent) {
+      var eb = heroContent.querySelector('.eyebrow');
+      var title = heroContent.querySelector('.hero-title');
+      if (eb && data.eyebrow) eb.textContent = data.eyebrow;
+      if (title && (data.title_main || data.title_accent)) {
+        title.textContent = (data.title_main || '') + ' ';
+        var span = document.createElement('span');
+        span.className = 'accent';
+        span.textContent = data.title_accent || '';
+        title.appendChild(span);
+      }
+    }
+
+    var body = document.querySelector('[data-render="resume-content"]');
+    if (!body) return;
+    body.innerHTML = '';
+
+    var s;
+    if ((s = resumeSection('Education', data.education))) body.appendChild(s);
+    if ((s = resumeSection('Experience', data.experience))) body.appendChild(s);
+    if ((s = resumeSection('Selected projects', data.projects))) body.appendChild(s);
+
+    // Skills
+    if (Array.isArray(data.skills) && data.skills.length) {
+      var skillsSec = el('div', { class: 'resume-section reveal', children: [
+        el('h3', { text: 'Skills' })
+      ]});
+      data.skills.forEach(function (group, i) {
+        skillsSec.appendChild(el('h4', {
+          style: 'font-family: var(--sans); margin: ' + (i === 0 ? '1rem' : '1.5rem') + ' 0 0.75rem;',
+          text: group.category || ''
+        }));
+        var grid = el('div', { class: 'skills-grid' });
+        String(group.items || '').split(',').forEach(function (item) {
+          var name = item.trim();
+          if (name) grid.appendChild(el('span', { class: 'skill-pill', text: name }));
+        });
+        skillsSec.appendChild(grid);
+      });
+      body.appendChild(skillsSec);
+    }
+
+    if ((s = resumeSection('Awards & honors', data.awards))) body.appendChild(s);
+
+    if (data.footer_note) {
+      var note = el('div', {
+        class: 'reveal',
+        style: 'margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--line); color: var(--text-muted); font-size: 0.95rem;'
+      });
+      note.appendChild(el('p', { html: linkifyEmails(escapeHTML(data.footer_note)) }));
+      body.appendChild(note);
+    }
+  }
+
+  // Kicks off all fetches in parallel; each renderer no-ops if its target isn't on the page.
+  function loadContent() {
+    fetchJSON('/data/images.json').then(applySiteImages);
+    fetchJSON('/data/hero-variants.json').then(applyHeroVariants);
+    fetchJSON('/data/featured-projects.json').then(applyFeaturedProjects);
+    fetchJSON('/data/about.json').then(applyAboutPage);
+    fetchJSON('/data/resume.json').then(applyResumePage);
   }
 
   function wrapHeroTitle() {
@@ -179,7 +411,8 @@
 
   ready(function () {
     wireThemeToggle();
-    rotateHeroText();
+    rotateHeroText();   // synchronous initial rotation using in-code defaults
+    loadContent();      // async: fetches JSON, applies images + overrides text
     wrapHeroTitle();
 
     if (reduceMotion) {
@@ -253,3 +486,8 @@
     });
   });
 })();
+Year();
+    });
+  });
+})();
+);

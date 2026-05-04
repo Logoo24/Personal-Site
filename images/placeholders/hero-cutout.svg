@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 600" fill="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="hcg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1F7A4D" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#1F7A4D" stop-opacity="0.05"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#hcg)" d="M150 70c-32 0-58 26-58 58s26 58 58 58 58-26 58-58-26-58-58-58zM82 210c-16 32-26 84-29 146h28c5-21 12-42 23-58v258c0 9 7 16 16 16h17c9 0 16-7 16-16V438h6v118c0 9 7 16 16 16h17c9 0 16-7 16-16V298c11 16 18 37 23 58h28c-3-62-13-114-29-146-13-21-33-31-67-31s-54 10-67 31z"/>
+  <text x="150" y="500" text-anchor="middle" font-family="-apple-system, Segoe UI, Inter, sans-serif" font-size="13" fill="#1F7A4D" opacity="0.6" font-weight="700" letter-spacing="3">PHOTO HERE</text>
+</svg>

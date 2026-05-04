@@ -22,6 +22,150 @@ show_preview_links: true
 
 # What you can edit through the admin
 collections:
+  - name: "site_images"
+    label: "Site images"
+    description: "Photos shown around the site. Upload here and the site updates automatically (no rebuild needed)."
+    files:
+      - file: "data/images.json"
+        label: "Photos"
+        name: "photos"
+        format: "json"
+        fields:
+          - { label: "Homepage hero cutout", name: "hero_cutout", widget: "image", required: false, hint: "Full-body cutout, ideally a PNG with a transparent background. Sits to the right of the homepage hero text." }
+          - { label: "About page hero photo", name: "about_hero", widget: "image", required: false, hint: "Portrait or environmental shot for the top of the About page." }
+          - { label: "Resume page hero photo", name: "resume_hero", widget: "image", required: false, hint: "Photo for the top of the Resume page. A clean headshot works well." }
+
+  - name: "homepage_hero"
+    label: "Homepage hero (rotating)"
+    description: "Three rotating headlines shown on the homepage. A different one shows each visit."
+    files:
+      - file: "data/hero-variants.json"
+        label: "Hero variants"
+        name: "hero"
+        format: "json"
+        fields:
+          - label: "Variants"
+            name: "variants"
+            widget: "list"
+            summary: "{{fields.title_main}} {{fields.title_accent}}"
+            fields:
+              - { label: "Eyebrow (small label above title)", name: "eyebrow", widget: "string" }
+              - { label: "Title (main part)", name: "title_main", widget: "string" }
+              - { label: "Title (accent / colored part)", name: "title_accent", widget: "string" }
+              - { label: "Lede paragraph", name: "lede", widget: "text" }
+
+  - name: "homepage_projects"
+    label: "Homepage featured projects"
+    description: "The three project cards in the 'Projects I'm building' section."
+    files:
+      - file: "data/featured-projects.json"
+        label: "Featured projects"
+        name: "projects"
+        format: "json"
+        fields:
+          - { label: "Section eyebrow", name: "eyebrow", widget: "string" }
+          - { label: "Section title", name: "title", widget: "string" }
+          - { label: "Section description", name: "description", widget: "text" }
+          - label: "Projects (shown in this order)"
+            name: "items"
+            widget: "list"
+            summary: "{{fields.title}}"
+            fields:
+              - { label: "Tag (e.g. 'Web · 2026')", name: "tag", widget: "string" }
+              - { label: "Title", name: "title", widget: "string" }
+              - { label: "Description", name: "description", widget: "text" }
+              - { label: "Tech / type", name: "tech", widget: "string" }
+              - { label: "Status (e.g. 'Live', 'Done', 'In progress')", name: "status", widget: "string" }
+
+  - name: "about_page"
+    label: "About page"
+    description: "All the prose on the About page."
+    files:
+      - file: "data/about.json"
+        label: "About content"
+        name: "about"
+        format: "json"
+        fields:
+          - { label: "Hero eyebrow", name: "eyebrow", widget: "string" }
+          - { label: "Hero title (main part)", name: "title_main", widget: "string" }
+          - { label: "Hero title (accent / colored part)", name: "title_accent", widget: "string" }
+          - { label: "Lead paragraph", name: "lead", widget: "text" }
+          - label: "Sections"
+            name: "sections"
+            widget: "list"
+            summary: "{{fields.heading}}"
+            fields:
+              - { label: "Heading", name: "heading", widget: "string" }
+              - { label: "Body", name: "body", widget: "text" }
+          - label: "Quote"
+            name: "quote"
+            widget: "object"
+            fields:
+              - { label: "Quote text", name: "text", widget: "text" }
+              - { label: "Author", name: "author", widget: "string" }
+          - { label: "Practical details heading", name: "practical_heading", widget: "string" }
+          - label: "Practical details (one per line)"
+            name: "practical"
+            widget: "list"
+            field: { label: "Detail (Markdown links work)", name: "item", widget: "string" }
+
+  - name: "resume_page"
+    label: "Resume"
+    description: "All the items on the Resume page."
+    files:
+      - file: "data/resume.json"
+        label: "Resume content"
+        name: "resume"
+        format: "json"
+        fields:
+          - { label: "Hero eyebrow", name: "eyebrow", widget: "string" }
+          - { label: "Hero title (main part)", name: "title_main", widget: "string" }
+          - { label: "Hero title (accent / colored part)", name: "title_accent", widget: "string" }
+          - label: "Education"
+            name: "education"
+            widget: "list"
+            summary: "{{fields.title}} - {{fields.where}}"
+            fields:
+              - { label: "When (e.g. '2024 - Present')", name: "when", widget: "string" }
+              - { label: "Title (degree, etc.)", name: "title", widget: "string" }
+              - { label: "Where (school · location/major)", name: "where", widget: "string" }
+              - { label: "Description", name: "description", widget: "text", required: false }
+          - label: "Experience"
+            name: "experience"
+            widget: "list"
+            summary: "{{fields.title}} - {{fields.where}}"
+            fields:
+              - { label: "When", name: "when", widget: "string" }
+              - { label: "Job title", name: "title", widget: "string" }
+              - { label: "Where (company · location)", name: "where", widget: "string" }
+              - { label: "Description", name: "description", widget: "text", required: false }
+          - label: "Selected projects"
+            name: "projects"
+            widget: "list"
+            summary: "{{fields.title}}"
+            fields:
+              - { label: "When", name: "when", widget: "string" }
+              - { label: "Project title", name: "title", widget: "string" }
+              - { label: "Context (class / personal / etc.)", name: "where", widget: "string" }
+              - { label: "Description", name: "description", widget: "text" }
+          - label: "Skills (grouped by category)"
+            name: "skills"
+            widget: "list"
+            summary: "{{fields.category}}"
+            fields:
+              - { label: "Category name", name: "category", widget: "string" }
+              - { label: "Skills (comma-separated)", name: "items", widget: "string", hint: "Separate skills with commas, e.g. 'HTML, CSS, JavaScript'" }
+          - label: "Awards & honors"
+            name: "awards"
+            widget: "list"
+            summary: "{{fields.title}}"
+            fields:
+              - { label: "When", name: "when", widget: "string" }
+              - { label: "Title", name: "title", widget: "string" }
+              - { label: "Where (awarding body)", name: "where", widget: "string", required: false }
+              - { label: "Description", name: "description", widget: "text", required: false }
+          - { label: "Footer note (e.g. 'References on request...')", name: "footer_note", widget: "text" }
+
   - name: "posts"
     label: "Blog posts"
     label_singular: "Post"
