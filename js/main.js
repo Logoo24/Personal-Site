@@ -91,6 +91,57 @@
     else document.addEventListener('DOMContentLoaded', fn);
   }
 
+  /* ---------- ROTATING HERO ---------- */
+  var HERO_KEY = 'lb-hero-idx';
+  var heroVariants = [
+    {
+      eyebrow: "Welcome",
+      titleMain: "Hi, I'm Logan.",
+      titleAccent: "Here's what I'm up to.",
+      lede: "A college student who likes building, writing, and figuring out what's next. Stick around for projects, class notes, and the occasional essay."
+    },
+    {
+      eyebrow: "Hi there",
+      titleMain: "Logan Randall",
+      titleAccent: "Welcome to my website!",
+      lede: "Glad you found your way here. Have a look around - projects, blog posts, and a bit about who I am are all a click away."
+    },
+    {
+      eyebrow: "Currently",
+      titleMain: "Logan Randall.",
+      titleAccent: "A site about what I'm doing.",
+      lede: "Projects in progress, classes I'm taking, and the occasional essay - a running snapshot of what I'm working on right now."
+    }
+  ];
+
+  function rotateHeroText() {
+    var heroContent = document.querySelector('.hero-content');
+    if (!heroContent) return;
+    var stored = parseInt(getStored(HERO_KEY), 10);
+    var nextIdx;
+    if (isNaN(stored)) {
+      // First-ever visit: keep the static HTML (variant 0), just record it.
+      nextIdx = 0;
+      setStored(HERO_KEY, '0');
+      return;
+    }
+    nextIdx = (stored + 1) % heroVariants.length;
+    setStored(HERO_KEY, String(nextIdx));
+    var v = heroVariants[nextIdx];
+    var eyebrow = heroContent.querySelector('.eyebrow');
+    var title = heroContent.querySelector('.hero-title');
+    var lede = heroContent.querySelector('.hero-lede');
+    if (eyebrow) eyebrow.textContent = v.eyebrow;
+    if (title) {
+      title.textContent = v.titleMain + ' ';
+      var accent = document.createElement('span');
+      accent.className = 'accent';
+      accent.textContent = v.titleAccent;
+      title.appendChild(accent);
+    }
+    if (lede) lede.textContent = v.lede;
+  }
+
   function wrapHeroTitle() {
     var ht = document.querySelector('.hero-title');
     if (!ht || ht.dataset.split === 'true') return;
@@ -128,6 +179,7 @@
 
   ready(function () {
     wireThemeToggle();
+    rotateHeroText();
     wrapHeroTitle();
 
     if (reduceMotion) {

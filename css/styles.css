@@ -168,15 +168,39 @@ section { padding: clamp(4rem, 10vw, 8rem) 0; position: relative; }
   border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center;
   cursor: pointer;
-  font-size: 1rem;
-  transition: all .25s var(--ease-out);
+  position: relative;
+  transition: border-color .25s var(--ease-out), color .25s var(--ease-out), background .25s var(--ease-out);
   padding: 0;
+  overflow: hidden;
 }
-.theme-toggle:hover { border-color: var(--accent); color: var(--accent); transform: rotate(15deg); }
-.theme-toggle .sun { display: none; }
-.theme-toggle .moon { display: block; }
-[data-theme="dark"] .theme-toggle .sun { display: block; }
-[data-theme="dark"] .theme-toggle .moon { display: none; }
+.theme-toggle:hover { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.theme-toggle .sun, .theme-toggle .moon {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 18px; height: 18px;
+  transform-origin: center;
+  transition: opacity .35s var(--ease-out), transform .5s cubic-bezier(.5, 0, .2, 1);
+  will-change: transform, opacity;
+}
+.theme-toggle .moon {
+  opacity: 1;
+  transform: translate(-50%, -50%) rotate(0deg) scale(1);
+}
+.theme-toggle .sun {
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(-90deg) scale(0.4);
+}
+[data-theme="dark"] .theme-toggle .moon {
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(90deg) scale(0.4);
+}
+[data-theme="dark"] .theme-toggle .sun {
+  opacity: 1;
+  transform: translate(-50%, -50%) rotate(0deg) scale(1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-toggle .sun, .theme-toggle .moon { transition: opacity .2s linear; }
+}
 
 /* "Try dark mode!" hint - only shows on first visit */
 .theme-toggle-wrap { position: relative; display: inline-flex; }
@@ -184,24 +208,28 @@ section { padding: clamp(4rem, 10vw, 8rem) 0; position: relative; }
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.3rem;
+  display: block;
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
   transform: translateY(-6px);
   transition: opacity .35s var(--ease-out), transform .35s var(--ease-out);
   z-index: 99;
+  padding-top: 1.7rem; /* room for the absolutely-positioned arrow */
 }
 .theme-hint .hint-arrow {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 38px; /* match button width so arrow centers over the button */
+  text-align: center;
   font-size: 1.35rem;
   line-height: 1;
   color: var(--accent);
   font-weight: 700;
 }
 .theme-hint .hint-text {
+  display: block;
   background: var(--accent);
   color: #FFFFFF;
   padding: 0.4rem 0.75rem;
