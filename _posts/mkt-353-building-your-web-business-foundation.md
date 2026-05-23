@@ -1,5 +1,5 @@
 ---
-title: 'MKT 353: Building Your Web Business Foundation'
+title: 'MKT 353: Building A Web Business Foundation'
 date: 2026-05-16
 category: class
 summary: Why the tools you pick for your site matter more than just the price.
