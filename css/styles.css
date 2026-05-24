@@ -114,7 +114,10 @@ p + p { margin-top: 1.1em; }
 .container { max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); }
 .narrow { max-width: 760px; margin: 0 auto; padding: 0 var(--gutter); }
 
-section { padding: clamp(4rem, 10vw, 8rem) 0; position: relative; }
+/* Vertical rhythm between sections. Scales from 48px on phones up to
+   112px on large desktops — slightly tighter than before so 13" laptops
+   can fit more on a single scroll without the page feeling cramped. */
+section { padding: clamp(3rem, 8vw, 7rem) 0; position: relative; }
 
 /* ========== NAVIGATION ========== */
 .nav {
@@ -287,6 +290,13 @@ section { padding: clamp(4rem, 10vw, 8rem) 0; position: relative; }
   overflow: hidden;
 }
 
+/* On the homepage (the only page with a cutout hero), tighten the top
+   padding so the photo sits a bit higher on the page. Nav is ~70px tall;
+   4.5rem (72px) clears it with a hair of breathing room. */
+.hero:has(.hero-photo--cutout) {
+  padding-top: 4.5rem;
+}
+
 .hero-content { position: relative; z-index: 2; }
 
 /* Two-column hero (text + photo) */
@@ -319,8 +329,14 @@ section { padding: clamp(4rem, 10vw, 8rem) 0; position: relative; }
   filter: drop-shadow(0 30px 40px rgba(0, 0, 0, 0.18));
 }
 .hero-photo--cutout img {
-  /* Cutouts (transparent PNG/SVG) get a touch more room. */
-  height: clamp(440px, 62vh, 600px);
+  /* Cutouts (transparent PNG/SVG) — sized to be noticeable on the
+     homepage without dominating short laptops. ~30-40% larger than the
+     original clamp(440px, 62vh, 600px); deliberately smaller than the
+     earlier clamp(720, 95vh, 1000) which overflowed 13" / 1366×768
+     viewports. Concrete heights: ~520px on 1280×800, ~648px on
+     1440×900, ~778px on 1920×1080 — all fit comfortably in viewport
+     once nav + padding are accounted for. */
+  height: clamp(540px, 72vh, 780px);
   object-position: bottom center;
 }
 .hero-photo--portrait img {
@@ -332,20 +348,32 @@ section { padding: clamp(4rem, 10vw, 8rem) 0; position: relative; }
 }
 .hero-photo--small img { height: clamp(280px, 40vh, 380px); }
 @media (max-width: 900px) {
+  /* On tablets/phones, image stacks above text. Drop the 100vh min-height
+     so the hero sizes to its content — otherwise we get awkward empty
+     padding below the buttons before the next section. */
+  .hero { min-height: auto; padding-top: 5rem; padding-bottom: 2.5rem; }
+  .hero:has(.hero-photo--cutout) { padding-top: 5rem; }
   .hero-content--split {
     grid-template-columns: 1fr;
     gap: 2.5rem;
   }
   .hero-photo { order: -1; align-items: center; }
   .hero-photo img { height: clamp(280px, 40vh, 380px); }
-  .hero-photo--cutout img { height: clamp(300px, 45vh, 420px); }
+  /* Mobile cutout — ~30% larger than original clamp(300, 45vh, 420)
+     without the image swallowing the whole phone screen. On a 414×896
+     iPhone this renders ~448px (50% of viewport); on a 375×667 SE-class
+     phone, ~360px (54%). */
+  .hero-photo--cutout img { height: clamp(360px, 50vh, 500px); }
   .hero-photo--portrait img { height: clamp(260px, 36vh, 340px); max-width: 320px; }
   .hero-photo--small img { height: clamp(220px, 30vh, 280px); max-width: 240px; }
 }
 .hero-title {
-  font-size: clamp(3rem, 8.5vw, 7rem);
-  line-height: 0.98;
-  letter-spacing: -0.045em;
+  /* Scales from 40px on small phones up to 80px on 1440px+ desktops.
+     Previous clamp(3rem, 8.5vw, 7rem) topped out at 112px which was
+     visually overwhelming and made multi-line titles eat hero height. */
+  font-size: clamp(2.5rem, 6vw, 5rem);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
   margin: 1.25rem 0 2rem;
   font-weight: 700;
 }
@@ -384,8 +412,21 @@ section { padding: clamp(4rem, 10vw, 8rem) 0; position: relative; }
   z-index: 1;
   pointer-events: none;
 }
-.hero-orb.one { width: 420px; height: 420px; background: var(--orb); top: 8%; right: -90px; }
-.hero-orb.two { width: 300px; height: 300px; background: var(--orb-2); bottom: 8%; left: 20%; }
+/* Orbs scale with viewport — they're decorative atmosphere, not content,
+   so they grow on big screens and shrink on phones rather than sitting at
+   fixed pixel sizes that look wrong at the extremes. */
+.hero-orb.one {
+  width: clamp(220px, 30vw, 420px);
+  height: clamp(220px, 30vw, 420px);
+  background: var(--orb);
+  top: 8%; right: -90px;
+}
+.hero-orb.two {
+  width: clamp(160px, 22vw, 300px);
+  height: clamp(160px, 22vw, 300px);
+  background: var(--orb-2);
+  bottom: 8%; left: 20%;
+}
 
 /* ========== BUTTONS ========== */
 .btn {
