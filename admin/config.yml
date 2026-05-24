@@ -54,6 +54,20 @@ collections:
               - { label: "Title (accent / colored part)", name: "title_accent", widget: "string" }
               - { label: "Lede paragraph", name: "lede", widget: "text" }
 
+  - name: "site_stats"
+    label: "Homepage stats"
+    description: "The four numbers shown in the stats bar on the homepage. 'Blog posts' and 'Classes documented' are auto-counted from your posts on every deploy - editing those here will be overwritten on the next build."
+    files:
+      - file: "data/stats.json"
+        label: "Stats"
+        name: "stats"
+        format: "json"
+        fields:
+          - { label: "Projects shipped", name: "projects_shipped", widget: "number", value_type: "int", min: 0, hint: "Manual count. Bump this when you ship a new project." }
+          - { label: "Online since (year)", name: "online_since", widget: "number", value_type: "int", min: 2000, max: 2100, hint: "The year this site went live." }
+          - { label: "Blog posts (auto)", name: "blog_posts", widget: "number", value_type: "int", min: 0, required: false, hint: "Auto-counted from non-draft posts in _posts/ on every build. No reason to edit." }
+          - { label: "Classes documented (auto)", name: "classes_documented", widget: "number", value_type: "int", min: 0, required: false, hint: "Auto-counted from blog posts with category 'Class notes' on every build. No reason to edit." }
+
   - name: "homepage_projects"
     label: "Homepage featured projects"
     description: "The three project cards in the 'Projects I'm building' section."
@@ -166,6 +180,31 @@ collections:
               - { label: "Description", name: "description", widget: "text", required: false }
           - { label: "Footer note (e.g. 'References on request...')", name: "footer_note", widget: "text" }
 
+  - name: "all_projects"
+    label: "Projects page"
+    description: "All the projects shown on the /projects page. Reorder, add, edit, or delete as you ship things."
+    files:
+      - file: "data/projects.json"
+        label: "Projects"
+        name: "projects"
+        format: "json"
+        fields:
+          - { label: "Hero eyebrow", name: "eyebrow", widget: "string" }
+          - { label: "Hero title (main part)", name: "title_main", widget: "string" }
+          - { label: "Hero title (accent / colored part)", name: "title_accent", widget: "string" }
+          - { label: "Lede paragraph", name: "lede", widget: "text" }
+          - label: "Projects (shown in this order)"
+            name: "items"
+            widget: "list"
+            summary: "{{fields.title}}"
+            fields:
+              - { label: "Thumbnail initials (1-2 chars, shows in the card thumbnail)", name: "glyph", widget: "string", hint: "Short text shown in the thumbnail block, e.g. 'LB', 'RP', '??'." }
+              - { label: "Tag (e.g. 'Web · 2026')", name: "tag", widget: "string" }
+              - { label: "Title", name: "title", widget: "string" }
+              - { label: "Description", name: "description", widget: "text" }
+              - { label: "Tech / type", name: "tech", widget: "string" }
+              - { label: "Status (e.g. 'Live', 'Done', 'In progress')", name: "status", widget: "string" }
+
   - name: "posts"
     label: "Blog posts"
     label_singular: "Post"
@@ -180,12 +219,10 @@ collections:
       - label: "Category"
         name: "category"
         widget: "select"
-        default: "essay"
+        default: "personal"
         options:
-          - { label: "Essay", value: "essay" }
-          - { label: "Class notes", value: "class" }
-          - { label: "Research", value: "research" }
-          - { label: "Project write-up", value: "project" }
+          - { label: "Personal Blog", value: "personal" }
+          - { label: "Academic Blog", value: "academic" }
       - { label: "Short summary", name: "summary", widget: "string", hint: "1-2 sentences shown on the blog list page." }
       - { label: "Reading time (minutes)", name: "readMinutes", widget: "number", default: 4, value_type: "int", min: 1, max: 90 }
       - { label: "Hidden draft? (won't appear on site)", name: "draft", widget: "boolean", default: false, required: false }

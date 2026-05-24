@@ -307,30 +307,40 @@ section { padding: clamp(4rem, 10vw, 8rem) 0; position: relative; }
 }
 .hero-photo img {
   display: block;
-  width: 100%;
-  height: auto;
-  max-height: 78vh;
+  /* Pin the image to a tight, mostly-fixed height so it renders the same on
+     short laptops and tall monitors. Width is auto so the aspect ratio is
+     preserved; max-width: 100% prevents the image from overflowing its column
+     on narrow widths. */
+  height: clamp(420px, 60vh, 560px);
+  width: auto;
+  max-width: 100%;
   object-fit: contain;
   object-position: bottom center;
   filter: drop-shadow(0 30px 40px rgba(0, 0, 0, 0.18));
 }
-.hero-photo--cutout img { max-height: 82vh; object-position: bottom center; }
+.hero-photo--cutout img {
+  /* Cutouts (transparent PNG/SVG) get a touch more room. */
+  height: clamp(440px, 62vh, 600px);
+  object-position: bottom center;
+}
 .hero-photo--portrait img {
-  max-height: 56vh;
+  height: clamp(360px, 50vh, 480px);
+  width: auto;
   object-fit: cover;
   border-radius: 12px;
   aspect-ratio: 4 / 5;
 }
-.hero-photo--small img { max-height: 42vh; }
+.hero-photo--small img { height: clamp(280px, 40vh, 380px); }
 @media (max-width: 900px) {
   .hero-content--split {
     grid-template-columns: 1fr;
     gap: 2.5rem;
   }
   .hero-photo { order: -1; align-items: center; }
-  .hero-photo img { max-height: 42vh; }
-  .hero-photo--portrait img { max-height: 36vh; max-width: 320px; }
-  .hero-photo--small img { max-height: 28vh; max-width: 240px; }
+  .hero-photo img { height: clamp(280px, 40vh, 380px); }
+  .hero-photo--cutout img { height: clamp(300px, 45vh, 420px); }
+  .hero-photo--portrait img { height: clamp(260px, 36vh, 340px); max-width: 320px; }
+  .hero-photo--small img { height: clamp(220px, 30vh, 280px); max-width: 240px; }
 }
 .hero-title {
   font-size: clamp(3rem, 8.5vw, 7rem);

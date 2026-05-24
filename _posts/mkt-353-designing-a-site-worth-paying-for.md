@@ -1,7 +1,7 @@
 ---
 title: 'MKT 353: Designing a Site Worth Paying For'
 date: 2026-05-23
-category: class
+category: academic
 summary: A reflection on Week 5 for my MKT 353 class.
 readMinutes: 2
 draft: false

@@ -1,7 +1,7 @@
 ---
 title: 'MKT 353: Choosing a Business'
 date: 2026-05-02
-category: class
+category: academic
 summary: Some updates on my work in my web business creation class this week.
 readMinutes: 1
 draft: false

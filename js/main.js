@@ -365,6 +365,61 @@
     }
   }
 
+  // ---- Projects page (all projects grid + hero) ----
+  function applyProjectsPage(data) {
+    if (!data) return;
+    // Hero text
+    var heroContent = document.querySelector('[data-render="projects-hero"]');
+    if (heroContent) {
+      var eb = heroContent.querySelector('.eyebrow');
+      var title = heroContent.querySelector('.hero-title');
+      var lede = heroContent.querySelector('.hero-lede');
+      if (eb && data.eyebrow) eb.textContent = data.eyebrow;
+      if (title && (data.title_main || data.title_accent)) {
+        title.textContent = (data.title_main || '') + ' ';
+        var span = document.createElement('span');
+        span.className = 'accent';
+        span.textContent = data.title_accent || '';
+        title.appendChild(span);
+      }
+      if (lede && data.lede) lede.textContent = data.lede;
+    }
+    // Grid
+    var grid = document.querySelector('[data-render="all-projects"]');
+    if (!grid || !Array.isArray(data.items)) return;
+    grid.innerHTML = '';
+    data.items.forEach(function (item) {
+      grid.appendChild(el('article', { class: 'card proj-card', children: [
+        el('div', { class: 'proj-thumb', children: [
+          el('span', { class: 'proj-glyph', text: item.glyph || '' })
+        ]}),
+        el('span', { class: 'card-tag', text: item.tag || '' }),
+        el('h3', { text: item.title || '' }),
+        el('p', { text: item.description || '' }),
+        el('div', { class: 'card-meta', children: [
+          el('span', { text: item.tech || '' }),
+          el('span', { text: item.status || '' })
+        ]})
+      ]}));
+    });
+  }
+
+  // ---- Homepage stats ----
+  // Updates the four .stat .num elements on the homepage from data/stats.json.
+  // Each target element carries data-stat="<key>". We update both textContent
+  // (so non-animated / reduce-motion users see the value) and data-count (so the
+  // GSAP count-up animation animates to the right target when it triggers).
+  function applyStats(data) {
+    if (!data) return;
+    document.querySelectorAll('[data-stat]').forEach(function (node) {
+      var key = node.getAttribute('data-stat');
+      var val = data[key];
+      if (val == null) return;
+      node.dataset.count = String(val);
+      node.textContent = String(val);
+    });
+  }
+
   // Kicks off all fetches in parallel; each renderer no-ops if its target isn't on the page.
   function loadContent() {
     fetchJSON('/data/images.json').then(applySiteImages);
@@ -372,6 +427,8 @@
     fetchJSON('/data/featured-projects.json').then(applyFeaturedProjects);
     fetchJSON('/data/about.json').then(applyAboutPage);
     fetchJSON('/data/resume.json').then(applyResumePage);
+    fetchJSON('/data/projects.json').then(applyProjectsPage);
+    fetchJSON('/data/stats.json').then(applyStats);
   }
 
   function wrapHeroTitle() {
@@ -457,13 +514,15 @@
       });
 
       gsap.utils.toArray('.stat .num').forEach(function (el) {
-        var target = parseFloat(el.dataset.count || el.textContent);
         var suffix = el.dataset.suffix || '';
-        if (isNaN(target)) return;
-        var obj = { v: 0 };
         ScrollTrigger.create({
           trigger: el, start: 'top 85%', once: true,
           onEnter: function () {
+            // Read data-count at trigger time, not setup time, so the value
+            // applyStats() injected from data/stats.json is honored.
+            var target = parseFloat(el.dataset.count || el.textContent);
+            if (isNaN(target)) return;
+            var obj = { v: 0 };
             gsap.to(obj, { v: target, duration: 1.6, ease: 'power2.out',
               onUpdate: function () { el.textContent = Math.round(obj.v) + suffix; } });
           }

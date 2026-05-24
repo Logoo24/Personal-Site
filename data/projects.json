@@ -1,0 +1,56 @@
+{
+  "eyebrow": "Projects",
+  "title_main": "Things I've built, written,",
+  "title_accent": "or thought hard about.",
+  "lede": "A growing list of projects from class and outside of it. Some are finished, some are in progress, some are abandoned in interesting ways.",
+  "items": [
+    {
+      "glyph": "LB",
+      "tag": "Web · 2026",
+      "title": "This website",
+      "description": "A personal site built by hand. HTML, CSS, GSAP scroll animations, and a deliberate refusal to use a heavy framework.",
+      "tech": "HTML / CSS / JS",
+      "status": "Live"
+    },
+    {
+      "glyph": "RL",
+      "tag": "Writing · Ongoing",
+      "title": "Reading log",
+      "description": "A public archive of what I'm reading - books, papers, the occasional long article - and what I think about each one.",
+      "tech": "Markdown",
+      "status": "In progress"
+    },
+    {
+      "glyph": "CN",
+      "tag": "Class · 2026",
+      "title": "Course notes",
+      "description": "Edited notes from my favorite classes, published at the end of each semester. The goal: make them useful to someone other than me.",
+      "tech": "Notion → web",
+      "status": "Recurring"
+    },
+    {
+      "glyph": "RP",
+      "tag": "Research · 2026",
+      "title": "Research project name",
+      "description": "One-paragraph description of what you're researching, the question driving it, and where it stands. Replace this with a real project as you go.",
+      "tech": "Independent study",
+      "status": "In progress"
+    },
+    {
+      "glyph": "SP",
+      "tag": "Side project · 2025",
+      "title": "A small thing I built",
+      "description": "Placeholder for a side project: a script, a tool, a small piece of software you wrote because you wanted it to exist. Add a link if it's online.",
+      "tech": "Code",
+      "status": "Done"
+    },
+    {
+      "glyph": "??",
+      "tag": "Coming · 2026",
+      "title": "Something next",
+      "description": "You'll have more projects soon. For now this is a placeholder so the grid looks complete. Replace it (or delete the card) when you're ready.",
+      "tech": "TBD",
+      "status": "Planning"
+    }
+  ]
+}

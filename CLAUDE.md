@@ -19,11 +19,13 @@ There are no tests, no linter, and no dev server. To preview locally, open `inde
 
 ## Build pipeline (`build.js`)
 
-`npm run build` does three things:
+`npm run build` does five things:
 
 1. For each `_posts/*.md` (skipping `draft: true`): parses frontmatter with `gray-matter`, renders markdown with `marked`, substitutes `{{key}}` placeholders into `_src/post-template.html`, writes to `posts/<slug>.html`.
 2. Rewrites the post list inside `blog.html` between the literal HTML comments `<!-- POSTS_START -->` and `<!-- POSTS_END -->`.
 3. Rewrites the top-3 recent posts inside `index.html` between `<!-- RECENT_POSTS_START -->` and `<!-- RECENT_POSTS_END -->`.
+4. Updates the auto-computed fields (`blog_posts`, `classes_documented`) in `data/stats.json`, preserving the manually-edited fields (`projects_shipped`, `online_since`).
+5. Injects `<meta og:image>` / `<meta twitter:image>` tags into every page (including each generated post) between `<!-- OG_IMAGE_START -->` and `<!-- OG_IMAGE_END -->` markers. The URL is built from `SITE_URL` (constant in `build.js`) + `images.json` (`og_image` if set, otherwise `hero_cutout`), URL-encoded so paths with spaces work. Social crawlers don't run JS, so these tags **have to** be baked in at build time — that's why this is in `build.js` and not `main.js`.
 
 **Do not remove those marker comments** — `injectBetween()` silently skips the file if the markers aren't found. If you change the post-card markup, change it inside `build.js` (the strings that get injected), not just in `blog.html` (it'll be overwritten on next build).
 
@@ -39,17 +41,22 @@ Page content comes from two sources that you need to keep in mind together:
 ---
 title: "..."
 date: 2026-06-15
-category: essay | class | research | project
+category: personal | academic    # the only two live categories
 summary: "..."
 readMinutes: 5
 draft: false
 ---
 ```
 
-**2. JSON-driven page content** — `data/*.json` files (`about.json`, `resume.json`, `featured-projects.json`, `hero-variants.json`, `images.json`) are fetched **client-side** by `js/main.js` and rendered into the static HTML shells. The hooks are HTML attributes:
+`build.js` `CATEGORY_LABELS` also accepts the legacy values `essay`/`class`/`research`/`project` and maps them onto the two new labels, so un-migrated old posts still render — but new posts should use the two-value set. The blog page's filter pills (`blog.html`) and Decap's category options (`admin/config.yml` posts collection) are both pinned to the two new values, so out-of-set values won't be filterable.
 
-- `data-render="homepage-hero"`, `"featured-projects"`, `"about-hero"`, `"about-content"`, `"resume-hero"`, `"resume-content"` — JS finds the element and fills children.
+**2. JSON-driven page content** — `data/*.json` files (`about.json`, `resume.json`, `featured-projects.json`, `projects.json`, `hero-variants.json`, `images.json`, `stats.json`) are fetched **client-side** by `js/main.js` and rendered into the static HTML shells. The hooks are HTML attributes:
+
+- `data-render="homepage-hero"`, `"featured-projects"`, `"about-hero"`, `"about-content"`, `"resume-hero"`, `"resume-content"`, `"projects-hero"`, `"all-projects"` — JS finds the element and fills children.
 - `data-image="hero_cutout"` (etc.) — JS sets `src` (for `<img>`) or `background-image` (for other elements) from `data/images.json`.
+- `data-stat="projects_shipped"` (etc.) — JS sets `textContent` and `data-count` from `data/stats.json`. The GSAP count-up animation reads `data-count` at trigger time (not setup time) so the JSON-injected value wins over the HTML default.
+
+**Two project JSONs, distinct purposes:** `data/featured-projects.json` holds the 3 cards shown on the *homepage*. `data/projects.json` holds the full grid shown on the *projects page*. They're independent — editing one doesn't touch the other.
 
 This means **HTML files contain default/shell markup, JSON files hold the live content, and JS hydrates on load**. Editing prose in `about.html` directly won't show — change `data/about.json`. The exception is `js/main.js` which has hardcoded fallback `heroVariants` so the homepage hero works even if the JSON fetch fails.
 
@@ -71,7 +78,10 @@ Auth flow (Vercel serverless, in `api/`):
 
 ## Things that bite
 
-- The `injectBetween` markers in `index.html` / `blog.html` are required — losing them silently breaks the build's output without an error.
+- The `injectBetween` markers in `index.html` / `blog.html` / every page's `<head>` are required — losing them silently breaks the build's output without an error. The full marker set: `POSTS_START`/`POSTS_END` (blog.html), `RECENT_POSTS_START`/`RECENT_POSTS_END` (index.html), `OG_IMAGE_START`/`OG_IMAGE_END` (every page's `<head>`).
+- `data/stats.json` is shared between the CMS and `build.js`: admin edits `projects_shipped` / `online_since`, and the build overwrites `blog_posts` / `classes_documented` on every run. If you add a new auto-computed stat, compute it in `build.js` *and* declare the field in `admin/config.yml` so Decap preserves it on save.
+- `SITE_URL` in `build.js` is hardcoded to `https://www.loganbrandall.com`. If the domain ever changes, update it there or social-share previews will point at the old URL.
+- The hero photo's height is pinned via CSS `clamp()` (~440-600px on desktop, ~300-420px on mobile) for the cutout variant. The previous viewport-based `max-height: 82vh` caused the image to render at wildly different sizes on different laptops; don't revert it.
 - `_posts/welcome.md` has a built version at `posts/welcome.html`; the other `.md` files in `_posts/` only become live HTML after `npm run build` runs (locally or on Vercel).
 - Editing JSON in `data/` doesn't require a rebuild — it's fetched at runtime. Editing markdown in `_posts/` **does** require a rebuild.
 - `SETUP.md` references a Cloudflare Worker for Decap auth; the live setup uses `api/auth.js` + `api/callback.js` instead. Don't follow SETUP.md verbatim for the auth piece.
