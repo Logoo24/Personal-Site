@@ -1,157 +1,215 @@
 # Decap CMS configuration
 # Docs: https://decapcms.org/docs/configuration-options/
 #
-# IMPORTANT: After deploying, edit the `repo:` line below to your GitHub repo
-# in the form `username/repo-name`. The OAuth proxy lives at /api/auth and
-# /api/callback as Vercel serverless functions. See SETUP.md Part 5 for the
-# one-time GitHub OAuth app + env var setup.
+# This file controls what's editable from /admin/. Collections are grouped
+# so the sidebar stays short: Blog posts (create new), Homepage (everything
+# on /), Pages (about / projects / resume), Site settings (photos, stats).
+#
+# OAuth proxy lives at /api/auth and /api/callback (Vercel serverless
+# functions). GitHub OAuth app's callback URL must point at
+# https://www.loganbrandall.com/api/callback. Env vars GITHUB_CLIENT_ID
+# and GITHUB_CLIENT_SECRET must be set in Vercel.
 
 backend:
   name: github
-  repo: Logoo24/Personal-Site   # <-- change to your-github-username/your-repo-name
+  repo: Logoo24/Personal-Site
   branch: main
-  base_url: https://www.loganbrandall.com   # <-- your live domain (or your-project.vercel.app)
+  base_url: https://www.loganbrandall.com
   auth_endpoint: api/auth
 
-# Where uploaded images go inside the repo
+# Where uploaded images go
 media_folder: "images/uploads"
 public_folder: "/images/uploads"
 
-# Show a preview of the post while editing
+# Preview links while editing posts
 show_preview_links: true
 
-# What you can edit through the admin
 collections:
-  - name: "site_images"
-    label: "Site images"
-    description: "Photos shown around the site. Upload here and the site updates automatically (no rebuild needed)."
-    files:
-      - file: "data/images.json"
-        label: "Photos"
-        name: "photos"
-        format: "json"
-        fields:
-          - { label: "Homepage hero cutout", name: "hero_cutout", widget: "image", required: false, hint: "Full-body cutout, ideally a PNG with a transparent background. Sits to the right of the homepage hero text." }
-          - { label: "About page hero photo", name: "about_hero", widget: "image", required: false, hint: "Portrait or environmental shot for the top of the About page." }
-          - { label: "Resume page hero photo", name: "resume_hero", widget: "image", required: false, hint: "Photo for the top of the Resume page. A clean headshot works well." }
+  # ────────────────────────────────────────────────────────────
+  # 1. Blog posts — the thing you'll create most often.
+  # ────────────────────────────────────────────────────────────
+  - name: "posts"
+    label: "Blog posts"
+    label_singular: "Post"
+    description: "Write and edit blog posts. Personal posts and academic notes both live here — filter by category."
+    folder: "_posts"
+    create: true
+    delete: true
+    slug: "{{slug}}"
+    summary: "{{title}} — {{date | date('MMM D, YYYY')}}"
+    fields:
+      - { label: "Title", name: "title", widget: "string" }
+      - { label: "Publish date", name: "date", widget: "datetime", date_format: "YYYY-MM-DD", time_format: false, format: "YYYY-MM-DD" }
+      - label: "Category"
+        name: "category"
+        widget: "select"
+        default: "personal"
+        options:
+          - { label: "Personal Blog", value: "personal" }
+          - { label: "Academic Blog", value: "academic" }
+      - { label: "Short summary", name: "summary", widget: "string", hint: "1–2 sentences shown on the blog list page and in search engines." }
+      - { label: "Reading time (minutes)", name: "readMinutes", widget: "number", default: 4, value_type: "int", min: 1, max: 90 }
+      - { label: "Hide as draft", name: "draft", widget: "boolean", default: false, required: false, hint: "Check this to keep a post out of the live site while you finish writing it." }
+      - { label: "Body", name: "body", widget: "markdown" }
 
-  - name: "homepage_hero"
-    label: "Homepage hero (rotating)"
-    description: "Three rotating headlines shown on the homepage. A different one shows each visit."
+  # ────────────────────────────────────────────────────────────
+  # 2. Homepage — every editable block on /.
+  # ────────────────────────────────────────────────────────────
+  - name: "homepage"
+    label: "Homepage"
+    description: "Everything that appears on the homepage: the rotating hero, featured projects, quick-intro block, and CTA."
     files:
       - file: "data/hero-variants.json"
-        label: "Hero variants"
+        label: "Hero (rotating)"
         name: "hero"
         format: "json"
         fields:
-          - label: "Variants"
+          - label: "Hero variants"
             name: "variants"
             widget: "list"
             summary: "{{fields.title_main}} {{fields.title_accent}}"
+            hint: "A different variant shows on each visit. Add more to mix things up."
             fields:
-              - { label: "Eyebrow (small label above title)", name: "eyebrow", widget: "string" }
-              - { label: "Title (main part)", name: "title_main", widget: "string" }
-              - { label: "Title (accent / colored part)", name: "title_accent", widget: "string" }
-              - { label: "Lede paragraph", name: "lede", widget: "text" }
+              - { label: "Eyebrow (small label above title)", name: "eyebrow", widget: "string", hint: "e.g. 'Welcome', 'Hi there', 'Currently'" }
+              - { label: "Title — main part", name: "title_main", widget: "string", hint: "First part of the headline. Renders in default text color." }
+              - { label: "Title — accent part", name: "title_accent", widget: "string", hint: "Second part of the headline. Renders in the site's accent green." }
+              - { label: "Lede paragraph", name: "lede", widget: "text", hint: "1–2 sentences under the title." }
 
-  - name: "site_stats"
-    label: "Homepage stats"
-    description: "The four numbers shown in the stats bar on the homepage. 'Blog posts' and 'Classes documented' are auto-counted from your posts on every deploy - editing those here will be overwritten on the next build."
-    files:
-      - file: "data/stats.json"
-        label: "Stats"
-        name: "stats"
-        format: "json"
-        fields:
-          - { label: "Projects shipped", name: "projects_shipped", widget: "number", value_type: "int", min: 0, hint: "Manual count. Bump this when you ship a new project." }
-          - { label: "Online since (year)", name: "online_since", widget: "number", value_type: "int", min: 2000, max: 2100, hint: "The year this site went live." }
-          - { label: "Blog posts (auto)", name: "blog_posts", widget: "number", value_type: "int", min: 0, required: false, hint: "Auto-counted from non-draft posts in _posts/ on every build. No reason to edit." }
-          - { label: "Classes documented (auto)", name: "classes_documented", widget: "number", value_type: "int", min: 0, required: false, hint: "Auto-counted from blog posts with category 'Class notes' on every build. No reason to edit." }
-
-  - name: "homepage_projects"
-    label: "Homepage featured projects"
-    description: "The three project cards in the 'Projects I'm building' section."
-    files:
       - file: "data/featured-projects.json"
-        label: "Featured projects"
-        name: "projects"
+        label: "Featured projects (homepage)"
+        name: "featured_projects"
         format: "json"
         fields:
           - { label: "Section eyebrow", name: "eyebrow", widget: "string" }
           - { label: "Section title", name: "title", widget: "string" }
           - { label: "Section description", name: "description", widget: "text" }
-          - label: "Projects (shown in this order)"
+          - label: "Project cards"
             name: "items"
             widget: "list"
             summary: "{{fields.title}}"
+            hint: "Pick 2–4 of your best work to highlight on the homepage. The full list lives on the Projects page."
             fields:
-              - { label: "Tag (e.g. 'Web · 2026')", name: "tag", widget: "string" }
+              - { label: "Tag", name: "tag", widget: "string", hint: "Short context, e.g. 'Web · 2026' or 'Side project'." }
               - { label: "Title", name: "title", widget: "string" }
               - { label: "Description", name: "description", widget: "text" }
-              - { label: "Tech / type", name: "tech", widget: "string" }
-              - { label: "Status (e.g. 'Live', 'Done', 'In progress')", name: "status", widget: "string" }
+              - { label: "Tech / type", name: "tech", widget: "string", hint: "What it's built with — e.g. 'HTML · CSS · JS'." }
+              - { label: "Status", name: "status", widget: "string", hint: "e.g. 'Live', 'Done', 'In progress'." }
 
-  - name: "about_page"
-    label: "About page"
-    description: "All the prose on the About page."
+      - file: "data/homepage.json"
+        label: "Quick intro & CTA blocks"
+        name: "homepage_extras"
+        format: "json"
+        fields:
+          - label: "Quick intro (about-tease block)"
+            name: "about_tease"
+            widget: "object"
+            hint: "The short About preview that sits below the hero."
+            fields:
+              - { label: "Eyebrow", name: "eyebrow", widget: "string" }
+              - { label: "Heading", name: "heading", widget: "string" }
+              - { label: "Body", name: "body", widget: "text" }
+          - label: "Get in touch CTA (bottom of homepage)"
+            name: "cta"
+            widget: "object"
+            fields:
+              - { label: "Eyebrow", name: "eyebrow", widget: "string" }
+              - { label: "Heading", name: "heading", widget: "string" }
+              - { label: "Body", name: "body", widget: "text" }
+
+      - file: "data/stats.json"
+        label: "Stats counters"
+        name: "stats"
+        format: "json"
+        fields:
+          - { label: "Projects shipped", name: "projects_shipped", widget: "number", value_type: "int", min: 0, hint: "Bump this when you finish a project." }
+          - { label: "Online since (year)", name: "online_since", widget: "number", value_type: "int", min: 2000, max: 2100, hint: "Year the site went live." }
+          - { label: "Blog posts (auto)", name: "blog_posts", widget: "number", value_type: "int", min: 0, required: false, hint: "Auto-counted from your posts on every build. Editing is overwritten." }
+          - { label: "Academic posts (auto)", name: "classes_documented", widget: "number", value_type: "int", min: 0, required: false, hint: "Auto-counted from academic-category posts on every build. Editing is overwritten." }
+
+  # ────────────────────────────────────────────────────────────
+  # 3. Pages — content for /about, /projects, /resume.
+  # ────────────────────────────────────────────────────────────
+  - name: "pages"
+    label: "Pages"
+    description: "Content for the About, Projects, and Resume pages."
     files:
       - file: "data/about.json"
-        label: "About content"
+        label: "About page"
         name: "about"
         format: "json"
         fields:
           - { label: "Hero eyebrow", name: "eyebrow", widget: "string" }
-          - { label: "Hero title (main part)", name: "title_main", widget: "string" }
-          - { label: "Hero title (accent / colored part)", name: "title_accent", widget: "string" }
-          - { label: "Lead paragraph", name: "lead", widget: "text" }
+          - { label: "Hero title — main part", name: "title_main", widget: "string" }
+          - { label: "Hero title — accent part", name: "title_accent", widget: "string" }
+          - { label: "Lead paragraph", name: "lead", widget: "text", hint: "The first thing visitors read on the page." }
           - label: "Sections"
             name: "sections"
             widget: "list"
             summary: "{{fields.heading}}"
+            hint: "One section per topic. Add as many as you like."
             fields:
               - { label: "Heading", name: "heading", widget: "string" }
               - { label: "Body", name: "body", widget: "text" }
-          - label: "Quote"
+          - label: "Quote (optional)"
             name: "quote"
             widget: "object"
+            hint: "Leave both fields blank to hide the quote block."
             fields:
-              - { label: "Quote text", name: "text", widget: "text" }
-              - { label: "Author", name: "author", widget: "string" }
+              - { label: "Quote text", name: "text", widget: "text", required: false }
+              - { label: "Author", name: "author", widget: "string", required: false }
           - { label: "Practical details heading", name: "practical_heading", widget: "string" }
           - label: "Practical details (one per line)"
             name: "practical"
             widget: "list"
-            field: { label: "Detail (Markdown links work)", name: "item", widget: "string" }
+            field: { label: "Detail", name: "item", widget: "string", hint: "Markdown links work: [text](https://example.com). Emails auto-linkify." }
 
-  - name: "resume_page"
-    label: "Resume"
-    description: "All the items on the Resume page."
-    files:
+      - file: "data/projects.json"
+        label: "Projects page"
+        name: "projects"
+        format: "json"
+        fields:
+          - { label: "Hero eyebrow", name: "eyebrow", widget: "string" }
+          - { label: "Hero title — main part", name: "title_main", widget: "string" }
+          - { label: "Hero title — accent part", name: "title_accent", widget: "string" }
+          - { label: "Lede paragraph", name: "lede", widget: "text" }
+          - label: "Projects (shown in this order)"
+            name: "items"
+            widget: "list"
+            summary: "{{fields.title}}"
+            hint: "Add a card per project. The full grid lives on the /projects page."
+            fields:
+              - { label: "Thumbnail initials", name: "glyph", widget: "string", hint: "1–2 characters shown in the card's thumbnail block, e.g. 'LB', 'RP', '??'." }
+              - { label: "Tag", name: "tag", widget: "string", hint: "Short context, e.g. 'Web · 2026' or 'Class · 2026'." }
+              - { label: "Title", name: "title", widget: "string" }
+              - { label: "Description", name: "description", widget: "text" }
+              - { label: "Tech / type", name: "tech", widget: "string", hint: "What it's built with." }
+              - { label: "Status", name: "status", widget: "string", hint: "e.g. 'Live', 'Done', 'In progress'." }
+
       - file: "data/resume.json"
-        label: "Resume content"
+        label: "Resume page"
         name: "resume"
         format: "json"
         fields:
           - { label: "Hero eyebrow", name: "eyebrow", widget: "string" }
-          - { label: "Hero title (main part)", name: "title_main", widget: "string" }
-          - { label: "Hero title (accent / colored part)", name: "title_accent", widget: "string" }
+          - { label: "Hero title — main part", name: "title_main", widget: "string" }
+          - { label: "Hero title — accent part", name: "title_accent", widget: "string" }
           - label: "Education"
             name: "education"
             widget: "list"
-            summary: "{{fields.title}} - {{fields.where}}"
+            summary: "{{fields.title}} — {{fields.where}}"
             fields:
-              - { label: "When (e.g. '2024 - Present')", name: "when", widget: "string" }
-              - { label: "Title (degree, etc.)", name: "title", widget: "string" }
-              - { label: "Where (school · location/major)", name: "where", widget: "string" }
+              - { label: "When", name: "when", widget: "string", hint: "e.g. '2024 – Present'" }
+              - { label: "Degree / title", name: "title", widget: "string" }
+              - { label: "School (and details)", name: "where", widget: "string" }
               - { label: "Description", name: "description", widget: "text", required: false }
           - label: "Experience"
             name: "experience"
             widget: "list"
-            summary: "{{fields.title}} - {{fields.where}}"
+            summary: "{{fields.title}} — {{fields.where}}"
             fields:
               - { label: "When", name: "when", widget: "string" }
               - { label: "Job title", name: "title", widget: "string" }
-              - { label: "Where (company · location)", name: "where", widget: "string" }
+              - { label: "Company (and location)", name: "where", widget: "string" }
               - { label: "Description", name: "description", widget: "text", required: false }
           - label: "Selected projects"
             name: "projects"
@@ -167,8 +225,8 @@ collections:
             widget: "list"
             summary: "{{fields.category}}"
             fields:
-              - { label: "Category name", name: "category", widget: "string" }
-              - { label: "Skills (comma-separated)", name: "items", widget: "string", hint: "Separate skills with commas, e.g. 'HTML, CSS, JavaScript'" }
+              - { label: "Category", name: "category", widget: "string", hint: "e.g. 'Tools & technical', 'Languages', 'Soft skills'" }
+              - { label: "Skills (comma-separated)", name: "items", widget: "string", hint: "e.g. 'HTML, CSS, JavaScript'" }
           - label: "Awards & honors"
             name: "awards"
             widget: "list"
@@ -176,54 +234,23 @@ collections:
             fields:
               - { label: "When", name: "when", widget: "string" }
               - { label: "Title", name: "title", widget: "string" }
-              - { label: "Where (awarding body)", name: "where", widget: "string", required: false }
+              - { label: "Awarding body", name: "where", widget: "string", required: false }
               - { label: "Description", name: "description", widget: "text", required: false }
-          - { label: "Footer note (e.g. 'References on request...')", name: "footer_note", widget: "text" }
+          - { label: "Footer note", name: "footer_note", widget: "text", hint: "Shown at the bottom of the resume page." }
 
-  - name: "all_projects"
-    label: "Projects page"
-    description: "All the projects shown on the /projects page. Reorder, add, edit, or delete as you ship things."
+  # ────────────────────────────────────────────────────────────
+  # 4. Site settings — photos and other site-wide things.
+  # ────────────────────────────────────────────────────────────
+  - name: "site_settings"
+    label: "Site settings"
+    description: "Site-wide images shown across the homepage, About, and Resume pages."
     files:
-      - file: "data/projects.json"
-        label: "Projects"
-        name: "projects"
+      - file: "data/images.json"
+        label: "Site images"
+        name: "site_images"
         format: "json"
         fields:
-          - { label: "Hero eyebrow", name: "eyebrow", widget: "string" }
-          - { label: "Hero title (main part)", name: "title_main", widget: "string" }
-          - { label: "Hero title (accent / colored part)", name: "title_accent", widget: "string" }
-          - { label: "Lede paragraph", name: "lede", widget: "text" }
-          - label: "Projects (shown in this order)"
-            name: "items"
-            widget: "list"
-            summary: "{{fields.title}}"
-            fields:
-              - { label: "Thumbnail initials (1-2 chars, shows in the card thumbnail)", name: "glyph", widget: "string", hint: "Short text shown in the thumbnail block, e.g. 'LB', 'RP', '??'." }
-              - { label: "Tag (e.g. 'Web · 2026')", name: "tag", widget: "string" }
-              - { label: "Title", name: "title", widget: "string" }
-              - { label: "Description", name: "description", widget: "text" }
-              - { label: "Tech / type", name: "tech", widget: "string" }
-              - { label: "Status (e.g. 'Live', 'Done', 'In progress')", name: "status", widget: "string" }
-
-  - name: "posts"
-    label: "Blog posts"
-    label_singular: "Post"
-    folder: "_posts"             # source markdown lives here
-    create: true
-    delete: true
-    slug: "{{slug}}"
-    summary: "{{title}} - {{date | date('MMM D, YYYY')}}"
-    fields:
-      - { label: "Title", name: "title", widget: "string" }
-      - { label: "Publish date", name: "date", widget: "datetime", date_format: "YYYY-MM-DD", time_format: false, format: "YYYY-MM-DD" }
-      - label: "Category"
-        name: "category"
-        widget: "select"
-        default: "personal"
-        options:
-          - { label: "Personal Blog", value: "personal" }
-          - { label: "Academic Blog", value: "academic" }
-      - { label: "Short summary", name: "summary", widget: "string", hint: "1-2 sentences shown on the blog list page." }
-      - { label: "Reading time (minutes)", name: "readMinutes", widget: "number", default: 4, value_type: "int", min: 1, max: 90 }
-      - { label: "Hidden draft? (won't appear on site)", name: "draft", widget: "boolean", default: false, required: false }
-      - { label: "Body", name: "body", widget: "markdown" }
+          - { label: "Homepage hero cutout", name: "hero_cutout", widget: "image", required: false, hint: "Full-body cutout, ideally PNG with a transparent background. NOTE: also used as the social-share preview image when the site link is pasted in iMessage / Slack / etc." }
+          - { label: "About page photo", name: "about_hero", widget: "image", required: false, hint: "Portrait or environmental shot for the top of the About page." }
+          - { label: "Resume page photo", name: "resume_hero", widget: "image", required: false, hint: "Headshot or portrait for the top of the Resume page." }
+          - { label: "Social-share image (optional override)", name: "og_image", widget: "image", required: false, hint: "If set, this is used as the OG / Twitter share-card image instead of the homepage hero cutout. Useful when you want a separate card-style image (1200×630 JPG works best)." }

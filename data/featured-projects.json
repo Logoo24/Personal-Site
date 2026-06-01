@@ -1,28 +1,14 @@
 {
   "eyebrow": "Selected work",
-  "title": "Projects I'm building",
-  "description": "A growing collection of things I've built, am building, or am about to break.",
+  "title": "Projects",
+  "description": "Placeholder — write a short description for this section in admin.",
   "items": [
     {
       "tag": "Web · 2026",
       "title": "This website",
-      "description": "Hand-coded personal site with scroll animations, a CMS for self-service blog posts, and zero build framework dependencies.",
-      "tech": "HTML · CSS · JS",
+      "description": "A personal site built by hand. HTML, CSS, GSAP scroll animations, and a deliberate refusal to use a heavy framework.",
+      "tech": "HTML / CSS / JS",
       "status": "Live"
-    },
-    {
-      "tag": "Coursework · 2026",
-      "title": "Class project name",
-      "description": "Placeholder for a polished class project. Replace with the real thing - what you built, the problem it solves, and a link if it's online.",
-      "tech": "Class",
-      "status": "Done"
-    },
-    {
-      "tag": "Side project · 2025",
-      "title": "Something I built",
-      "description": "Another placeholder for a side project. A script, a tool, a small piece of software you made because you wanted it to exist.",
-      "tech": "Code",
-      "status": "Done"
     }
   ]
 }

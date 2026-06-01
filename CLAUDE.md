@@ -19,13 +19,14 @@ There are no tests, no linter, and no dev server. To preview locally, open `inde
 
 ## Build pipeline (`build.js`)
 
-`npm run build` does five things:
+`npm run build` does six things:
 
 1. For each `_posts/*.md` (skipping `draft: true`): parses frontmatter with `gray-matter`, renders markdown with `marked`, substitutes `{{key}}` placeholders into `_src/post-template.html`, writes to `posts/<slug>.html`.
 2. Rewrites the post list inside `blog.html` between the literal HTML comments `<!-- POSTS_START -->` and `<!-- POSTS_END -->`.
 3. Rewrites the top-3 recent posts inside `index.html` between `<!-- RECENT_POSTS_START -->` and `<!-- RECENT_POSTS_END -->`.
 4. Updates the auto-computed fields (`blog_posts`, `classes_documented`) in `data/stats.json`, preserving the manually-edited fields (`projects_shipped`, `online_since`).
 5. Injects `<meta og:image>` / `<meta twitter:image>` tags into every page (including each generated post) between `<!-- OG_IMAGE_START -->` and `<!-- OG_IMAGE_END -->` markers. The URL is built from `SITE_URL` (constant in `build.js`) + `images.json` (`og_image` if set, otherwise `hero_cutout`), URL-encoded so paths with spaces work. Social crawlers don't run JS, so these tags **have to** be baked in at build time — that's why this is in `build.js` and not `main.js`.
+6. Generates `sitemap.xml` at the repo root listing every static page + every blog post (with publish date as `lastmod`). `robots.txt` references the sitemap so crawlers find it.
 
 **Do not remove those marker comments** — `injectBetween()` silently skips the file if the markers aren't found. If you change the post-card markup, change it inside `build.js` (the strings that get injected), not just in `blog.html` (it'll be overwritten on next build).
 
@@ -50,13 +51,17 @@ draft: false
 
 `build.js` `CATEGORY_LABELS` also accepts the legacy values `essay`/`class`/`research`/`project` and maps them onto the two new labels, so un-migrated old posts still render — but new posts should use the two-value set. The blog page's filter pills (`blog.html`) and Decap's category options (`admin/config.yml` posts collection) are both pinned to the two new values, so out-of-set values won't be filterable.
 
-**2. JSON-driven page content** — `data/*.json` files (`about.json`, `resume.json`, `featured-projects.json`, `projects.json`, `hero-variants.json`, `images.json`, `stats.json`) are fetched **client-side** by `js/main.js` and rendered into the static HTML shells. The hooks are HTML attributes:
+**2. JSON-driven page content** — `data/*.json` files (`about.json`, `resume.json`, `featured-projects.json`, `projects.json`, `hero-variants.json`, `homepage.json`, `images.json`, `stats.json`) are fetched **client-side** by `js/main.js` and rendered into the static HTML shells. The hooks are HTML attributes:
 
-- `data-render="homepage-hero"`, `"featured-projects"`, `"about-hero"`, `"about-content"`, `"resume-hero"`, `"resume-content"`, `"projects-hero"`, `"all-projects"` — JS finds the element and fills children.
+- `data-render="homepage-hero"`, `"featured-projects"`, `"homepage-about-tease"`, `"homepage-cta"`, `"about-hero"`, `"about-content"`, `"resume-hero"`, `"resume-content"`, `"projects-hero"`, `"all-projects"` — JS finds the element and fills children.
 - `data-image="hero_cutout"` (etc.) — JS sets `src` (for `<img>`) or `background-image` (for other elements) from `data/images.json`.
 - `data-stat="projects_shipped"` (etc.) — JS sets `textContent` and `data-count` from `data/stats.json`. The GSAP count-up animation reads `data-count` at trigger time (not setup time) so the JSON-injected value wins over the HTML default.
 
-**Two project JSONs, distinct purposes:** `data/featured-projects.json` holds the 3 cards shown on the *homepage*. `data/projects.json` holds the full grid shown on the *projects page*. They're independent — editing one doesn't touch the other.
+**Two project JSONs, distinct purposes:** `data/featured-projects.json` holds the cards shown on the *homepage*. `data/projects.json` holds the full grid shown on the *projects page*. They're independent — editing one doesn't touch the other.
+
+**Homepage extras:** `data/homepage.json` holds the "Quick intro" tease block and the "Get in touch" CTA at the bottom of the homepage. Both are editable in admin under Homepage → Quick intro & CTA.
+
+**Homepage hero image is hardcoded** — `images/logan-hero-cutout.svg` is referenced directly in `index.html` (no `data-image` hook). The `hero_cutout` field in `images.json` is still used for the OG / Twitter share-card meta tag injection at build time. So if you swap the photo, do it in both places.
 
 This means **HTML files contain default/shell markup, JSON files hold the live content, and JS hydrates on load**. Editing prose in `about.html` directly won't show — change `data/about.json`. The exception is `js/main.js` which has hardcoded fallback `heroVariants` so the homepage hero works even if the JSON fetch fails.
 
@@ -75,6 +80,16 @@ Auth flow (Vercel serverless, in `api/`):
 - **Theme**: `data-theme="light|dark"` on `<html>`, choice persisted in `localStorage` under `lb-theme`. Default is light (system preference intentionally ignored — see `main.js:21`). All theme colors are CSS custom properties on `:root, [data-theme="light"]` and `[data-theme="dark"]` in `css/styles.css`; the accent green is `--accent`.
 - **Animations**: `.reveal` class on any element triggers a GSAP fade-in on scroll (falls back to IntersectionObserver if GSAP fails to load, and to plain visibility under `prefers-reduced-motion`). GSAP + ScrollTrigger are loaded from cdnjs in each HTML file.
 - **Nav active state**: `main.js` matches the current pathname against nav `href`s and adds `.active`. Post pages live at `posts/*.html`, so nav links use `../index.html` etc.
+
+## Site infrastructure
+
+- **`404.html`** at the repo root is auto-served by Vercel for any not-found route. Styled to match the rest of the site (nav + footer included so users don't dead-end).
+- **`robots.txt`** is hand-written and references the sitemap. No reason to change unless you want to block crawlers.
+- **`sitemap.xml`** is regenerated by `build.js` on every build — don't hand-edit it, your changes will be overwritten.
+
+## Content placeholder convention
+
+Anywhere content was intentionally left blank for the user to fill in, the literal word `Placeholder` is used (vs. fake bio copy). User can search the repo for "Placeholder" to find every spot that needs real content. All JSON lists (about sections, resume items, projects, etc.) ship with the **minimum 1 item** so the layout demonstrates correctly — add more from admin.
 
 ## Things that bite
 

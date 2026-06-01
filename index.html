@@ -4,9 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Logan Randall - Projects, work & writing</title>
-  <meta name="description" content="The personal site of Logan Randall - student, builder, and occasional writer. Projects, coursework, and essays from college and beyond." />
+  <meta name="description" content="Personal website of Logan Randall — blog posts, projects, and resume." />
+  <meta name="theme-color" content="#FAFAFA" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0B0B0E" media="(prefers-color-scheme: dark)" />
   <meta property="og:title" content="Logan Randall" />
-  <meta property="og:description" content="Student, builder, occasional writer. Projects, coursework, and essays." />
+  <meta property="og:description" content="Personal website of Logan Randall — blog posts, projects, and resume." />
   <meta property="og:url" content="https://www.loganbrandall.com" />
   <meta property="og:type" content="website" />
   <!-- OG_IMAGE_START -->
@@ -22,6 +24,8 @@
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
+
+  <a href="#main" class="skip-to-content">Skip to content</a>
 
   <!-- ============= NAV ============= -->
   <nav class="nav">
@@ -45,6 +49,8 @@
     </div>
   </nav>
 
+  <main id="main">
+
   <!-- ============= HERO ============= -->
   <header class="hero">
     <div class="hero-orb one"></div>
@@ -53,10 +59,10 @@
       <div class="hero-text">
         <span class="eyebrow">Welcome</span>
         <h1 class="hero-title">
-          Hi, I'm Logan. <span class="accent">Here's what I'm up to.</span>
+          Hi, I'm Logan. <span class="accent">Placeholder tagline.</span>
         </h1>
         <p class="hero-lede">
-          A college student who likes building, writing, and figuring out what's next. Stick around for projects, class notes, and the occasional essay.
+          Placeholder — write a short intro here. Edit in admin under "Homepage hero (rotating)".
         </p>
         <div class="btn-row">
           <a href="about.html" class="btn btn-primary">Learn more about me <span class="arrow">→</span></a>
@@ -83,12 +89,9 @@
           <span class="eyebrow">About</span>
           <h2>Quick intro</h2>
         </div>
-        <div>
+        <div data-render="homepage-about-tease">
           <p class="reveal" style="font-size:1.18rem; color: var(--text);">
-            I'm a college student who likes to make stuff and document the process. I care about clean design, honest work, and projects that actually get shipped.
-          </p>
-          <p class="reveal" style="margin-top:1.25rem;">
-            On any given day I'm probably building something for class, sketching out a side project, or trying to learn something new. This is the place I keep all of it.
+            Placeholder — write a short intro about yourself in admin under "Homepage → Quick intro".
           </p>
           <div class="reveal" style="margin-top:2rem;">
             <a href="about.html" class="btn btn-ghost">More about me <span class="arrow">→</span></a>
@@ -108,22 +111,10 @@
       </div>
       <div class="grid grid-3">
         <article class="card">
-          <span class="card-tag">Web · 2026</span>
-          <h3>This website</h3>
-          <p>Hand-coded personal site with scroll animations, a CMS for self-service blog posts, and zero build framework dependencies.</p>
-          <div class="card-meta"><span>HTML · CSS · JS</span><span>Live</span></div>
-        </article>
-        <article class="card">
-          <span class="card-tag">Coursework · 2026</span>
-          <h3>Class project name</h3>
-          <p>Placeholder for a polished class project. Replace with the real thing - what you built, the problem it solves, and a link if it's online.</p>
-          <div class="card-meta"><span>Class</span><span>Done</span></div>
-        </article>
-        <article class="card">
-          <span class="card-tag">Side project · 2025</span>
-          <h3>Something I built</h3>
-          <p>Another placeholder for a side project. A script, a tool, a small piece of software you made because you wanted it to exist.</p>
-          <div class="card-meta"><span>Code</span><span>Done</span></div>
+          <span class="card-tag">Placeholder</span>
+          <h3>Placeholder project</h3>
+          <p>Placeholder — describe a project here. Edit in admin under "Homepage featured projects".</p>
+          <div class="card-meta"><span>Placeholder</span><span>Placeholder</span></div>
         </article>
       </div>
       <div class="text-center" style="margin-top:3rem;">
@@ -194,11 +185,11 @@
   </section>
 
   <!-- ============= CTA ============= -->
-  <section>
+  <section data-render="homepage-cta">
     <div class="narrow text-center">
       <span class="eyebrow reveal" style="justify-content:center;">Get in touch</span>
-      <h2 class="reveal" style="margin-top:1rem;">Want to collaborate on something? Or just chat?</h2>
-      <p class="reveal" style="margin-top:1.25rem;">The best way to reach me is by email. I read everything and try to write back to anything thoughtful.</p>
+      <h2 class="reveal" style="margin-top:1rem;">Placeholder CTA heading.</h2>
+      <p class="reveal" style="margin-top:1.25rem;">Placeholder — write a short CTA paragraph in admin under "Homepage → Get in touch CTA".</p>
       <div class="btn-row reveal" style="justify-content:center; margin-top:2rem;">
         <a href="mailto:logan.b.randall@gmail.com" class="btn btn-primary">Say hello <span class="arrow">→</span></a>
         <a href="resume.html" class="btn btn-ghost">My resume</a>
@@ -206,12 +197,13 @@
     </div>
   </section>
 
+  </main>
+
   <!-- ============= FOOTER ============= -->
   <footer class="footer">
     <div class="footer-inner">
       <div>
         <div class="footer-brand">Logan Randall</div>
-        <p class="text-muted" style="margin-top:.5rem; font-size:.9rem;">Student, builder, occasional writer.</p>
       </div>
       <ul class="footer-links">
         <li><a href="index.html">Home</a></li>

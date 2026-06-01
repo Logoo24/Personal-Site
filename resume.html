@@ -4,9 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Resume - Logan Randall</title>
-  <meta name="description" content="Logan Randall's resume - education, experience, skills, and selected projects." />
+  <meta name="description" content="Resume of Logan Randall — education, experience, and skills." />
+  <meta name="theme-color" content="#FAFAFA" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0B0B0E" media="(prefers-color-scheme: dark)" />
   <meta property="og:title" content="Resume - Logan Randall" />
-  <meta property="og:description" content="Logan Randall's resume - education, experience, skills, and selected projects." />
+  <meta property="og:description" content="Resume of Logan Randall — education, experience, and skills." />
   <meta property="og:url" content="https://www.loganbrandall.com/resume.html" />
   <meta property="og:type" content="website" />
   <!-- OG_IMAGE_START -->
@@ -31,6 +33,8 @@
 </head>
 <body>
 
+  <a href="#main" class="skip-to-content">Skip to content</a>
+
   <nav class="nav">
     <a href="index.html" class="nav-brand">Logan Randall</a>
     <ul class="nav-links">
@@ -52,13 +56,15 @@
     </div>
   </nav>
 
+  <main id="main">
+
   <header class="hero" style="min-height: 55vh;">
     <div class="hero-orb one" style="top:25%; right:5%; width:280px; height:280px;"></div>
     <div class="container hero-content hero-content--split" data-render="resume-hero">
       <div class="hero-text">
         <span class="eyebrow">Resume</span>
         <h1 class="hero-title" style="font-size: clamp(2.5rem, 6vw, 5rem);">
-          Education, work, and <span class="accent">things I can do.</span>
+          Resume <span class="accent">Placeholder.</span>
         </h1>
         <div class="btn-row" style="margin-top:2rem;">
           <button onclick="window.print()" class="btn btn-primary">Print / save as PDF <span class="arrow">⎙</span></button>
@@ -66,7 +72,7 @@
         </div>
       </div>
       <div class="hero-photo hero-photo--portrait hero-photo--small">
-        <img data-image="resume_hero" src="/images/placeholders/portrait.svg" alt="Logan Randall" />
+        <img data-image="resume_hero" src="/images/placeholders/portrait.svg" alt="Logan Randall" loading="eager" decoding="async" />
       </div>
     </div>
   </header>
@@ -74,119 +80,77 @@
   <section class="resume-print" style="padding-top: 1rem;">
     <div class="narrow" data-render="resume-content">
 
-      <!-- ========== EDUCATION ========== -->
+      <!-- Fallback content shown until JS hydrates from data/resume.json.
+           Kept minimal: one placeholder item per section, plus the real
+           email so the page is never empty even if the fetch fails. -->
       <div class="resume-section reveal">
         <h3>Education</h3>
         <div class="resume-item">
-          <div class="when">2024 - Present</div>
+          <div class="when">Placeholder</div>
           <div>
-            <h4>Bachelor of Arts (in progress)</h4>
-            <div class="where">Your University · Major TBD</div>
-            <p>Coursework in [add majors / focus areas]. Activities: [add clubs, leadership]. GPA: [add if you'd like].</p>
-          </div>
-        </div>
-        <div class="resume-item">
-          <div class="when">2020 - 2024</div>
-          <div>
-            <h4>High School Diploma</h4>
-            <div class="where">Your High School</div>
-            <p>Honors: [add honors]. Activities: [add activities].</p>
+            <h4>Placeholder degree</h4>
+            <div class="where">Placeholder school</div>
+            <p>Placeholder description.</p>
           </div>
         </div>
       </div>
 
-      <!-- ========== EXPERIENCE ========== -->
       <div class="resume-section reveal">
         <h3>Experience</h3>
         <div class="resume-item">
-          <div class="when">Summer 2025</div>
+          <div class="when">Placeholder</div>
           <div>
-            <h4>Job title</h4>
-            <div class="where">Company name · Location</div>
-            <p>One sentence describing what you did and why it mattered. Quantify impact when you can - "wrote X reports that influenced Y", "managed events with N attendees", that kind of thing.</p>
-          </div>
-        </div>
-        <div class="resume-item">
-          <div class="when">2024 - Present</div>
-          <div>
-            <h4>Another role</h4>
-            <div class="where">Organization name · Campus</div>
-            <p>Quick description of your responsibilities and what you learned.</p>
+            <h4>Placeholder role</h4>
+            <div class="where">Placeholder company</div>
+            <p>Placeholder description.</p>
           </div>
         </div>
       </div>
 
-      <!-- ========== SELECTED PROJECTS ========== -->
       <div class="resume-section reveal">
         <h3>Selected projects</h3>
         <div class="resume-item">
-          <div class="when">2026</div>
+          <div class="when">Placeholder</div>
           <div>
-            <h4>loganbrandall.com</h4>
-            <div class="where">Personal website</div>
-            <p>Designed and built a personal portfolio and writing site from scratch. Hand-coded HTML/CSS/JavaScript with GSAP scroll animations. Deployed on Cloudflare Pages.</p>
-          </div>
-        </div>
-        <div class="resume-item">
-          <div class="when">2025</div>
-          <div>
-            <h4>Project name</h4>
-            <div class="where">Class or independent</div>
-            <p>One-line description of what it is and what you did.</p>
+            <h4>Placeholder project</h4>
+            <div class="where">Placeholder context</div>
+            <p>Placeholder description.</p>
           </div>
         </div>
       </div>
 
-      <!-- ========== SKILLS ========== -->
       <div class="resume-section reveal">
         <h3>Skills</h3>
-        <h4 style="font-family: var(--sans); margin: 1rem 0 0.75rem;">Writing & research</h4>
+        <h4 style="font-family: var(--sans); margin: 1rem 0 0.75rem;">Placeholder category</h4>
         <div class="skills-grid">
-          <span class="skill-pill">Long-form essays</span>
-          <span class="skill-pill">Academic writing</span>
-          <span class="skill-pill">Editing</span>
-          <span class="skill-pill">Source synthesis</span>
-        </div>
-        <h4 style="font-family: var(--sans); margin: 1.5rem 0 0.75rem;">Tools & technical</h4>
-        <div class="skills-grid">
-          <span class="skill-pill">HTML / CSS</span>
-          <span class="skill-pill">JavaScript (basics)</span>
-          <span class="skill-pill">Microsoft Office</span>
-          <span class="skill-pill">Google Workspace</span>
-          <span class="skill-pill">Notion</span>
-        </div>
-        <h4 style="font-family: var(--sans); margin: 1.5rem 0 0.75rem;">Other</h4>
-        <div class="skills-grid">
-          <span class="skill-pill">Public speaking</span>
-          <span class="skill-pill">Project management</span>
-          <span class="skill-pill">Spanish (intermediate)</span>
+          <span class="skill-pill">Placeholder skill</span>
         </div>
       </div>
 
-      <!-- ========== AWARDS ========== -->
       <div class="resume-section reveal">
-        <h3>Awards & honors</h3>
+        <h3>Awards &amp; honors</h3>
         <div class="resume-item">
-          <div class="when">2025</div>
+          <div class="when">Placeholder</div>
           <div>
-            <h4>Award name</h4>
-            <div class="where">Awarding body</div>
-            <p>Brief description of why.</p>
+            <h4>Placeholder award</h4>
+            <div class="where">Placeholder body</div>
+            <p>Placeholder description.</p>
           </div>
         </div>
       </div>
 
       <div class="reveal" style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--line); color: var(--text-muted); font-size: 0.95rem;">
-        <p>References available on request. Reach me at <a href="mailto:logan.b.randall@gmail.com">logan.b.randall@gmail.com</a>.</p>
+        <p>Reach me at <a href="mailto:logan.b.randall@gmail.com">logan.b.randall@gmail.com</a>.</p>
       </div>
     </div>
   </section>
+
+  </main>
 
   <footer class="footer">
     <div class="footer-inner">
       <div>
         <div class="footer-brand">Logan Randall</div>
-        <p class="text-muted" style="margin-top:.5rem; font-size:.9rem;">A small corner of the internet.</p>
       </div>
       <ul class="footer-links">
         <li><a href="index.html">Home</a></li>

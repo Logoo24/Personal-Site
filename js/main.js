@@ -365,6 +365,38 @@
     }
   }
 
+  // ---- Homepage extras (about-tease + CTA section) ----
+  function applyHomepage(data) {
+    if (!data) return;
+    // About tease block
+    if (data.about_tease) {
+      var tease = document.querySelector('[data-render="homepage-about-tease"]');
+      if (tease) {
+        var parent = tease.parentElement;
+        if (parent) {
+          var eb = parent.querySelector('.eyebrow');
+          var h2 = parent.querySelector('h2');
+          if (eb && data.about_tease.eyebrow) eb.textContent = data.about_tease.eyebrow;
+          if (h2 && data.about_tease.heading) h2.textContent = data.about_tease.heading;
+        }
+        var p = tease.querySelector('p');
+        if (p && data.about_tease.body) p.textContent = data.about_tease.body;
+      }
+    }
+    // CTA section
+    if (data.cta) {
+      var cta = document.querySelector('[data-render="homepage-cta"]');
+      if (cta) {
+        var ctaEb = cta.querySelector('.eyebrow');
+        var ctaH2 = cta.querySelector('h2');
+        var ctaP = cta.querySelector('p');
+        if (ctaEb && data.cta.eyebrow) ctaEb.textContent = data.cta.eyebrow;
+        if (ctaH2 && data.cta.heading) ctaH2.textContent = data.cta.heading;
+        if (ctaP && data.cta.body) ctaP.textContent = data.cta.body;
+      }
+    }
+  }
+
   // ---- Projects page (all projects grid + hero) ----
   function applyProjectsPage(data) {
     if (!data) return;
@@ -429,6 +461,7 @@
     fetchJSON('/data/resume.json').then(applyResumePage);
     fetchJSON('/data/projects.json').then(applyProjectsPage);
     fetchJSON('/data/stats.json').then(applyStats);
+    fetchJSON('/data/homepage.json').then(applyHomepage);
   }
 
   function wrapHeroTitle() {

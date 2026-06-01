@@ -1,30 +1,20 @@
 {
   "eyebrow": "About",
-  "title_main": "A short biography of",
-  "title_accent": "a curious student.",
-  "lead": "Hi, I'm Logan. I'm a college student, occasional writer, and full-time tinkerer. This site is where I keep the things I'd rather not lose to the bottom of my notes app.",
+  "title_main": "About",
+  "title_accent": "Placeholder.",
+  "lead": "Placeholder — write your one-paragraph intro here. This is the first thing visitors will read.",
   "sections": [
     {
-      "heading": "What I'm doing right now",
-      "body": "Studying, writing, and trying to figure out which of the many shiny things in front of me are worth chasing. I post about classes I'm taking, things I'm reading, and projects I can't stop thinking about."
-    },
-    {
-      "heading": "What I care about",
-      "body": "Clear writing. Honest argument. Ideas that survive contact with reality. I have a slight allergy to jargon and a soft spot for marginalia. I'd rather be wrong in interesting ways than right in boring ones."
-    },
-    {
-      "heading": "What I'm working on",
-      "body": "A handful of things, never all at once. Right now: this site, a long essay about something I shouldn't talk about until it's done, and the slow accumulation of class notes I plan to publish at the end of each semester."
+      "heading": "Placeholder heading",
+      "body": "Placeholder — write a section of your bio here. Add more sections in admin to expand the page."
     }
   ],
   "quote": {
-    "text": "Writing is thinking. To write well is to think clearly. That's why it's so hard.",
-    "author": "David McCullough"
+    "text": "",
+    "author": ""
   },
-  "practical_heading": "A few practical details",
+  "practical_heading": "How to reach me",
   "practical": [
-    "I read everything I'm sent at logan.b.randall@gmail.com.",
-    "I post when I have something worth posting - never on a schedule.",
-    "If you're a fellow student and want to swap notes on a class, please write."
+    "Email: logan.b.randall@gmail.com"
   ]
 }

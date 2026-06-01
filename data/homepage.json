@@ -1,0 +1,12 @@
+{
+  "about_tease": {
+    "eyebrow": "About",
+    "heading": "Quick intro",
+    "body": "Placeholder — write a short intro about yourself in admin. This shows on the homepage as a preview of your About page."
+  },
+  "cta": {
+    "eyebrow": "Get in touch",
+    "heading": "Placeholder CTA heading.",
+    "body": "Placeholder — write a short paragraph inviting visitors to reach out."
+  }
+}

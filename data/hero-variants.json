@@ -3,20 +3,8 @@
     {
       "eyebrow": "Welcome",
       "title_main": "Hi, I'm Logan.",
-      "title_accent": "Here's what I'm up to.",
-      "lede": "A college student who likes building, writing, and figuring out what's next. Stick around for projects, class notes, and the occasional essay."
-    },
-    {
-      "eyebrow": "Hi there",
-      "title_main": "Logan Randall",
-      "title_accent": "Welcome to my website!",
-      "lede": "Glad you found your way here. Have a look around - projects, blog posts, and a bit about who I am are all a click away."
-    },
-    {
-      "eyebrow": "Currently",
-      "title_main": "Logan Randall.",
-      "title_accent": "A site about what I'm doing.",
-      "lede": "Projects in progress, classes I'm taking, and the occasional essay - a running snapshot of what I'm working on right now."
+      "title_accent": "Placeholder tagline.",
+      "lede": "Placeholder — write a short intro about yourself here. Add more variants in admin and a different one will show on each visit."
     }
   ]
 }

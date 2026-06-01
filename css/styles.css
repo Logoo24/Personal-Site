@@ -55,6 +55,30 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Keyboard-only skip link — invisible until tabbed to, then jumps focus
+   past the nav so screen-reader and keyboard users don't have to tab
+   through every nav item to reach content. */
+.skip-to-content {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px; height: 1px;
+  overflow: hidden;
+}
+.skip-to-content:focus {
+  position: fixed;
+  left: 1rem; top: 1rem;
+  width: auto; height: auto;
+  z-index: 200;
+  padding: 0.75rem 1.25rem;
+  background: var(--accent);
+  color: #FFFFFF;
+  border-radius: var(--radius);
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: var(--shadow);
+}
+
 html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 
 body {
@@ -459,8 +483,18 @@ section { padding: clamp(3rem, 8vw, 7rem) 0; position: relative; }
 
 /* ========== CARDS / GRID ========== */
 .grid { display: grid; gap: 1.75rem; }
-.grid-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
-.grid-3 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+/* Cap card width with a max so the grid stays readable with 1 or 2 items
+   (otherwise a single card stretches to fill the container, which looks
+   absurd). justify-content: center makes leftover space split evenly when
+   there are fewer items than columns. */
+.grid-2 {
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 480px));
+  justify-content: center;
+}
+.grid-3 {
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 400px));
+  justify-content: center;
+}
 
 .card {
   background: var(--bg-alt);

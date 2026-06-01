@@ -153,8 +153,43 @@ function build() {
   console.log('updated stats.json: ' + stats.blog_posts + ' posts, ' + stats.classes_documented + ' academic');
 
   injectOgImageEverywhere();
+  generateSitemap(posts);
 
   console.log('\nBuilt ' + posts.length + ' post(s).');
+}
+
+// Generates sitemap.xml at the project root. Lists all static pages plus
+// every published blog post. Lastmod for posts comes from frontmatter date
+// (when the post was published); for static pages, today's date.
+function generateSitemap(posts) {
+  const today = new Date().toISOString().slice(0, 10);
+  const entries = [
+    { url: SITE_URL + '/',              lastmod: today, priority: '1.0' },
+    { url: SITE_URL + '/about.html',    lastmod: today, priority: '0.8' },
+    { url: SITE_URL + '/blog.html',     lastmod: today, priority: '0.8' },
+    { url: SITE_URL + '/projects.html', lastmod: today, priority: '0.8' },
+    { url: SITE_URL + '/resume.html',   lastmod: today, priority: '0.6' }
+  ];
+  for (const p of posts) {
+    entries.push({
+      url: SITE_URL + '/posts/' + p.slug + '.html',
+      lastmod: p.date ? asDate(p.date).toISOString().slice(0, 10) : today,
+      priority: '0.7'
+    });
+  }
+  const body = entries.map(e =>
+    '  <url>\n' +
+    '    <loc>' + e.url + '</loc>\n' +
+    '    <lastmod>' + e.lastmod + '</lastmod>\n' +
+    '    <priority>' + e.priority + '</priority>\n' +
+    '  </url>'
+  ).join('\n');
+  const xml = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+    body + '\n' +
+    '</urlset>\n';
+  fs.writeFileSync(path.join(ROOT, 'sitemap.xml'), xml);
+  console.log('sitemap.xml written with ' + entries.length + ' urls');
 }
 
 // Reads data/images.json for the hero cutout and writes <meta og:image> /
