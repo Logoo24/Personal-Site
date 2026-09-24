@@ -91,6 +91,39 @@
     else document.addEventListener('DOMContentLoaded', fn);
   }
 
+  // Scroll-reveal for .reveal elements. ready() picks the mode ('static' under
+  // reduced motion, 'gsap', or 'io' fallback) and registers the page's own
+  // markup; renderers that add .reveal elements after a JSON fetch call
+  // registerReveals(container) again so the new elements don't stay at opacity 0.
+  var revealMode = null;
+  var revealIO = null;
+  function registerReveals(root) {
+    if (!revealMode) return; // ready() hasn't run yet - it will register these
+    var selector = revealMode === 'gsap' ? '.reveal' : '.reveal, .split-reveal';
+    var nodes = (root || document).querySelectorAll(selector);
+    nodes.forEach(function (node) {
+      if (node.dataset.revealBound) return;
+      node.dataset.revealBound = '1';
+      if (revealMode === 'static') {
+        node.classList.add('in');
+      } else if (revealMode === 'gsap') {
+        gsap.fromTo(node, { y: 40, opacity: 0 },
+          { y: 0, opacity: 1, duration: 1, ease: 'power3.out',
+            scrollTrigger: { trigger: node, start: 'top 85%', toggleActions: 'play none none none' } });
+      } else {
+        revealIO.observe(node);
+      }
+    });
+    if (revealMode === 'gsap' && root) {
+      // Late content shifted the layout: drop triggers whose element was
+      // replaced by the render, then recompute positions for the rest.
+      ScrollTrigger.getAll().forEach(function (t) {
+        if (t.trigger && !document.documentElement.contains(t.trigger)) t.kill();
+      });
+      ScrollTrigger.refresh();
+    }
+  }
+
   /* ---------- CONTENT LOADERS (managed via /admin) ---------- */
   // Tiny element helper.
   function el(tag, props) {
@@ -275,6 +308,7 @@
       });
       body.appendChild(ul);
     }
+    registerReveals(body);
   }
 
   function escapeHTML(s) {
@@ -363,6 +397,7 @@
       note.appendChild(el('p', { html: linkifyEmails(escapeHTML(data.footer_note)) }));
       body.appendChild(note);
     }
+    registerReveals(body);
   }
 
   // ---- Homepage extras (about-tease + CTA section) ----
@@ -506,7 +541,8 @@
     wrapHeroTitle();
 
     if (reduceMotion) {
-      document.querySelectorAll('.reveal, .split-reveal').forEach(function (el) { el.classList.add('in'); });
+      revealMode = 'static';
+      registerReveals();
       return;
     }
 
@@ -528,11 +564,8 @@
       gsap.to('.hero-orb.one', { yPercent: 30, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true } });
       gsap.to('.hero-orb.two', { yPercent: -25, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true } });
 
-      gsap.utils.toArray('.reveal').forEach(function (el) {
-        gsap.fromTo(el, { y: 40, opacity: 0 },
-          { y: 0, opacity: 1, duration: 1, ease: 'power3.out',
-            scrollTrigger: { trigger: el, start: 'top 85%', toggleActions: 'play none none none' } });
-      });
+      revealMode = 'gsap';
+      registerReveals();
 
       gsap.utils.toArray('.feature-row').forEach(function (row) {
         gsap.from(row, { y: 30, opacity: 0, duration: 0.8, ease: 'power3.out',
@@ -564,12 +597,13 @@
       return;
     }
 
-    var io = new IntersectionObserver(function (entries) {
+    revealIO = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
-        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+        if (e.isIntersecting) { e.target.classList.add('in'); revealIO.unobserve(e.target); }
       });
     }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
-    document.querySelectorAll('.reveal, .split-reveal').forEach(function (el) { io.observe(el); });
+    revealMode = 'io';
+    registerReveals();
   });
 
   ready(function () {
