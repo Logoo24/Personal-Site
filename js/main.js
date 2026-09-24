@@ -451,24 +451,59 @@
       }
       if (lede && data.lede) lede.textContent = data.lede;
     }
-    // Grid
-    var grid = document.querySelector('[data-render="all-projects"]');
-    if (!grid || !Array.isArray(data.items)) return;
-    grid.innerHTML = '';
-    data.items.forEach(function (item) {
-      grid.appendChild(el('article', { class: 'card proj-card', children: [
-        el('div', { class: 'proj-thumb', children: [
-          el('span', { class: 'proj-glyph', text: item.glyph || '' })
-        ]}),
-        el('span', { class: 'card-tag', text: item.tag || '' }),
-        el('h3', { text: item.title || '' }),
-        el('p', { text: item.description || '' }),
-        el('div', { class: 'card-meta', children: [
-          el('span', { text: item.tech || '' }),
-          el('span', { text: item.status || '' })
-        ]})
-      ]}));
-    });
+    // Cards
+    var list = document.querySelector('[data-render="all-projects"]');
+    if (!list || !Array.isArray(data.items)) return;
+    list.innerHTML = '';
+    data.items.forEach(function (item) { list.appendChild(renderProject(item)); });
+    registerReveals(list);
+  }
+
+  // One project = one site-style card. A theme registered in
+  // js/project-themes.js (loaded on projects.html) can swap the title for a
+  // logo and add decoration behind the card; styles go under .proj--<theme>.
+  function renderProject(item) {
+    var themes = window.PROJECT_THEMES || {};
+    var theme = themes[item.theme] ? item.theme : 'default';
+    var t = themes[theme] || {};
+
+    var url = String(item.url || '').trim();
+    if (/^javascript:/i.test(url)) url = '';
+    var external = /^https?:\/\//i.test(url);
+
+    var title = el('h3', { class: 'proj-title' });
+    if (t.title) t.title(title, item);
+    else title.textContent = item.title || '';
+
+    var meta = el('div', { class: 'card-meta' });
+    if (item.tech) meta.appendChild(el('span', { text: item.tech }));
+    if (item.status) meta.appendChild(el('span', { text: item.status }));
+    if (url) {
+      // External sites open in a new tab (↗); tools built into this site stay put (→).
+      var go = el('span', { class: 'proj-go', text: (item.link_label || (external ? hostOf(url) : 'Open')) + ' ' });
+      go.appendChild(el('span', { class: 'arrow', 'aria-hidden': 'true', text: external ? '↗' : '→' }));
+      meta.appendChild(go);
+    }
+
+    var card = el(url ? 'a' : 'div', { class: 'card proj-card', children: [
+      item.tag ? el('span', { class: 'card-tag', text: item.tag }) : null,
+      title,
+      item.description ? el('p', { text: item.description }) : null,
+      meta.children.length ? meta : null
+    ]});
+    if (url) {
+      card.href = url;
+      if (external) { card.target = '_blank'; card.rel = 'noopener'; }
+    }
+
+    return el('article', { class: 'proj proj--' + theme + ' reveal', children: [
+      t.behind ? el('div', { class: 'proj-behind', 'aria-hidden': 'true', html: t.behind }) : null,
+      card
+    ]});
+  }
+
+  function hostOf(url) {
+    try { return new URL(url).hostname.replace(/^www\./, ''); } catch (e) { return 'Visit site'; }
   }
 
   // ---- Homepage stats ----

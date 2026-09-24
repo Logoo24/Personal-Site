@@ -5,12 +5,24 @@
   "lede": "Placeholder — write a short intro to your projects page in admin.",
   "items": [
     {
-      "glyph": "LB",
+      "theme": "chooseamovie",
+      "tag": "",
+      "title": "ChooseAMovie",
+      "description": "Picking a movie with friends, minus the endless scrolling. Share a link, everyone rates from their phone, and the top pick wins.",
+      "tech": "",
+      "status": "",
+      "url": "https://chooseamovie.app",
+      "link_label": ""
+    },
+    {
+      "theme": "default",
       "tag": "Web · 2026",
       "title": "This website",
       "description": "A personal site built by hand. HTML, CSS, GSAP scroll animations, and a deliberate refusal to use a heavy framework.",
       "tech": "HTML / CSS / JS",
-      "status": "Live"
+      "status": "Live",
+      "url": "",
+      "link_label": ""
     }
   ]
 }

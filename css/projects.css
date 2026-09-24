@@ -1,0 +1,118 @@
+/* ===========================================
+   Projects page - project cards
+   Each item in data/projects.json renders as a site-style .card inside a
+   .proj wrapper. A project's `theme` (registered in js/project-themes.js)
+   can restyle the card under .proj--<theme> and add decoration that sits
+   *behind* the card (.proj-behind) - e.g. the ChooseAMovie popcorn bucket
+   peeking over the top edge.
+   =========================================== */
+
+.proj-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 460px));
+  justify-content: center;
+  gap: 4rem 1.75rem;
+  padding-top: 3rem; /* headroom for decorations peeking over the first row */
+}
+
+.proj { position: relative; isolation: isolate; display: flex; }
+.proj-behind { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+
+.proj-card {
+  position: relative; z-index: 1;
+  flex: 1;
+  display: flex; flex-direction: column;
+  color: inherit;
+}
+a.proj-card:hover { color: inherit; }
+.proj-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.proj-card .card-meta { margin-top: auto; padding-top: 1.1rem; align-items: center; }
+.proj-card p { margin-bottom: 0.25rem; }
+.proj-go { margin-left: auto; color: var(--accent); font-weight: 600; white-space: nowrap; }
+.proj-go .arrow { display: inline-block; transition: transform .3s var(--ease-out); }
+.proj-card:hover .proj-go .arrow,
+.proj-card:focus-visible .proj-go .arrow { transform: translate(3px, -3px); }
+
+/* ========== CHOOSEAMOVIE ==========
+   Colors, type and hover treatment taken from chooseamovie.app: its card
+   color, red #E50914 wash + red glow on hover, popcorn yellow #FFCC33.
+   The card stays dark in both site themes, like an embedded app tile. */
+.proj--chooseamovie .proj-card {
+  font-family: 'Manrope', var(--sans);
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(255, 204, 51, 0.07), transparent 55%),
+    #121216;
+  border-color: #2D2D37;
+  color: #F5F5F8;
+}
+/* Red tinge, faded in via an overlay since gradients don't transition */
+.proj--chooseamovie .proj-card::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background:
+    radial-gradient(110% 80% at 50% 120%, rgba(229, 9, 20, 0.26), transparent 65%),
+    rgba(229, 9, 20, 0.05);
+  opacity: 0;
+  transition: opacity .45s var(--ease-out);
+}
+.proj--chooseamovie .proj-card:hover,
+.proj--chooseamovie .proj-card:focus-visible {
+  border-color: rgba(229, 9, 20, 0.55);
+  box-shadow: 0 14px 28px rgba(229, 9, 20, 0.32);
+}
+.proj--chooseamovie .proj-card:hover::before,
+.proj--chooseamovie .proj-card:focus-visible::before { opacity: 1; }
+.proj--chooseamovie .proj-card:focus-visible { outline-color: #E50914; }
+
+.proj--chooseamovie .proj-title { margin: 0 0 0.9rem; line-height: 0; }
+.cam-logo { height: 46px; width: auto; margin-left: -6px; }
+.cam-wordmark { font-family: 'Manrope', var(--sans); font-weight: 800; font-size: 1.6rem; letter-spacing: -0.02em; color: #FFFFFF; line-height: 1.2; }
+.cam-wordmark b { color: #E50914; font-weight: 800; }
+.proj--chooseamovie .proj-card p { color: #AAAAB4; }
+.proj--chooseamovie .card-meta { color: rgba(255, 255, 255, 0.5); }
+.proj--chooseamovie .proj-go { color: #FFCC33; font-weight: 700; }
+
+/* Popcorn bucket tucked behind the card's top-right corner */
+.cam-bucket {
+  position: absolute; top: -62px; right: 30px;
+  width: 84px;
+  transform: rotate(8deg);
+  transform-origin: 50% 100%;
+  transition: transform .5s cubic-bezier(.34, 1.56, .64, 1);
+}
+.cam-bucket svg {
+  display: block; width: 100%; height: auto;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.25));
+  animation: cam-bob 4.5s ease-in-out infinite;
+}
+@keyframes cam-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.proj--chooseamovie:hover .cam-bucket,
+.proj--chooseamovie:focus-within .cam-bucket { transform: translateY(-12px) rotate(3deg); }
+
+/* A few kernels hop out when the card is hovered */
+.cam-kernel {
+  position: absolute; top: 4px; left: 50%;
+  width: 11px; height: 10px; margin-left: -5px;
+  border-radius: 45% 55% 50% 50% / 55% 45% 55% 45%;
+  background: radial-gradient(circle at 35% 35%, #FFF6D6, #FFCC33 60%, #E0A800);
+  opacity: 0;
+}
+.proj--chooseamovie:hover .cam-kernel {
+  animation: cam-pop .9s cubic-bezier(.2, .7, .4, 1) forwards;
+  animation-delay: var(--d);
+}
+@keyframes cam-pop {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.5) rotate(0deg); }
+  15% { opacity: 1; }
+  55% { opacity: 1; transform: translate(calc(var(--x) * 0.6), var(--y)) scale(1) rotate(calc(var(--r) * 0.6)); }
+  100% { opacity: 0; transform: translate(var(--x), calc(var(--y) * 0.35)) scale(0.9) rotate(var(--r)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cam-bucket svg, .proj--chooseamovie:hover .cam-kernel { animation: none; }
+  .cam-bucket { transition: none; }
+  .proj--chooseamovie:hover .cam-bucket,
+  .proj--chooseamovie:focus-within .cam-bucket { transform: rotate(8deg); }
+}

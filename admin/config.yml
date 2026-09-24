@@ -176,14 +176,23 @@ collections:
             name: "items"
             widget: "list"
             summary: "{{fields.title}}"
-            hint: "Add a card per project. The full grid lives on the /projects page."
+            hint: "One card per project on the /projects page, in this order."
             fields:
-              - { label: "Thumbnail initials", name: "glyph", widget: "string", hint: "1–2 characters shown in the card's thumbnail block, e.g. 'LB', 'RP', '??'." }
-              - { label: "Tag", name: "tag", widget: "string", hint: "Short context, e.g. 'Web · 2026' or 'Class · 2026'." }
-              - { label: "Title", name: "title", widget: "string" }
-              - { label: "Description", name: "description", widget: "text" }
-              - { label: "Tech / type", name: "tech", widget: "string", hint: "What it's built with." }
-              - { label: "Status", name: "status", widget: "string", hint: "e.g. 'Live', 'Done', 'In progress'." }
+              - label: "Theme"
+                name: "theme"
+                widget: "select"
+                default: "default"
+                options:
+                  - { label: "Default (plain card)", value: "default" }
+                  - { label: "ChooseAMovie", value: "chooseamovie" }
+                hint: "Custom card styling for this project. New themes are designed in code (js/project-themes.js + css/projects.css); anything else uses Default."
+              - { label: "Tag", name: "tag", widget: "string", required: false, hint: "Short context, e.g. 'Web · 2026'. Optional." }
+              - { label: "Title", name: "title", widget: "string", hint: "Themed cards may show a logo instead; the title is still used as its alt text." }
+              - { label: "Description", name: "description", widget: "text", hint: "Keep it to a sentence or two." }
+              - { label: "Tech / type", name: "tech", widget: "string", required: false, hint: "What it's built with. Optional." }
+              - { label: "Status", name: "status", widget: "string", required: false, hint: "e.g. 'Live', 'Done', 'In progress'. Optional." }
+              - { label: "Link", name: "url", widget: "string", required: false, hint: "Full URL for an outside site (opens in a new tab), or a path like 'tools/thing.html' for a tool on this site. Makes the whole card clickable. Leave blank for no link." }
+              - { label: "Link text", name: "link_label", widget: "string", required: false, hint: "Shown in the card's corner. Defaults to the site's domain (e.g. 'chooseamovie.app') or 'Open' for tools on this site." }
 
       - file: "data/resume.json"
         label: "Resume page"
