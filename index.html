@@ -3,24 +3,27 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('lb-theme')||'light')}catch(e){}</script>
   <title>Logan Randall - Projects, work & writing</title>
   <meta name="description" content="Personal website of Logan Randall — blog posts, projects, and resume." />
-  <meta name="theme-color" content="#FAFAFA" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#0B0B0E" media="(prefers-color-scheme: dark)" />
+  <link rel="canonical" href="https://www.loganbrandall.com/" />
+  <meta name="theme-color" content="#FAFAFA" />
   <meta property="og:title" content="Logan Randall" />
   <meta property="og:description" content="Personal website of Logan Randall — blog posts, projects, and resume." />
-  <meta property="og:url" content="https://www.loganbrandall.com" />
+  <meta property="og:url" content="https://www.loganbrandall.com/" />
   <meta property="og:type" content="website" />
   <!-- OG_IMAGE_START -->
-  <meta property="og:image" content="https://www.loganbrandall.com/images/logan-hero-cutout.svg" />
+  <meta property="og:image" content="https://www.loganbrandall.com/images/og-card.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
   <meta property="og:image:alt" content="Logan Randall" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:image" content="https://www.loganbrandall.com/images/logan-hero-cutout.svg" />
+  <meta name="twitter:image" content="https://www.loganbrandall.com/images/og-card.jpg" />
   <!-- OG_IMAGE_END -->
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231F7A4D'/%3E%3Ctext x='50%25' y='58%25' text-anchor='middle' font-family='-apple-system,Segoe UI,Inter,sans-serif' font-size='15' font-weight='700' fill='%23FAFAFA'%3ELB%3C/text%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -45,7 +48,7 @@
         </button>
         <span class="theme-hint"><span class="hint-arrow" aria-hidden="true">↑</span><span class="hint-text">try dark mode!</span></span>
       </span>
-      <button class="nav-toggle" aria-label="Toggle menu">☰</button>
+      <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false">☰</button>
     </div>
   </nav>
 
@@ -55,14 +58,14 @@
   <header class="hero">
     <div class="hero-orb one"></div>
     <div class="hero-orb two"></div>
-    <div class="container hero-content hero-content--split" data-render="homepage-hero">
+    <div class="container hero-content hero-content--split">
       <div class="hero-text">
         <span class="eyebrow">Welcome</span>
         <h1 class="hero-title">
-          Hi, I'm Logan. <span class="accent">Placeholder tagline.</span>
+          Hi, I'm Logan. <span class="accent">Here's What I'm Up To.</span>
         </h1>
         <p class="hero-lede">
-          Placeholder — write a short intro here. Edit in admin under "Homepage hero (rotating)".
+          A website about my ambitions, accomplishments, and thoughts.
         </p>
         <div class="btn-row">
           <a href="about.html" class="btn btn-primary">Learn more about me <span class="arrow">→</span></a>
@@ -70,12 +73,14 @@
         </div>
       </div>
       <div class="hero-photo hero-photo--cutout">
-        <!-- Hardcoded on purpose: no data-image hook, no placeholder swap.
-             The image is shipped in the repo so it loads instantly on first
-             paint and works for OG / social-share crawlers. If you swap the
-             photo, replace the file at images/logan-hero-cutout.svg (and
-             update data/images.json so the OG meta tag matches). -->
-        <img src="/images/logan-hero-cutout.svg" alt="Logan Randall" loading="eager" fetchpriority="high" decoding="async" />
+        <!-- Generated from the original full-res cutout (images/logan-hero-cutout.svg).
+             width/height give the browser the aspect ratio up front so nothing
+             shifts while it loads; CSS sets the rendered height. -->
+        <img src="/images/logan-hero-1040.webp"
+             srcset="/images/logan-hero-720.webp 720w, /images/logan-hero-1040.webp 1040w"
+             sizes="(max-width: 900px) 340px, 520px"
+             width="1040" height="1560"
+             alt="Logan Randall" fetchpriority="high" decoding="async" />
       </div>
     </div>
     <div class="scroll-cue"><span class="line"></span><span>Scroll</span></div>
@@ -89,9 +94,9 @@
           <span class="eyebrow">About</span>
           <h2>Quick intro</h2>
         </div>
-        <div data-render="homepage-about-tease">
+        <div>
           <p class="reveal" style="font-size:1.18rem; color: var(--text);">
-            Placeholder — write a short intro about yourself in admin under "Homepage → Quick intro".
+            I'm a college student who likes building, writing, and figuring out what's next. This site is where I keep the projects I'm working on, notes from my classes, and the occasional essay.
           </p>
           <div class="reveal" style="margin-top:2rem;">
             <a href="about.html" class="btn btn-ghost">More about me <span class="arrow">→</span></a>
@@ -102,19 +107,25 @@
   </section>
 
   <!-- ============= FEATURED PROJECTS ============= -->
-  <section style="padding-top:0;" data-render="featured-projects">
+  <section style="padding-top:0;">
     <div class="container">
       <div class="section-head reveal">
         <span class="eyebrow">Selected work</span>
-        <h2>Projects I'm building</h2>
+        <h2>Projects</h2>
         <p>A growing collection of things I've built, am building, or am about to break.</p>
       </div>
       <div class="grid grid-3">
+        <a class="card" href="https://chooseamovie.app" target="_blank" rel="noopener">
+          <span class="card-tag">Web app · 2026</span>
+          <h3>ChooseAMovie</h3>
+          <p>Picking a movie with friends, minus the endless scrolling. Share a link, everyone rates from their phone, and the top pick wins.</p>
+          <div class="card-meta"><span>Live</span><span class="card-go">chooseamovie.app ↗</span></div>
+        </a>
         <article class="card">
-          <span class="card-tag">Placeholder</span>
-          <h3>Placeholder project</h3>
-          <p>Placeholder — describe a project here. Edit in admin under "Homepage featured projects".</p>
-          <div class="card-meta"><span>Placeholder</span><span>Placeholder</span></div>
+          <span class="card-tag">Web · 2026</span>
+          <h3>This website</h3>
+          <p>A personal site built by hand. HTML, CSS, GSAP scroll animations, and a deliberate refusal to use a heavy framework.</p>
+          <div class="card-meta"><span>HTML / CSS / JS</span><span>Live</span></div>
         </article>
       </div>
       <div class="text-center" style="margin-top:3rem;">
@@ -124,24 +135,21 @@
   </section>
 
   <!-- ============= STATS ============= -->
+  <!-- All three numbers are rewritten by build.js on every build. -->
   <section style="padding-top:0;">
     <div class="container">
       <div class="stats reveal">
         <div class="stat">
-          <div class="num" data-stat="projects_shipped" data-count="6" data-suffix="">0</div>
+          <div class="num" data-stat="projects_shipped" data-count="2">2</div>
           <div class="lbl">Projects shipped</div>
         </div>
         <div class="stat">
-          <div class="num" data-stat="blog_posts" data-count="0" data-suffix="">0</div>
+          <div class="num" data-stat="blog_posts" data-count="12">12</div>
           <div class="lbl">Blog posts</div>
         </div>
         <div class="stat">
-          <div class="num" data-stat="classes_documented" data-count="0" data-suffix="">0</div>
-          <div class="lbl">Classes documented</div>
-        </div>
-        <div class="stat">
-          <div class="num" data-stat="online_since" data-count="2026" data-suffix="">0</div>
-          <div class="lbl">Online since</div>
+          <div class="num" data-stat="classes_documented" data-count="10">10</div>
+          <div class="lbl">Academic posts</div>
         </div>
       </div>
     </div>
@@ -158,21 +166,21 @@
 
       <div class="feature-list">
         <!-- RECENT_POSTS_START -->
-        <a href="posts/mkt-353-setting-up-payments-and-legal-structure.html" class="feature-row">
-          <span class="meta">May 2026 · Academic Blog</span>
-          <h3>MKT 353: Setting Up Payments and Legal Structure</h3>
+        <a href="posts/mkt-353-links-i-have-to-earn-and-numbers-we-argued-about.html" class="feature-row">
+          <span class="meta">Jul 2026 · Academic Blog</span>
+          <h3>MKT 353: Links I Have to Earn and Numbers We Argued About</h3>
           <span class="arrow">↗</span>
         </a>
 
-        <a href="posts/mkt-353-designing-a-site-worth-paying-for.html" class="feature-row">
-          <span class="meta">May 2026 · Academic Blog</span>
-          <h3>MKT 353: Designing a Site Worth Paying For</h3>
+        <a href="posts/mkt-353-social-media-is-a-whole-different-game.html" class="feature-row">
+          <span class="meta">Jul 2026 · Academic Blog</span>
+          <h3>MKT 353: Social Media Is a Whole Different Game</h3>
           <span class="arrow">↗</span>
         </a>
 
-        <a href="posts/mkt-353-building-your-web-business-foundation.html" class="feature-row">
-          <span class="meta">May 2026 · Academic Blog</span>
-          <h3>MKT 353: Building A Web Business Foundation</h3>
+        <a href="posts/mkt-353-reading-my-own-site-like-a-stranger.html" class="feature-row">
+          <span class="meta">Jul 2026 · Personal Blog</span>
+          <h3>MKT 353: Reading My Own Site Like a Stranger</h3>
           <span class="arrow">↗</span>
         </a>
         <!-- RECENT_POSTS_END -->
@@ -185,11 +193,11 @@
   </section>
 
   <!-- ============= CTA ============= -->
-  <section data-render="homepage-cta">
+  <section>
     <div class="narrow text-center">
       <span class="eyebrow reveal" style="justify-content:center;">Get in touch</span>
-      <h2 class="reveal" style="margin-top:1rem;">Placeholder CTA heading.</h2>
-      <p class="reveal" style="margin-top:1.25rem;">Placeholder — write a short CTA paragraph in admin under "Homepage → Get in touch CTA".</p>
+      <h2 class="reveal" style="margin-top:1rem;">Let's talk.</h2>
+      <p class="reveal" style="margin-top:1.25rem;">Have a question, an idea, or just want to say hi? My inbox is open.</p>
       <div class="btn-row reveal" style="justify-content:center; margin-top:2rem;">
         <a href="mailto:logan.b.randall@gmail.com" class="btn btn-primary">Say hello <span class="arrow">→</span></a>
         <a href="resume.html" class="btn btn-ghost">My resume</a>
@@ -214,15 +222,13 @@
       </ul>
     </div>
     <div class="footer-bottom">
-      <span>© <span data-year></span> Logan Randall. All rights reserved.</span>
+      <span>© <span data-year>2026</span> Logan Randall. All rights reserved.</span>
       <a href="admin/" class="footer-signin">Sign in</a>
     </div>
   </footer>
 
-  <!-- GSAP from CDN -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
-  <script src="js/main.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
+  <script src="js/main.js" defer></script>
 </body>
 </html>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        

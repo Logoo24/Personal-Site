@@ -510,6 +510,10 @@ section { padding: clamp(3rem, 8vw, 7rem) 0; position: relative; }
 .card h3 { margin: 0.7rem 0 0.55rem; }
 .card p { font-size: 0.94rem; }
 .card-meta { display: flex; gap: 1rem; font-size: 0.78rem; color: var(--text-muted); margin-top: 1.1rem; font-weight: 500; }
+a.card { display: block; color: inherit; }
+a.card:hover { color: inherit; }
+a.card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.card-go { margin-left: auto; color: var(--accent); font-weight: 600; }
 
 /* Featured / list block on home */
 .feature-row {
@@ -636,5 +640,6 @@ html { background: var(--bg); }
 @media print {
   .nav, .footer, .hero, .scroll-cue, .btn-row, .theme-toggle { display: none !important; }
   body { background: white; color: black; }
+  .resume-print { padding-top: 0 !important; }
   .reveal { opacity: 1 !important; transform: none !important; }
 }

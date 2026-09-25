@@ -3,33 +3,28 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('lb-theme')||'light')}catch(e){}</script>
   <title>Resume - Logan Randall</title>
   <meta name="description" content="Resume of Logan Randall — education, experience, and skills." />
-  <meta name="theme-color" content="#FAFAFA" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#0B0B0E" media="(prefers-color-scheme: dark)" />
+  <link rel="canonical" href="https://www.loganbrandall.com/resume" />
+  <meta name="theme-color" content="#FAFAFA" />
   <meta property="og:title" content="Resume - Logan Randall" />
   <meta property="og:description" content="Resume of Logan Randall — education, experience, and skills." />
-  <meta property="og:url" content="https://www.loganbrandall.com/resume.html" />
+  <meta property="og:url" content="https://www.loganbrandall.com/resume" />
   <meta property="og:type" content="website" />
   <!-- OG_IMAGE_START -->
-  <meta property="og:image" content="https://www.loganbrandall.com/images/logan-hero-cutout.svg" />
+  <meta property="og:image" content="https://www.loganbrandall.com/images/og-card.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
   <meta property="og:image:alt" content="Logan Randall" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:image" content="https://www.loganbrandall.com/images/logan-hero-cutout.svg" />
+  <meta name="twitter:image" content="https://www.loganbrandall.com/images/og-card.jpg" />
   <!-- OG_IMAGE_END -->
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231F7A4D'/%3E%3Ctext x='50%25' y='58%25' text-anchor='middle' font-family='-apple-system,Segoe UI,Inter,sans-serif' font-size='15' font-weight='700' fill='%23FAFAFA'%3ELB%3C/text%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
-  <style>
-    @media print {
-      .nav, .footer, .hero, .scroll-cue, .btn-row { display: none !important; }
-      body { background: white; color: black; }
-      .resume-print { padding-top: 0 !important; }
-      .reveal { opacity: 1 !important; transform: none !important; }
-    }
-  </style>
 </head>
 <body>
 
@@ -52,7 +47,7 @@
         </button>
         <span class="theme-hint"><span class="hint-arrow" aria-hidden="true">↑</span><span class="hint-text">try dark mode!</span></span>
       </span>
-      <button class="nav-toggle" aria-label="Toggle menu">☰</button>
+      <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false">☰</button>
     </div>
   </nav>
 
@@ -60,29 +55,29 @@
 
   <header class="hero" style="min-height: 55vh;">
     <div class="hero-orb one" style="top:25%; right:5%; width:280px; height:280px;"></div>
-    <div class="container hero-content hero-content--split" data-render="resume-hero">
+    <div class="container hero-content hero-content--split">
       <div class="hero-text">
         <span class="eyebrow">Resume</span>
         <h1 class="hero-title" style="font-size: clamp(2.5rem, 6vw, 5rem);">
-          Resume <span class="accent">Placeholder.</span>
+          My <span class="accent">resume.</span>
         </h1>
         <div class="btn-row" style="margin-top:2rem;">
-          <button onclick="window.print()" class="btn btn-primary">Print / save as PDF <span class="arrow">⎙</span></button>
+          <button type="button" onclick="window.print()" class="btn btn-primary">Print / save as PDF <span class="arrow">⎙</span></button>
           <a href="mailto:logan.b.randall@gmail.com" class="btn btn-ghost">Get in touch</a>
         </div>
       </div>
       <div class="hero-photo hero-photo--portrait hero-photo--small">
-        <img data-image="resume_hero" src="/images/placeholders/portrait.svg" alt="Logan Randall" loading="eager" decoding="async" />
+        <!-- TODO(Logan): swap in a real headshot (4:5 crop works best). -->
+        <img src="/images/placeholders/portrait.svg" alt="Logan Randall" width="400" height="500" decoding="async" />
       </div>
     </div>
   </header>
 
   <section class="resume-print" style="padding-top: 1rem;">
-    <div class="narrow" data-render="resume-content">
+    <div class="narrow">
 
-      <!-- Fallback content shown until JS hydrates from data/resume.json.
-           Kept minimal: one placeholder item per section, plus the real
-           email so the page is never empty even if the fetch fails. -->
+      <!-- TODO(Logan): fill in the real entries. Each entry is one .resume-item;
+           copy one to add more. Delete a whole .resume-section to drop it. -->
       <div class="resume-section reveal">
         <h3>Education</h3>
         <div class="resume-item">
@@ -161,13 +156,13 @@
       </ul>
     </div>
     <div class="footer-bottom">
-      <span>© <span data-year></span> Logan Randall. All rights reserved.</span>
+      <span>© <span data-year>2026</span> Logan Randall. All rights reserved.</span>
       <a href="admin/" class="footer-signin">Sign in</a>
     </div>
   </footer>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
-  <script src="js/main.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
+  <script src="js/main.js" defer></script>
 </body>
 </html>

@@ -2,7 +2,7 @@
    build.js - reads markdown posts from _posts/ and generates
    posts/[slug].html, plus injects post lists into blog.html
    and index.html.
-   Cloudflare Pages runs this on every push via `npm run build`.
+   Vercel runs this on every push via `npm run build`.
    ============================================================ */
 const fs = require('fs');
 const path = require('path');
@@ -18,6 +18,9 @@ const TEMPLATE = path.join(ROOT, '_src', 'post-template.html');
 // Open Graph / Twitter share-card image meta tags (social crawlers don't
 // run JS, so these have to be baked into the HTML at build time).
 const SITE_URL = 'https://www.loganbrandall.com';
+
+// Social-share card (1200x630). Must be a PNG/JPG - most crawlers ignore SVG.
+const OG_IMAGE = '/images/og-card.jpg';
 
 const CATEGORY_LABELS = {
   personal: 'Personal Blog',
@@ -104,10 +107,11 @@ function build() {
     };
     posts.push(post);
 
-    // Substitute {{key}} placeholders in template
+    // Substitute {{key}} placeholders in template. Everything but the
+    // rendered markdown body is escaped so quotes can't break attributes.
     let out = tpl;
     for (const [k, v] of Object.entries(post)) {
-      out = out.split('{{' + k + '}}').join(String(v));
+      out = out.split('{{' + k + '}}').join(k === 'body' ? String(v) : escapeHtml(v));
     }
     fs.writeFileSync(path.join(POSTS_OUT, slug + '.html'), out);
     console.log('built:', slug + '.html');
@@ -136,21 +140,14 @@ function build() {
   ).join('\n\n');
   injectBetween(path.join(ROOT, 'index.html'), '<!-- RECENT_POSTS_START -->', '<!-- RECENT_POSTS_END -->', recent);
 
-  // Update auto-computed fields in data/stats.json. Manual fields
-  // (projects_shipped, online_since) are preserved; the two count fields are
-  // overwritten on every build so the homepage stats stay accurate.
-  const statsFile = path.join(ROOT, 'data', 'stats.json');
-  let stats = {};
-  if (fs.existsSync(statsFile)) {
-    try { stats = JSON.parse(fs.readFileSync(statsFile, 'utf8')); }
-    catch (e) { console.warn('stats.json unreadable, recreating:', e.message); stats = {}; }
-  }
-  stats.blog_posts = posts.length;
-  // "Classes documented" on the homepage counts academic-category posts.
-  // 'class' is preserved as a legacy fallback for any un-migrated posts.
-  stats.classes_documented = posts.filter(p => p.category === 'academic' || p.category === 'class').length;
-  fs.writeFileSync(statsFile, JSON.stringify(stats, null, 2) + '\n');
-  console.log('updated stats.json: ' + stats.blog_posts + ' posts, ' + stats.classes_documented + ' academic');
+  // Homepage stat counters. "Projects shipped" counts the project cards on
+  // projects.html so the two pages can't drift apart.
+  const projectsHtml = fs.readFileSync(path.join(ROOT, 'projects.html'), 'utf8');
+  setStat(path.join(ROOT, 'index.html'), {
+    projects_shipped: (projectsHtml.match(/<article class="proj[ "]/g) || []).length,
+    blog_posts: posts.length,
+    classes_documented: posts.filter(p => p.category === 'academic' || p.category === 'class').length
+  });
 
   injectOgImageEverywhere();
   generateSitemap(posts);
@@ -159,20 +156,34 @@ function build() {
 }
 
 // Generates sitemap.xml at the project root. Lists all static pages plus
-// every published blog post. Lastmod for posts comes from frontmatter date
-// (when the post was published); for static pages, today's date.
+// every published blog post, using the clean URLs Vercel serves (cleanUrls
+// in vercel.json redirects *.html). Lastmod for posts comes from frontmatter
+// date (when the post was published); for static pages, today's date.
+// Rewrites the value of each <div ... data-stat="key" data-count="N">N</div>
+// in the given file.
+function setStat(file, values) {
+  let html = fs.readFileSync(file, 'utf8');
+  for (const [key, val] of Object.entries(values)) {
+    const re = new RegExp('(data-stat="' + key + '" data-count=")[^"]*(">)[^<]*');
+    if (!re.test(html)) { console.warn('stat not found in ' + path.basename(file) + ':', key); continue; }
+    html = html.replace(re, '$1' + val + '$2' + val);
+  }
+  fs.writeFileSync(file, html);
+  console.log('stats:', JSON.stringify(values));
+}
+
 function generateSitemap(posts) {
   const today = new Date().toISOString().slice(0, 10);
   const entries = [
     { url: SITE_URL + '/',              lastmod: today, priority: '1.0' },
-    { url: SITE_URL + '/about.html',    lastmod: today, priority: '0.8' },
-    { url: SITE_URL + '/blog.html',     lastmod: today, priority: '0.8' },
-    { url: SITE_URL + '/projects.html', lastmod: today, priority: '0.8' },
-    { url: SITE_URL + '/resume.html',   lastmod: today, priority: '0.6' }
+    { url: SITE_URL + '/about',    lastmod: today, priority: '0.8' },
+    { url: SITE_URL + '/blog',     lastmod: today, priority: '0.8' },
+    { url: SITE_URL + '/projects', lastmod: today, priority: '0.8' },
+    { url: SITE_URL + '/resume',   lastmod: today, priority: '0.6' }
   ];
   for (const p of posts) {
     entries.push({
-      url: SITE_URL + '/posts/' + p.slug + '.html',
+      url: SITE_URL + '/posts/' + p.slug,
       lastmod: p.date ? asDate(p.date).toISOString().slice(0, 10) : today,
       priority: '0.7'
     });
@@ -192,33 +203,16 @@ function generateSitemap(posts) {
   console.log('sitemap.xml written with ' + entries.length + ' urls');
 }
 
-// Reads data/images.json for the hero cutout and writes <meta og:image> /
-// <meta twitter:image> tags into every HTML <head> that has the marker pair
-// <!-- OG_IMAGE_START --> ... <!-- OG_IMAGE_END -->. Crawlers can't run JS,
-// so these have to be baked in at build time. The URL is absolute (SITE_URL
-// + image path) and URL-encoded so paths with spaces work.
+// Writes <meta og:image> / <meta twitter:image> tags into every HTML <head>
+// that has the marker pair <!-- OG_IMAGE_START --> ... <!-- OG_IMAGE_END -->.
+// Crawlers can't run JS, so these have to be baked in at build time.
 function injectOgImageEverywhere() {
-  const imagesFile = path.join(ROOT, 'data', 'images.json');
-  if (!fs.existsSync(imagesFile)) {
-    console.warn('skip OG image inject: data/images.json not found');
-    return;
-  }
-  let images = {};
-  try { images = JSON.parse(fs.readFileSync(imagesFile, 'utf8')); }
-  catch (e) { console.warn('skip OG image inject: images.json unreadable:', e.message); return; }
-
-  const rawPath = images.og_image || images.hero_cutout;
-  if (!rawPath) {
-    console.warn('skip OG image inject: no hero_cutout or og_image in images.json');
-    return;
-  }
-  // Encode path segments (preserves /) so filenames with spaces work in OG URL.
-  const encodedPath = rawPath.split('/').map(encodeURIComponent).join('/');
-  // Strip duplicate leading slash if SITE_URL already ends with one (it doesn't, but be defensive).
-  const absUrl = SITE_URL.replace(/\/$/, '') + (encodedPath.startsWith('/') ? '' : '/') + encodedPath;
+  const absUrl = SITE_URL + OG_IMAGE;
 
   const ogBlock =
     '  <meta property="og:image" content="' + absUrl + '" />\n' +
+    '  <meta property="og:image:width" content="1200" />\n' +
+    '  <meta property="og:image:height" content="630" />\n' +
     '  <meta property="og:image:alt" content="Logan Randall" />\n' +
     '  <meta name="twitter:card" content="summary_large_image" />\n' +
     '  <meta name="twitter:image" content="' + absUrl + '" />';

@@ -1,10 +1,9 @@
 /* ===========================================
    Projects page - project cards
-   Each item in data/projects.json renders as a site-style .card inside a
-   .proj wrapper. A project's `theme` (registered in js/project-themes.js)
-   can restyle the card under .proj--<theme> and add decoration that sits
-   *behind* the card (.proj-behind) - e.g. the ChooseAMovie popcorn bucket
-   peeking over the top edge.
+   Each project in projects.html is a site-style .card inside a .proj
+   wrapper. A project with its own look gets styles under .proj--<name>
+   and can add decoration that sits *behind* the card (.proj-behind) -
+   e.g. the ChooseAMovie popcorn bucket peeking over the top edge.
    =========================================== */
 
 .proj-grid {
@@ -64,6 +63,7 @@ a.proj-card:hover { color: inherit; }
 .proj--chooseamovie .proj-card:focus-visible { outline-color: #E50914; }
 
 .proj--chooseamovie .proj-title { margin: 0 0 0.9rem; line-height: 0; }
+.proj-title [hidden] { display: none; }
 .cam-logo { height: 46px; width: auto; margin-left: -6px; }
 .cam-wordmark { font-family: 'Manrope', var(--sans); font-weight: 800; font-size: 1.6rem; letter-spacing: -0.02em; color: #FFFFFF; line-height: 1.2; }
 .cam-wordmark b { color: #E50914; font-weight: 800; }

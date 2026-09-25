@@ -3,24 +3,27 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('lb-theme')||'light')}catch(e){}</script>
   <title>Blog - Logan Randall</title>
   <meta name="description" content="Blog posts and academic notes by Logan Randall." />
-  <meta name="theme-color" content="#FAFAFA" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#0B0B0E" media="(prefers-color-scheme: dark)" />
+  <link rel="canonical" href="https://www.loganbrandall.com/blog" />
+  <meta name="theme-color" content="#FAFAFA" />
   <meta property="og:title" content="Blog - Logan Randall" />
   <meta property="og:description" content="Blog posts and academic notes by Logan Randall." />
-  <meta property="og:url" content="https://www.loganbrandall.com/blog.html" />
+  <meta property="og:url" content="https://www.loganbrandall.com/blog" />
   <meta property="og:type" content="website" />
   <!-- OG_IMAGE_START -->
-  <meta property="og:image" content="https://www.loganbrandall.com/images/logan-hero-cutout.svg" />
+  <meta property="og:image" content="https://www.loganbrandall.com/images/og-card.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
   <meta property="og:image:alt" content="Logan Randall" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:image" content="https://www.loganbrandall.com/images/logan-hero-cutout.svg" />
+  <meta name="twitter:image" content="https://www.loganbrandall.com/images/og-card.jpg" />
   <!-- OG_IMAGE_END -->
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231F7A4D'/%3E%3Ctext x='50%25' y='58%25' text-anchor='middle' font-family='-apple-system,Segoe UI,Inter,sans-serif' font-size='15' font-weight='700' fill='%23FAFAFA'%3ELB%3C/text%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
   <style>
     .filter-bar { display:flex; gap:0.6rem; flex-wrap:wrap; margin-bottom:2.5rem; }
@@ -57,7 +60,7 @@
         </button>
         <span class="theme-hint"><span class="hint-arrow" aria-hidden="true">↑</span><span class="hint-text">try dark mode!</span></span>
       </span>
-      <button class="nav-toggle" aria-label="Toggle menu">☰</button>
+      <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false">☰</button>
     </div>
   </nav>
 
@@ -86,6 +89,48 @@
 
       <div id="postList">
         <!-- POSTS_START -->
+        <a href="posts/mkt-353-links-i-have-to-earn-and-numbers-we-argued-about.html" class="post-card reveal" data-category="academic">
+          <div class="post-meta"><span>July 18, 2026</span><span>Academic Blog</span><span>1 min read</span></div>
+          <h3>MKT 353: Links I Have to Earn and Numbers We Argued About</h3>
+          <p>This week was link building and Google Analytics, and both of them showed me how much of this depends on stuff I don&#39;t get to control.</p>
+        </a>
+
+        <a href="posts/mkt-353-social-media-is-a-whole-different-game.html" class="post-card reveal" data-category="academic">
+          <div class="post-meta"><span>July 9, 2026</span><span>Academic Blog</span><span>1 min read</span></div>
+          <h3>MKT 353: Social Media Is a Whole Different Game</h3>
+          <p>This week showed me that social and search ask for two very different things from me.</p>
+        </a>
+
+        <a href="posts/mkt-353-reading-my-own-site-like-a-stranger.html" class="post-card reveal" data-category="personal">
+          <div class="post-meta"><span>July 6, 2026</span><span>Personal Blog</span><span>1 min read</span></div>
+          <h3>MKT 353: Reading My Own Site Like a Stranger</h3>
+          <p>A week of landing page optimization and basic SEO that made me realize my site was not saying what I thought it was.</p>
+        </a>
+
+        <a href="posts/mkt-353-measure-first-then-optimize.html" class="post-card reveal" data-category="personal">
+          <div class="post-meta"><span>June 27, 2026</span><span>Personal Blog</span><span>1 min read</span></div>
+          <h3>MKT 353: Measure First, Then Optimize</h3>
+          <p>You can&#39;t really optimize an ad campaign until you can measure what it&#39;s actually producing</p>
+        </a>
+
+        <a href="posts/mkt-353-quality-score-and-relevance.html" class="post-card reveal" data-category="academic">
+          <div class="post-meta"><span>June 20, 2026</span><span>Academic Blog</span><span>1 min read</span></div>
+          <h3>MKT 353: Quality Score and Relevance</h3>
+          <p>This week I learned that Quality Score is mostly about getting my keyword, my ad, and my landing page to say the same thing.</p>
+        </a>
+
+        <a href="posts/mkt-353-rewriting-the-ad-people-actually-see.html" class="post-card reveal" data-category="academic">
+          <div class="post-meta"><span>June 13, 2026</span><span>Academic Blog</span><span>2 min read</span></div>
+          <h3>MKT 353: Rewriting the Ad People Actually See</h3>
+          <p>This week I rebuilt my main search ad from scratch after changing how my app makes money.</p>
+        </a>
+
+        <a href="posts/mkt-353-building-my-first-real-ads-campaign.html" class="post-card reveal" data-category="academic">
+          <div class="post-meta"><span>June 6, 2026</span><span>Academic Blog</span><span>3 min read</span></div>
+          <h3>MKT 353: Building My First Ads Campaign</h3>
+          <p>This week I set up a live Google Ads search campaign for my app and learned how much thought goes into picking the right keywords.</p>
+        </a>
+
         <a href="posts/mkt-353-setting-up-payments-and-legal-structure.html" class="post-card reveal" data-category="academic">
           <div class="post-meta"><span>May 31, 2026</span><span>Academic Blog</span><span>2 min read</span></div>
           <h3>MKT 353: Setting Up Payments and Legal Structure</h3>
@@ -136,14 +181,14 @@
       </ul>
     </div>
     <div class="footer-bottom">
-      <span>© <span data-year></span> Logan Randall. All rights reserved.</span>
+      <span>© <span data-year>2026</span> Logan Randall. All rights reserved.</span>
       <a href="admin/" class="footer-signin">Sign in</a>
     </div>
   </footer>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
-  <script src="js/main.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
+  <script src="js/main.js" defer></script>
   <script>
     // Filter pills
     const pills = document.querySelectorAll('.filter-pill');
@@ -160,4 +205,3 @@
   </script>
 </body>
 </html>
-          
