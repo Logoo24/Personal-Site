@@ -1,0 +1,84 @@
+<!doctype html>
+<!--
+  Source for files/logan-randall-resume.pdf, the downloadable resume linked
+  from resume.html. Mirrors Logan's Word resume, minus the phone number
+  (deliberately left out; don't add it back). After editing, regenerate the
+  PDF with:  npm run resume-pdf
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="robots" content="noindex" />
+<title>Logan Randall - Resume</title>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+<style>
+  @page { size: Letter; margin: 0.45in 0.6in 0.4in; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Open Sans', Arial, sans-serif; font-size: 9.3pt; line-height: 1.27; color: #1a1a1a; }
+  a { color: inherit; text-decoration: none; }
+  h1 { font-size: 21pt; font-weight: 700; color: #22395b; line-height: 1.1; letter-spacing: -0.01em; }
+  .contact { color: #555; margin-top: 2pt; }
+  .contact span { white-space: nowrap; }
+  .contact span + span::before { content: "•"; margin: 0 8pt; color: #555; }
+  h2 { font-size: 10.5pt; font-weight: 700; color: #22395b; text-transform: uppercase; border-bottom: 1.1pt solid #22395b; padding-bottom: 1pt; margin: 7pt 0 3pt; }
+  .row { margin-top: 3pt; }
+  .row b { font-weight: 700; }
+  .muted { color: #555; }
+  .date { font-style: italic; color: #555; }
+  ul { margin: 2pt 0 4pt 16pt; }
+  li { margin-bottom: 1pt; padding-left: 2pt; }
+  p { margin-top: 1pt; }
+  .skills { text-align: center; }
+  .skills span { display: inline-block; } /* lines break between skills, not inside one */
+  .skills span:not(:last-child)::after { content: "•"; margin: 0 5pt 0 7pt; }
+</style>
+</head>
+<body>
+  <h1>Logan Randall</h1>
+  <div class="contact">
+    <span>Rexburg, Idaho</span><span><a href="mailto:logan.b.randall@gmail.com">logan.b.randall@gmail.com</a></span><span><a href="https://www.linkedin.com/in/loganranda11">www.linkedin.com/in/loganranda11</a></span><span><a href="https://www.loganbrandall.com">loganbrandall.com</a></span>
+  </div>
+
+  <h2>Summary</h2>
+  <p>Over the past two years I have moved from an agent support and social media role at Annuity.com into affiliate performance management, where I now oversee the profitability of a portfolio of lead-generation partners and have helped roughly double its margin. I combine analytical decision making with hands-on technical work, including utilizing AI-integrated tools, and I am comfortable presenting to live audiences through the training and webinars I run on behalf of Annuity.com.</p>
+
+  <h2>Professional Experience</h2>
+  <div class="row"><b>Annuity.com / Financialize.com</b> <span class="muted">Gilbert, Arizona (Remote)</span></div>
+  <div class="row"><b>Affiliate Performance Manager</b> <span class="date">February 2026 - Present</span></div>
+  <ul>
+    <li>Brought on to improve affiliate profitability and contributed substantially to the portfolio's turnaround over a five-month period, driven in part by repricing the highest-volume partners onto a tiered CPL model and optimizing other negative and low-margin partners.</li>
+    <li>Affiliate portfolio margin improved from roughly 23% to 50%.</li>
+    <li>Monthly affiliate ad spend dropped roughly 51%, from about $172K to $84K.</li>
+    <li>Monthly gross profit grew roughly 63%, from about $52K to $85K.</li>
+    <li>Return on affiliate spend doubled from 1.3x to 2.0x on a roughly $85K monthly budget.</li>
+  </ul>
+  <div class="row"><b>Social Media Advisor and Administrative Assistant</b> <span class="date">September 2024 - February 2026</span></div>
+  <ul>
+    <li>Supported agent operations and administrative work, developing systems and processes that streamlined onboarding, communications, and event coordination.</li>
+    <li>Managed agent communications and social media through the GoHighLevel CRM, producing weekly training and event invitations.</li>
+    <li>Designed and built an internal agent training center from the ground up, partnering with the technical team on implementation.</li>
+    <li>Hosted live trainings and webinars and coordinated guest speakers end to end, developing strong public speaking and presentation ability.</li>
+    <li>Leveraged AI-integrated tools such as Claude Code to improve internal and customer-facing workflows.</li>
+  </ul>
+
+  <h2>Projects</h2>
+  <div class="row"><b>ChooseAMovie.app</b>&nbsp; Founder and Developer <span class="date">2025</span></div>
+  <p>Designed, built, and launched a social web application covering front-end design, hosting, databases, backend systems, and testing. Strengthened my fluency in AI tools throughout the project. Created for a Web Business Creation course.</p>
+  <div class="row"><b>Small Business Strategy Consulting (BUS 200)</b>&nbsp; Student Consultant <span class="date">2025</span></div>
+  <p>Advised a Spain-based footwear brand on U.S. market entry as part of a five-person team, leading the retail partnership analysis and contributing to the market entry strategy and final client presentation.</p>
+
+  <h2>Earlier Experience</h2>
+  <div class="row"><b>Social Media Lead</b>&nbsp; The Church of Jesus Christ of Latter-day Saints, Denver, Colorado <span class="date">2022 - 2024</span></div>
+  <p>Led regional social media campaigns and trained volunteers on public profile management and media response during a two-year full-time service assignment.</p>
+  <div class="row"><b>Facility Manager</b>&nbsp; Green Canyon Hot Springs; Lifeguard Instructor, Newdale, Idaho <span class="date">2018 - 2022</span></div>
+  <p>Managed daily resort operations and staff and certified new lifeguards.</p>
+
+  <h2>Education</h2>
+  <div class="row"><b>Brigham Young University-Idaho</b> <span class="muted">Rexburg, Idaho</span></div>
+  <p>Bachelor of Science in Business Management, Minor in Business Analytics &nbsp;•&nbsp; GPA 3.74</p>
+  <p>Expected graduation late 2028. Planning to pursue an MBA.</p>
+
+  <h2>Skills</h2>
+  <p class="skills"><span>Affiliate performance management</span><span>CPL pricing strategy</span><span>Margin and ROI optimization</span><span>Lead-quality and data analysis</span><span>Budget allocation</span><span>Conversion tracking</span><span>Invoice reconciliation</span><span>GoHighLevel CRM</span><span>High level of proficiency coding using Claude Code and similar tools</span><span>Web development</span><span>Spreadsheet automation</span><span>Public speaking</span><span>Adaptable to new situations and changes</span><span>Analytical skills</span><span>Decision making</span><span>Organization</span><span>Project management</span></p>
+</body>
+</html>

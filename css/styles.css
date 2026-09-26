@@ -615,6 +615,111 @@ a.feature-row:hover h3 { color: var(--accent); }
 .resume-item p { font-size: 0.94rem; }
 @media (max-width: 720px) { .resume-item { grid-template-columns: 1fr; gap: 0.5rem; } }
 
+/* ========== RESUME TIMELINE ========== */
+.resume-summary { font-size: 1.12rem; color: var(--text); margin-bottom: 3.5rem; }
+.tl-item { position: relative; display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 1.4rem; padding-bottom: 2.75rem; }
+.tl-item:last-child { padding-bottom: 0.5rem; }
+/* Connector from each logo down to the next entry, through the center of
+   the 48px logo column. The last entry gets none, so nothing dangles. */
+.tl-item:not(:last-child)::before {
+  content: ""; position: absolute;
+  left: 23px; top: 56px; bottom: 8px; width: 2px;
+  background: var(--line);
+}
+.tl-logo {
+  position: relative; z-index: 1;
+  width: 48px; height: 48px;
+  border-radius: 12px;
+  background: var(--bg-alt);
+  border: 1px solid var(--line-strong);
+  display: grid; place-items: center;
+  font-family: var(--display); font-weight: 700; font-size: 0.95rem; letter-spacing: -0.02em;
+  color: var(--accent);
+  overflow: hidden;
+}
+.tl-logo svg { width: 22px; height: 22px; }
+/* Logo images (images/logos/, pulled from each organization's site) sit on
+   white so they read the same in both themes. */
+.tl-logo:has(img) { background: #FFFFFF; }
+.tl-logo img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
+.tl-logo--bleed img { padding: 0; }                 /* full-bleed square icons (BYU-Idaho) */
+.tl-logo--greencanyon { background: #24402F !important; border-color: #24402F; } /* logo is white line art */
+.tl-logo--greencanyon img { padding: 2px; }
+/* Two stacked logos (Annuity.com + Financialize.com); the connector starts below both. */
+.tl-logos { display: flex; flex-direction: column; gap: 8px; }
+.tl-item:has(.tl-logos):not(:last-child)::before { top: 112px; }
+.tl-logo--cam { background: #121216; border-color: #2D2D37; }
+.tl-logo--cam svg { width: 26px; height: 30px; }
+.tl-body { padding-top: 0.2rem; }
+.tl-org { font-family: var(--display); font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; color: var(--text); line-height: 1.25; }
+.tl-org a { color: inherit; }
+.tl-org a:hover { color: var(--accent); }
+.tl-loc { font-size: 0.88rem; color: var(--text-muted); margin-top: 0.15rem; }
+.tl-role { margin-top: 1.25rem; }
+.tl-role + .tl-role { padding-top: 1.25rem; border-top: 1px dashed var(--line-strong); }
+.tl-role-head { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; }
+.tl-role h4 { font-family: var(--sans); font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; }
+.tl-role .when { font-size: 0.8rem; color: var(--text-muted); letter-spacing: 0.06em; font-weight: 600; text-transform: uppercase; margin: 0.2rem 0 0.6rem; }
+.tl-role p { font-size: 0.96rem; }
+.tl-badge {
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  padding: 0.2rem 0.55rem; border-radius: 99px;
+}
+.tl-bullets { padding-left: 1.1rem; }
+.tl-bullets li { font-size: 0.96rem; color: var(--text-soft); margin-bottom: 0.45rem; }
+.tl-bullets li::marker { color: var(--accent); }
+.tl-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; margin-top: 1.1rem; }
+.tl-metric { background: var(--bg-alt); border: 1px solid var(--line); border-radius: 10px; padding: 0.9rem 1rem; }
+.tl-metric .v { font-family: var(--display); font-weight: 700; font-size: 1.35rem; color: var(--accent); letter-spacing: -0.02em; line-height: 1.15; }
+.tl-metric .l { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem; line-height: 1.4; }
+.tl-media { margin-top: 1.1rem; }
+.tl-media img { width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--line); }
+.tl-media figcaption { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.45rem; }
+.skills-cat { font-family: var(--sans); font-size: 0.95rem; margin: 1.25rem 0 0.7rem; }
+@media (max-width: 520px) {
+  .tl-item:not(:last-child)::before { left: 19px; top: 48px; }
+  .tl-item:has(.tl-logos):not(:last-child)::before { top: 96px; }
+  .tl-item { grid-template-columns: 40px minmax(0, 1fr); gap: 1rem; }
+  .tl-metrics { gap: 0.6rem; }
+  .tl-metric { padding: 0.75rem 0.8rem; }
+  .tl-metric .v { font-size: 1.1rem; }
+  .tl-logo { width: 40px; height: 40px; border-radius: 10px; }
+}
+@media print {
+  .tl-item::before { display: none; }
+  .tl-item { break-inside: avoid; padding-bottom: 1.25rem; }
+}
+
+/* Prose pages (about): breathing room between a section heading and its text. */
+.narrow h2 + p, .narrow h2 + ul { margin-top: 0.9rem; }
+
+/* ========== FIGURE (inline photo in page copy) ========== */
+.figure { margin: 2rem 0 0; }
+.figure img { width: 100%; height: auto; border-radius: 10px; }
+.figure figcaption { margin-top: 0.7rem; font-size: 0.85rem; color: var(--text-muted); text-align: center; }
+
+/* ========== SOCIAL LINKS (about + resume) ========== */
+.socials { list-style: none; display: flex; flex-wrap: wrap; gap: 0.65rem; margin-top: 1.25rem; }
+.socials a {
+  display: inline-flex; align-items: center; gap: 0.55rem;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 99px;
+  color: var(--text-soft);
+  font-size: 0.9rem; font-weight: 500;
+  transition: border-color .25s var(--ease-out), color .25s var(--ease-out), background-color .25s var(--ease-out);
+}
+.socials a:hover { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.socials svg { width: 18px; height: 18px; flex-shrink: 0; }
+@media print {
+  .socials a { border: none; padding: 0.2rem 0; }
+  .socials svg { display: none; }
+  /* Paper can't be clicked, so print the actual URL after each profile. */
+  .socials a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.8em; }
+}
+
 .skills-grid { display: flex; flex-wrap: wrap; gap: 0.55rem; }
 .skill-pill { padding: 0.4rem 0.9rem; border: 1px solid var(--line-strong); border-radius: 99px; font-size: 0.82rem; color: var(--text-soft); font-weight: 500; transition: border-color .25s var(--ease-out), color .25s var(--ease-out); }
 .skill-pill:hover { border-color: var(--accent); color: var(--accent); }

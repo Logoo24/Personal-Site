@@ -4,7 +4,8 @@
   "private": true,
   "description": "Logan Randall's personal website",
   "scripts": {
-    "build": "node build.js"
+    "build": "node build.js",
+    "resume-pdf": "node scripts/resume-pdf.js"
   },
   "dependencies": {
     "gray-matter": "^4.0.3",

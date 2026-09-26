@@ -13,6 +13,7 @@ Logan Randall's personal site — a **static HTML/CSS/JS site** (no framework, n
 ```bash
 npm install          # one-time
 npm run build        # runs build.js — required after any change to _posts/ or post-template.html
+npm run resume-pdf   # re-renders files/logan-randall-resume.pdf from _src/resume-pdf.html (needs local Chrome/Edge)
 ```
 
 There are no tests and no linter. To preview locally, run a static file server from the repo root (`.claude/launch.json` has one: `python -m http.server 8123`); opening `index.html` straight from disk mostly works but root-relative paths like `/images/...` won't resolve. The build modifies `index.html`, `blog.html`, every page's OG block, and `sitemap.xml` **in place** — running it during a working session will show up in `git diff`.
@@ -55,7 +56,11 @@ draft: false
 
 **Projects** appear in two independent places: the homepage "Selected work" grid (`index.html`, plain `.card`s) and the full list on `projects.html`. On the projects page each project is a `.card.proj-card` inside a `.proj.proj--<name>` wrapper in a 2-column `.proj-grid`. A project with a custom look gets styles under `.proj--<name>` in `css/projects.css`, and can put decoration in a `.proj-behind` div that renders under the card (z-index 0) — that's how the ChooseAMovie popcorn bucket peeks over the card's top edge. Linked cards are `<a class="card proj-card">`; external links use `target="_blank" rel="noopener"` and a `↗` in the corner label. The ChooseAMovie card hotlinks its logo from `https://www.chooseamovie.app/brand/logo-lockup.svg` and falls back to a text wordmark via an inline `onerror`.
 
-**Images**: the homepage hero is `images/logan-hero-720.webp` / `-1040.webp` (via `srcset`), generated from the original full-res cutout `images/logan-hero-cutout.svg` (which is just two embedded PNGs: photo + luminance mask; it's 4 MB, so never reference it from a page). The About and Resume portraits still point at `images/placeholders/portrait.svg`.
+**Images**: the homepage hero is `images/logan-hero-720.webp` / `-1040.webp` (via `srcset`), generated from the original full-res cutout `images/logan-hero-cutout.svg` (which is just two embedded PNGs: photo + luminance mask; it's 4 MB, so never reference it from a page). The About page uses `images/about-logan-marisa.jpg` (hero, 4:5 crop) and `images/about-wedding-day.jpg` (inline `.figure`); the Resume portrait still points at `images/placeholders/portrait.svg`. There's no image tooling in `package.json` — photos were resized with Windows' System.Drawing, and project screenshots captured with headless Chrome.
+
+**Social links** (LinkedIn, Instagram, Facebook, email) are a `ul.socials` list duplicated in `about.html` and `resume.html` — keep the two in sync. On print, the resume's social links show their full URLs.
+
+**Resume** exists in two forms that must be kept in step: `resume.html` (the "story" version — a timeline of `.tl-item` entries with logo badges, metric tiles and optional `figure.tl-media` photos; styles under `RESUME TIMELINE` in `styles.css`) and the one-page PDF `files/logan-randall-resume.pdf`, rendered from `_src/resume-pdf.html` by `npm run resume-pdf` (not part of the Vercel build — the PDF is committed). The PDF deliberately omits Logan's phone number; never add it back. After regenerating, check it's still one page.
 
 ## CMS (`/admin/`)
 
@@ -82,7 +87,7 @@ Auth flow (Vercel serverless, in `api/`):
 
 ## Content placeholder convention
 
-Anywhere content was intentionally left blank for Logan to fill in, the literal word `Placeholder` is used (vs. fake bio copy), with a `TODO(Logan)` HTML comment nearby. Search the repo for either to find every spot that still needs real content (currently the About bio and the Resume entries/photos).
+Anywhere content was intentionally left blank for Logan to fill in, the literal word `Placeholder` is used (vs. fake bio copy), with a `TODO(Logan)` HTML comment nearby. Search the repo for either to find every spot that still needs real content (currently just the Resume headshot).
 
 ## Things that bite
 
