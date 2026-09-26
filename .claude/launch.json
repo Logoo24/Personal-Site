@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "site",
-      "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8123"],
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/serve.js", "8123"],
       "port": 8123
     }
   ]

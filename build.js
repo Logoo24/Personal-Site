@@ -140,7 +140,7 @@ function build() {
   ).join('\n\n');
   injectBetween(path.join(ROOT, 'index.html'), '<!-- RECENT_POSTS_START -->', '<!-- RECENT_POSTS_END -->', recent);
 
-  // Homepage stat counters. "Projects shipped" counts the project cards on
+  // Homepage stat counters. "My projects" counts the project cards on
   // projects.html so the two pages can't drift apart.
   const projectsHtml = fs.readFileSync(path.join(ROOT, 'projects.html'), 'utf8');
   setStat(path.join(ROOT, 'index.html'), {

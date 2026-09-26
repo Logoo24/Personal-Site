@@ -12,6 +12,10 @@
   justify-content: center;
   gap: 4rem 1.75rem;
   padding-top: 3rem; /* headroom for decorations peeking over the first row */
+  /* Cards keep their natural height; stretching a short card next to one
+     with a screenshot leaves a big empty block (very visible on the dark
+     ChooseAMovie card). */
+  align-items: start;
 }
 
 .proj { position: relative; isolation: isolate; display: flex; }

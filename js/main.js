@@ -36,19 +36,28 @@
         setStored(HINT_KEY, '1');
       });
     });
-    // First-visit hint
+    // First-visit hint: appears briefly, then goes away on its own after a
+    // few seconds or on the first scroll. Shown once, so it's marked
+    // dismissed as soon as it appears.
     var hintDismissed = getStored(HINT_KEY) === '1';
     var hasUsedTheme = !!getStored(THEME_KEY);
     if (!hintDismissed && !hasUsedTheme) {
+      var hints = document.querySelectorAll('.theme-hint');
+      var hideTimer;
+      var hideHints = function () {
+        clearTimeout(hideTimer);
+        window.removeEventListener('scroll', hideHints);
+        hints.forEach(function (h) { h.classList.remove('show'); });
+      };
       setTimeout(function () {
-        document.querySelectorAll('.theme-hint').forEach(function (h) { h.classList.add('show'); });
+        if (window.scrollY > 24) return;
+        hints.forEach(function (h) { h.classList.add('show'); });
+        setStored(HINT_KEY, '1');
+        hideTimer = setTimeout(hideHints, 4000);
+        window.addEventListener('scroll', hideHints, { passive: true });
       }, 1400);
-      document.querySelectorAll('.theme-hint').forEach(function (h) {
-        h.addEventListener('click', function (e) {
-          e.stopPropagation();
-          h.classList.remove('show');
-          setStored(HINT_KEY, '1');
-        });
+      hints.forEach(function (h) {
+        h.addEventListener('click', function (e) { e.stopPropagation(); hideHints(); });
       });
     }
   }
@@ -65,17 +74,25 @@
   window.addEventListener('scroll', onScroll, { passive: true });
   onScroll();
   if (navHamburger && navLinks) {
-    navHamburger.addEventListener('click', function () {
-      var open = navLinks.classList.toggle('open');
+    var setMenu = function (open) {
+      navLinks.classList.toggle('open', open);
+      document.body.classList.toggle('menu-open', open);
       navHamburger.textContent = open ? '✕' : '☰';
       navHamburger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+    navHamburger.addEventListener('click', function () {
+      setMenu(!navLinks.classList.contains('open'));
     });
     navLinks.querySelectorAll('a').forEach(function (a) {
-      a.addEventListener('click', function () {
-        navLinks.classList.remove('open');
-        navHamburger.textContent = '☰';
-        navHamburger.setAttribute('aria-expanded', 'false');
-      });
+      a.addEventListener('click', function () { setMenu(false); });
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && navLinks.classList.contains('open')) setMenu(false);
+    });
+    // Rotating a phone / resizing past the breakpoint shouldn't leave the
+    // page scroll-locked behind a menu that's no longer an overlay.
+    window.matchMedia('(min-width: 761px)').addEventListener('change', function (m) {
+      if (m.matches) setMenu(false);
     });
   }
 
@@ -155,12 +172,10 @@
       var words = document.querySelectorAll('.hero-title .word');
       var lede = document.querySelector('.hero-lede');
       var btns = document.querySelectorAll('.hero .btn-row > *');
-      var cue = document.querySelector('.scroll-cue');
       if (eb) tl.from(eb, { y: 24, opacity: 0, duration: 0.7 });
       if (words.length) tl.from(words, { y: 110, opacity: 0, stagger: 0.08, duration: 1.1 }, '-=0.4');
       if (lede) tl.from(lede, { y: 24, opacity: 0, duration: 0.8 }, '-=0.6');
       if (btns.length) tl.from(btns, { y: 18, opacity: 0, stagger: 0.1, duration: 0.6 }, '-=0.5');
-      if (cue) tl.from(cue, { opacity: 0, duration: 0.8 }, '-=0.3');
 
       if (document.querySelector('.hero-orb.one')) {
         gsap.to('.hero-orb.one', { yPercent: 30, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true } });
