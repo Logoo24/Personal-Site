@@ -8,15 +8,27 @@
 
 .proj-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 460px));
-  justify-content: center;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
   gap: 4rem 1.75rem;
   padding-top: 3rem; /* headroom for decorations peeking over the first row */
-  /* Cards keep their natural height; stretching a short card next to one
-     with a screenshot leaves a big empty block (very visible on the dark
-     ChooseAMovie card). */
-  align-items: start;
+  /* Cards in a row stretch to the same height. That only looks right
+     because every card opens with a same-size .proj-media block. */
+  align-items: stretch;
 }
+
+/* Picture area at the top of every card - a screenshot or an illustration.
+   Same aspect ratio everywhere so the cards line up. */
+.proj-media {
+  position: relative; overflow: hidden;
+  aspect-ratio: 16 / 10;
+  display: grid; place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-deep);
+  margin-bottom: 1.25rem;
+}
+.proj-media > img { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
+.proj-note { margin-left: auto; white-space: nowrap; }
 
 .proj { position: relative; isolation: isolate; display: flex; }
 .proj-behind { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
@@ -66,7 +78,45 @@ a.proj-card:hover { color: inherit; }
 .proj--chooseamovie .proj-card:focus-visible::before { opacity: 1; }
 .proj--chooseamovie .proj-card:focus-visible { outline-color: #E50914; }
 
-.proj--chooseamovie .proj-title { margin: 0 0 0.9rem; line-height: 0; }
+.proj--chooseamovie .card-tag { color: #FFCC33; }
+.proj--chooseamovie .proj-title { margin: 0.75rem 0 0.8rem; line-height: 0; }
+
+/* Picture area: three posters being voted on, the middle one wins */
+.cam-media {
+  border-color: #2D2D37;
+  background:
+    radial-gradient(80% 90% at 50% 115%, rgba(229, 9, 20, 0.3), transparent 70%),
+    #0B0B0E;
+}
+.cam-posters { display: flex; align-items: flex-end; gap: 12px; }
+.cam-poster {
+  position: relative;
+  width: 58px; aspect-ratio: 2 / 3;
+  border-radius: 6px;
+  background: linear-gradient(160deg, #2C2C38, #17171E);
+  border: 1px solid #34343F;
+}
+.cam-poster.is-winner {
+  width: 78px;
+  background: linear-gradient(160deg, #E50914, #6E040A);
+  border-color: #FF4550;
+  box-shadow: 0 10px 26px rgba(229, 9, 20, 0.45);
+  transition: transform .45s var(--ease-out);
+}
+.proj--chooseamovie:hover .cam-poster.is-winner { transform: translateY(-6px); }
+.cam-stars {
+  position: absolute; left: 0; right: 0; bottom: 7px;
+  text-align: center; font-size: 0.5rem; letter-spacing: 1px; line-height: 1;
+  color: #FFCC33;
+}
+.is-winner .cam-stars { font-size: 0.6rem; color: #FFE08A; }
+.cam-chip {
+  position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+  padding: 3px 8px; border-radius: 999px;
+  background: #FFCC33; color: #121216;
+  font-size: 0.58rem; font-weight: 800; letter-spacing: 0.04em; line-height: 1.2;
+  white-space: nowrap;
+}
 .proj-title [hidden] { display: none; }
 .cam-logo { height: 46px; width: auto; margin-left: -6px; }
 .cam-wordmark { font-family: 'Manrope', var(--sans); font-weight: 800; font-size: 1.6rem; letter-spacing: -0.02em; color: #FFFFFF; line-height: 1.2; }
@@ -114,7 +164,52 @@ a.proj-card:hover { color: inherit; }
   100% { opacity: 0; transform: translate(var(--x), calc(var(--y) * 0.35)) scale(0.9) rotate(var(--r)); }
 }
 
+/* ========== HOT SPRINGS CRM ==========
+   Picture area: a little guest-list window floating over warm spring
+   water, with steam drifting up. Fixed colors so it reads the same in
+   both site themes. */
+.crm-media {
+  border-color: transparent;
+  background:
+    radial-gradient(90% 60% at 50% 115%, rgba(255, 176, 102, 0.35), transparent 70%),
+    linear-gradient(170deg, #0E3F45 0%, #16666A 60%, #2A8A86 100%);
+}
+.crm-window {
+  position: relative; z-index: 1;
+  width: 68%;
+  padding: 10px 12px 12px;
+  border-radius: 8px;
+  background: #F6FBFA;
+  box-shadow: 0 12px 28px rgba(4, 30, 33, 0.45);
+  transition: transform .45s var(--ease-out);
+}
+.proj--crm:hover .crm-window { transform: translateY(-5px); }
+.crm-bar { display: flex; gap: 4px; margin-bottom: 9px; }
+.crm-bar i { width: 6px; height: 6px; border-radius: 50%; background: #CFDCDA; }
+.crm-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+.crm-row + .crm-row { border-top: 1px solid #E3ECEA; }
+.crm-av { flex: none; width: 16px; height: 16px; border-radius: 50%; background: linear-gradient(135deg, #2A8A86, #16666A); }
+.crm-line { flex: 1; height: 6px; border-radius: 3px; background: #D5E2E0; }
+.crm-line.short { flex: 0.6; margin-right: auto; }
+.crm-pill { flex: none; width: 30px; height: 10px; border-radius: 999px; background: #BFE8D3; }
+.crm-pill.warm { background: #FFD9B0; }
+.crm-steam {
+  position: absolute; bottom: -20px; left: var(--x);
+  width: 60px; height: 60px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  filter: blur(14px);
+  animation: crm-steam 5s ease-in infinite;
+  animation-delay: var(--d);
+  opacity: 0;
+}
+@keyframes crm-steam {
+  0% { opacity: 0; transform: translateY(0) scale(0.6); }
+  30% { opacity: 0.8; }
+  100% { opacity: 0; transform: translateY(-150px) scale(1.4); }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .crm-steam { animation: none; opacity: 0.4; }
   .cam-bucket svg, .proj--chooseamovie:hover .cam-kernel { animation: none; }
   .cam-bucket { transition: none; }
   .proj--chooseamovie:hover .cam-bucket,

@@ -90,26 +90,60 @@
             </div>
           </div>
           <a class="card proj-card" href="https://chooseamovie.app" target="_blank" rel="noopener">
+            <!-- Little "group vote" scene: three movie posters, one crowned the top pick -->
+            <div class="proj-media cam-media" aria-hidden="true">
+              <div class="cam-posters">
+                <span class="cam-poster"><span class="cam-stars">★★★☆☆</span></span>
+                <span class="cam-poster is-winner"><span class="cam-chip">Top pick</span><span class="cam-stars">★★★★★</span></span>
+                <span class="cam-poster"><span class="cam-stars">★★☆☆☆</span></span>
+              </div>
+            </div>
+            <span class="card-tag">Web app</span>
             <h3 class="proj-title">
               <!-- Logo is served by chooseamovie.app; if it can't load, show the text wordmark. -->
               <img class="cam-logo" src="https://www.chooseamovie.app/brand/logo-lockup.svg" alt="ChooseAMovie" width="215" height="46"
                    onerror="this.hidden=true;this.nextElementSibling.hidden=false" />
               <span class="cam-wordmark" hidden>Choose<b>A</b>Movie</span>
             </h3>
-            <p>Picking a movie with friends, minus the endless scrolling. Share a link, everyone rates from their phone, and the top pick wins.</p>
+            <p>For movie nights when nobody can decide what to watch. Share a link with your group, everyone rates the options from their own phone, and the top pick wins &mdash; no more endless scrolling.</p>
             <div class="card-meta">
               <span class="proj-go">chooseamovie.app <span class="arrow" aria-hidden="true">↗</span></span>
             </div>
           </a>
         </article>
 
+        <article class="proj proj--crm reveal">
+          <a class="card proj-card" href="https://gchs-crm.vercel.app/" target="_blank" rel="noopener">
+            <!-- Illustration of a guest list rising out of hot-spring steam -->
+            <div class="proj-media crm-media" aria-hidden="true">
+              <span class="crm-steam" style="--x:14%;--d:0s"></span>
+              <span class="crm-steam" style="--x:78%;--d:1.6s"></span>
+              <span class="crm-steam" style="--x:46%;--d:3.1s"></span>
+              <div class="crm-window">
+                <div class="crm-bar"><i></i><i></i><i></i></div>
+                <div class="crm-row"><span class="crm-av"></span><span class="crm-line"></span><span class="crm-pill"></span></div>
+                <div class="crm-row"><span class="crm-av"></span><span class="crm-line short"></span><span class="crm-pill warm"></span></div>
+                <div class="crm-row"><span class="crm-av"></span><span class="crm-line"></span><span class="crm-pill"></span></div>
+              </div>
+            </div>
+            <span class="card-tag">Custom CRM</span>
+            <h3 class="proj-title">Hot Springs CRM</h3>
+            <p>A customer management system built for a local hot springs, giving their staff one place to keep track of guests and stay in touch with the people who visit.</p>
+            <div class="card-meta">
+              <span class="proj-go">gchs-crm.vercel.app <span class="arrow" aria-hidden="true">↗</span></span>
+            </div>
+          </a>
+        </article>
+
         <article class="proj proj--default reveal">
           <div class="card proj-card">
-            <img class="card-thumb" src="/images/project-loganbrandall.webp" alt="Screenshot of the LoganBRandall.com homepage" width="1280" height="800" loading="lazy" decoding="async" />
-            <span class="card-tag">Web · 2026</span>
+            <div class="proj-media">
+              <img src="/images/project-loganbrandall.webp" alt="Screenshot of the LoganBRandall.com homepage" width="1280" height="800" loading="lazy" decoding="async" />
+            </div>
+            <span class="card-tag">Personal site</span>
             <h3 class="proj-title">LoganBRandall.com</h3>
-            <p>A personal site built by hand. HTML, CSS, GSAP scroll animations, and a deliberate refusal to use a heavy framework.</p>
-            <div class="card-meta"><span>HTML / CSS / JS</span><span>Live</span></div>
+            <p>My own corner of the internet: who I am, what I'm working on, and a blog where I write about life and school. Designed and built from a blank page.</p>
+            <div class="card-meta"><span class="proj-note">You're looking at it</span></div>
           </div>
         </article>
 
