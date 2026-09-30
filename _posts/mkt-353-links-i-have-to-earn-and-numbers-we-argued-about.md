@@ -2,6 +2,7 @@
 title: 'MKT 353: Links I Have to Earn and Numbers We Argued About'
 date: 2026-07-18
 category: academic
+course: MKT 353
 summary: This week was link building and Google Analytics, and both of them showed me how much of this depends on stuff I don't get to control.
 readMinutes: 1
 draft: false

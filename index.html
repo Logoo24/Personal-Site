@@ -36,7 +36,17 @@
     <ul class="nav-links">
       <li><a href="index.html">Home</a></li>
       <li><a href="about.html">About</a></li>
-      <li><a href="blog.html">Blog</a></li>
+      <li class="nav-dd">
+        <a href="blog.html">Blog</a>
+        <button class="nav-dd-toggle" aria-expanded="false" aria-label="Blog categories"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="nav-dd-menu">
+          <!-- BLOG_MENU_START -->
+          <a href="blog.html">Personal blog</a>
+          <span class="nav-dd-label">Classes</span>
+          <a href="classes/mkt-353.html">MKT 353<small>Web Business Creation</small></a>
+          <!-- BLOG_MENU_END -->
+        </div>
+      </li>
       <li><a href="projects.html">Projects</a></li>
       <li><a href="resume.html">Resume</a></li>
     </ul>
@@ -147,7 +157,7 @@
           <div class="lbl">Blog posts</div>
         </div>
         <div class="stat">
-          <div class="num" data-stat="classes_documented" data-count="10">10</div>
+          <div class="num" data-stat="classes_documented" data-count="12">12</div>
           <div class="lbl">Academic posts</div>
         </div>
       </div>
@@ -160,26 +170,14 @@
       <div class="section-head reveal">
         <span class="eyebrow">From the blog</span>
         <h2>Recent posts</h2>
-        <p>Essays, class notes, and project write-ups.</p>
+        <p>Essays, thoughts, and project write-ups.</p>
       </div>
 
       <div class="feature-list">
         <!-- RECENT_POSTS_START -->
-        <a href="posts/mkt-353-links-i-have-to-earn-and-numbers-we-argued-about.html" class="feature-row">
-          <span class="meta">Jul 2026 · Academic Blog</span>
-          <h3>MKT 353: Links I Have to Earn and Numbers We Argued About</h3>
-          <span class="arrow">↗</span>
-        </a>
-
-        <a href="posts/mkt-353-social-media-is-a-whole-different-game.html" class="feature-row">
-          <span class="meta">Jul 2026 · Academic Blog</span>
-          <h3>MKT 353: Social Media Is a Whole Different Game</h3>
-          <span class="arrow">↗</span>
-        </a>
-
-        <a href="posts/mkt-353-reading-my-own-site-like-a-stranger.html" class="feature-row">
-          <span class="meta">Jul 2026 · Personal Blog</span>
-          <h3>MKT 353: Reading My Own Site Like a Stranger</h3>
+        <a href="classes/mkt-353.html" class="feature-row">
+          <span class="meta">Class blog · 12 posts</span>
+          <h3>MKT 353: Web Business Creation</h3>
           <span class="arrow">↗</span>
         </a>
         <!-- RECENT_POSTS_END -->

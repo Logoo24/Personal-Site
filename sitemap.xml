@@ -2,28 +2,33 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://www.loganbrandall.com/</loc>
-    <lastmod>2026-09-29</lastmod>
+    <lastmod>2026-09-30</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://www.loganbrandall.com/about</loc>
-    <lastmod>2026-09-29</lastmod>
+    <lastmod>2026-09-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.loganbrandall.com/blog</loc>
-    <lastmod>2026-09-29</lastmod>
+    <lastmod>2026-09-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.loganbrandall.com/projects</loc>
-    <lastmod>2026-09-29</lastmod>
+    <lastmod>2026-09-30</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.loganbrandall.com/resume</loc>
-    <lastmod>2026-09-29</lastmod>
+    <lastmod>2026-09-30</lastmod>
     <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://www.loganbrandall.com/classes/mkt-353</loc>
+    <lastmod>2026-09-30</lastmod>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://www.loganbrandall.com/posts/mkt-353-links-i-have-to-earn-and-numbers-we-argued-about</loc>

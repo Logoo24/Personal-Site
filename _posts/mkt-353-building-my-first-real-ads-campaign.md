@@ -2,6 +2,7 @@
 title: 'MKT 353: Building My First Ads Campaign'
 date: 2026-06-06
 category: academic
+course: MKT 353
 summary: This week I set up a live Google Ads search campaign for my app and learned how much thought goes into picking the right keywords.
 readMinutes: 3
 draft: false

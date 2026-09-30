@@ -1,7 +1,8 @@
 /* ============================================================
    build.js - reads markdown posts from _posts/ and generates
-   posts/[slug].html, plus injects post lists into blog.html
-   and index.html.
+   posts/[slug].html and one page per class in classes/[slug].html,
+   plus injects post lists into blog.html and index.html and the
+   Blog dropdown menu into every page's nav.
    Vercel runs this on every push via `npm run build`.
    ============================================================ */
 const fs = require('fs');
@@ -13,6 +14,14 @@ const ROOT = __dirname;
 const POSTS_SRC = path.join(ROOT, '_posts');
 const POSTS_OUT = path.join(ROOT, 'posts');
 const TEMPLATE = path.join(ROOT, '_src', 'post-template.html');
+const CLASS_TEMPLATE = path.join(ROOT, '_src', 'class-template.html');
+const CLASSES_OUT = path.join(ROOT, 'classes');
+// The class list (edited from /admin/ -> Classes). Each entry is
+// { code: "MKT 353", name: "Web Business Creation", archived: false }.
+const CLASSES_FILE = path.join(ROOT, '_data', 'classes.json');
+
+// Top-level pages that carry the site nav (and so the Blog dropdown).
+const ROOT_PAGES = ['index.html', 'about.html', 'blog.html', 'projects.html', 'resume.html'];
 
 // Absolute URL of the production site. Used to build absolute URLs for
 // Open Graph / Twitter share-card image meta tags (social crawlers don't
@@ -32,6 +41,28 @@ const CATEGORY_LABELS = {
   research: 'Academic Blog',
   project: 'Personal Blog'
 };
+// Categories whose posts belong to a class (and so live on a class page,
+// not the main blog).
+const CLASS_CATEGORIES = new Set(['academic', 'class', 'research']);
+// Class used for an academic post that doesn't say which class it's for.
+const FALLBACK_CLASS = 'Other classes';
+
+function slugify(s) {
+  return String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+function loadClasses() {
+  if (!fs.existsSync(CLASSES_FILE)) return [];
+  const data = JSON.parse(fs.readFileSync(CLASSES_FILE, 'utf8'));
+  return (Array.isArray(data.classes) ? data.classes : [])
+    .filter(c => c && String(c.code || '').trim())
+    .map(c => ({
+      code: String(c.code).trim(),
+      name: String(c.name || '').trim(),
+      archived: !!c.archived,
+      slug: slugify(c.code)
+    }));
+}
 
 function asDate(v) {
   if (v instanceof Date) return v;
@@ -50,7 +81,7 @@ function fmtShort(v) {
   return asDate(v).toLocaleDateString('en-US', { year: 'numeric', month: 'short', timeZone: 'UTC' });
 }
 
-function injectBetween(file, startMarker, endMarker, content) {
+function injectBetween(file, startMarker, endMarker, content, indent) {
   if (!fs.existsSync(file)) {
     console.warn('skip (file not found):', file);
     return;
@@ -64,7 +95,7 @@ function injectBetween(file, startMarker, endMarker, content) {
   }
   const before = html.slice(0, sIdx + startMarker.length);
   const after = html.slice(eIdx);
-  fs.writeFileSync(file, before + '\n' + content + '\n        ' + after);
+  fs.writeFileSync(file, before + '\n' + content + '\n' + (indent == null ? '        ' : indent) + after);
   console.log('injected into:', path.basename(file));
 }
 
@@ -73,14 +104,33 @@ function build() {
     console.log('No _posts/ directory; nothing to build.');
     return;
   }
-  if (!fs.existsSync(POSTS_OUT)) fs.mkdirSync(POSTS_OUT, { recursive: true });
-  if (!fs.existsSync(TEMPLATE)) {
-    console.error('Missing template: _src/post-template.html');
-    process.exit(1);
+  for (const dir of [POSTS_OUT, CLASSES_OUT]) {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  }
+  for (const t of [TEMPLATE, CLASS_TEMPLATE]) {
+    if (!fs.existsSync(t)) {
+      console.error('Missing template: ' + path.relative(ROOT, t));
+      process.exit(1);
+    }
   }
   const tpl = fs.readFileSync(TEMPLATE, 'utf8');
   const files = fs.readdirSync(POSTS_SRC).filter(f => f.endsWith('.md'));
   const posts = [];
+  const classes = loadClasses();
+
+  // Finds the class a post belongs to by code (or slug, so "mkt353" and
+  // "MKT 353" match). A class that isn't in _data/classes.json yet still
+  // gets a page, so a post never disappears because the list is behind.
+  function classFor(code) {
+    const slug = slugify(code);
+    let c = classes.find(x => x.slug === slug);
+    if (!c) {
+      console.warn('class not in _data/classes.json, adding it for this build:', code);
+      c = { code: String(code).trim(), name: '', archived: false, slug };
+      classes.push(c);
+    }
+    return c;
+  }
 
   for (const f of files) {
     const raw = fs.readFileSync(path.join(POSTS_SRC, f), 'utf8');
@@ -91,54 +141,82 @@ function build() {
       continue;
     }
     const slug = f.replace(/\.md$/, '').toLowerCase().replace(/[^a-z0-9-]/g, '-');
-    const bodyHtml = marked.parse(parsed.content || '');
     const cat = (data.category || 'essay').toLowerCase();
-    const post = {
+    let cls = null;
+    if (CLASS_CATEGORIES.has(cat)) {
+      if (!data.course) console.warn('academic post has no class, filing under "' + FALLBACK_CLASS + '":', f);
+      cls = classFor(data.course || FALLBACK_CLASS);
+    }
+    posts.push({
       slug,
       title: data.title || 'Untitled',
       date: data.date,
       dateFormatted: data.date ? fmtLong(data.date) : '',
       shortDate: data.date ? fmtShort(data.date) : '',
       category: cat,
-      categoryLabel: CATEGORY_LABELS[cat] || cat,
+      categoryLabel: cls ? cls.code : (CATEGORY_LABELS[cat] || cat),
       summary: data.summary || '',
       readMinutes: data.readMinutes || 4,
-      body: bodyHtml
-    };
-    posts.push(post);
+      backHref: cls ? '../classes/' + cls.slug + '.html' : '../blog.html',
+      backLabel: cls ? 'All ' + cls.code + ' posts' : 'All posts',
+      body: marked.parse(parsed.content || ''),
+      cls
+    });
+  }
 
+  for (const post of posts) {
     // Substitute {{key}} placeholders in template. Everything but the
     // rendered markdown body is escaped so quotes can't break attributes.
     let out = tpl;
     for (const [k, v] of Object.entries(post)) {
+      if (k === 'cls') continue;
       out = out.split('{{' + k + '}}').join(k === 'body' ? String(v) : escapeHtml(v));
     }
-    fs.writeFileSync(path.join(POSTS_OUT, slug + '.html'), out);
-    console.log('built:', slug + '.html');
+    fs.writeFileSync(path.join(POSTS_OUT, post.slug + '.html'), out);
+    console.log('built:', post.slug + '.html');
   }
 
   // Newest first
   posts.sort((a, b) => asDate(b.date).getTime() - asDate(a.date).getTime());
+  const personal = posts.filter(p => !p.cls);
+  for (const c of classes) c.posts = posts.filter(p => p.cls === c);
+  const activeClasses = classes.filter(c => !c.archived);
 
-  // Inject full post list into blog.html
-  const blogList = posts.map(p =>
-    '        <a href="posts/' + p.slug + '.html" class="post-card reveal" data-category="' + p.category + '">\n' +
-    '          <div class="post-meta"><span>' + p.dateFormatted + '</span><span>' + p.categoryLabel + '</span><span>' + p.readMinutes + ' min read</span></div>\n' +
-    '          <h3>' + escapeHtml(p.title) + '</h3>\n' +
-    '          <p>' + escapeHtml(p.summary) + '</p>\n' +
-    '        </a>'
-  ).join('\n\n');
+  // Main blog = personal posts only; class posts live on their class pages.
+  const blogList = personal.length
+    ? personal.map(p => postCard(p, '')).join('\n\n')
+    : '        <div class="post-empty reveal">\n' +
+      '          <p>No personal posts yet &mdash; they&#39;re on the way.</p>\n' +
+      (classes.length
+        ? '          <p>In the meantime, my class notes are up: ' +
+          (activeClasses.length ? activeClasses : classes).map(c =>
+            '<a href="classes/' + c.slug + '.html">' + escapeHtml(c.code) + '</a>').join(', ') + '.</p>\n'
+        : '') +
+      '        </div>';
   injectBetween(path.join(ROOT, 'blog.html'), '<!-- POSTS_START -->', '<!-- POSTS_END -->', blogList);
 
-  // Inject top-3 onto homepage
-  const recent = posts.slice(0, 3).map(p =>
-    '        <a href="posts/' + p.slug + '.html" class="feature-row">\n' +
-    '          <span class="meta">' + p.shortDate + ' · ' + p.categoryLabel + '</span>\n' +
-    '          <h3>' + escapeHtml(p.title) + '</h3>\n' +
-    '          <span class="arrow">↗</span>\n' +
-    '        </a>'
-  ).join('\n\n');
+  // Homepage "Recent posts": newest 3 personal posts. Until there are any,
+  // point at the class blogs (current ones first) instead of leaving the
+  // section empty.
+  const fallbackClasses = activeClasses.length ? activeClasses : classes;
+  const recent = personal.length
+    ? personal.slice(0, 3).map(p =>
+        '        <a href="posts/' + p.slug + '.html" class="feature-row">\n' +
+        '          <span class="meta">' + p.shortDate + ' · ' + p.categoryLabel + '</span>\n' +
+        '          <h3>' + escapeHtml(p.title) + '</h3>\n' +
+        '          <span class="arrow">↗</span>\n' +
+        '        </a>').join('\n\n')
+    : fallbackClasses.length
+      ? fallbackClasses.slice(0, 3).map(c =>
+          '        <a href="classes/' + c.slug + '.html" class="feature-row">\n' +
+          '          <span class="meta">Class blog · ' + c.posts.length + ' post' + (c.posts.length === 1 ? '' : 's') + '</span>\n' +
+          '          <h3>' + escapeHtml(classTitle(c)) + '</h3>\n' +
+          '          <span class="arrow">↗</span>\n' +
+          '        </a>').join('\n\n')
+      : '        <p>New posts are on the way.</p>';
   injectBetween(path.join(ROOT, 'index.html'), '<!-- RECENT_POSTS_START -->', '<!-- RECENT_POSTS_END -->', recent);
+
+  buildClassPages(classes);
 
   // Homepage stat counters. "My projects" counts the project cards on
   // projects.html so the two pages can't drift apart.
@@ -146,13 +224,89 @@ function build() {
   setStat(path.join(ROOT, 'index.html'), {
     projects_shipped: (projectsHtml.match(/<article class="proj[ "]/g) || []).length,
     blog_posts: posts.length,
-    classes_documented: posts.filter(p => p.category === 'academic' || p.category === 'class').length
+    classes_documented: posts.filter(p => p.cls).length
   });
 
+  injectBlogMenuEverywhere(classes);
   injectOgImageEverywhere();
-  generateSitemap(posts);
+  generateSitemap(posts, classes);
 
-  console.log('\nBuilt ' + posts.length + ' post(s).');
+  console.log('\nBuilt ' + posts.length + ' post(s) and ' + classes.length + ' class page(s).');
+}
+
+function classTitle(c) {
+  return c.name ? c.code + ': ' + c.name : c.code;
+}
+
+// One entry in a post list (blog.html and the class pages). `prefix` is the
+// path back to the site root from the page the list sits on.
+function postCard(p, prefix) {
+  return '        <a href="' + prefix + 'posts/' + p.slug + '.html" class="post-card reveal">\n' +
+    '          <div class="post-meta"><span>' + p.dateFormatted + '</span><span>' + p.readMinutes + ' min read</span></div>\n' +
+    '          <h3>' + escapeHtml(p.title) + '</h3>\n' +
+    '          <p>' + escapeHtml(p.summary) + '</p>\n' +
+    '        </a>';
+}
+
+// Writes classes/<slug>.html for every class (archived ones too, so old
+// links keep working) and removes pages for classes that no longer exist.
+function buildClassPages(classes) {
+  const tpl = fs.readFileSync(CLASS_TEMPLATE, 'utf8');
+  const keep = new Set();
+  for (const c of classes) {
+    const n = c.posts.length;
+    const values = {
+      slug: c.slug,
+      code: c.code,
+      title: classTitle(c),
+      heading: c.name || c.code,
+      description: (c.archived ? 'Notes from ' : 'Weekly notes from ') + classTitle(c) + ' by Logan Randall.',
+      lede: (c.archived ? 'Notes and reflections from my ' : 'Weekly notes and reflections from my ') + c.code + ' class.',
+      status: c.archived ? 'Past class' : 'Current class',
+      count: n + ' post' + (n === 1 ? '' : 's')
+    };
+    let out = tpl;
+    for (const [k, v] of Object.entries(values)) out = out.split('{{' + k + '}}').join(escapeHtml(v));
+    const list = n
+      ? c.posts.map(p => postCard(p, '../')).join('\n\n')
+      : '        <div class="post-empty reveal"><p>No posts for this class yet.</p></div>';
+    out = out.split('{{posts}}').join(list);
+    fs.writeFileSync(path.join(CLASSES_OUT, c.slug + '.html'), out);
+    keep.add(c.slug + '.html');
+    console.log('built class page:', c.slug + '.html');
+  }
+  for (const f of fs.readdirSync(CLASSES_OUT)) {
+    if (f.endsWith('.html') && !keep.has(f)) {
+      fs.unlinkSync(path.join(CLASSES_OUT, f));
+      console.log('removed old class page:', f);
+    }
+  }
+}
+
+// Fills the Blog dropdown in every page's nav, between
+// <!-- BLOG_MENU_START --> and <!-- BLOG_MENU_END -->: the main blog, the
+// current classes, then finished ("Past") classes.
+function injectBlogMenuEverywhere(classes) {
+  const menu = prefix => {
+    const link = c => '          <a href="' + prefix + 'classes/' + c.slug + '.html">' + escapeHtml(c.code) +
+      (c.name ? '<small>' + escapeHtml(c.name) + '</small>' : '') + '</a>';
+    const active = classes.filter(c => !c.archived);
+    const past = classes.filter(c => c.archived);
+    return ['          <a href="' + prefix + 'blog.html">Personal blog</a>']
+      .concat(active.length ? ['          <span class="nav-dd-label">Classes</span>'].concat(active.map(link)) : [])
+      .concat(past.length ? ['          <span class="nav-dd-label">Past classes</span>'].concat(past.map(link)) : [])
+      .join('\n');
+  };
+  // 404.html can be served at any depth, so it uses root-absolute links.
+  const targets = ROOT_PAGES.map(f => [f, '']).concat([['404.html', '/']]);
+  for (const dir of ['posts', 'classes']) {
+    const abs = path.join(ROOT, dir);
+    if (!fs.existsSync(abs)) continue;
+    fs.readdirSync(abs).filter(f => f.endsWith('.html')).forEach(f => targets.push([dir + '/' + f, '../']));
+  }
+  for (const [rel, prefix] of targets) {
+    injectBetween(path.join(ROOT, rel), '<!-- BLOG_MENU_START -->', '<!-- BLOG_MENU_END -->', menu(prefix), '          ');
+  }
 }
 
 // Generates sitemap.xml at the project root. Lists all static pages plus
@@ -172,7 +326,7 @@ function setStat(file, values) {
   console.log('stats:', JSON.stringify(values));
 }
 
-function generateSitemap(posts) {
+function generateSitemap(posts, classes) {
   const today = new Date().toISOString().slice(0, 10);
   const entries = [
     { url: SITE_URL + '/',              lastmod: today, priority: '1.0' },
@@ -181,6 +335,9 @@ function generateSitemap(posts) {
     { url: SITE_URL + '/projects', lastmod: today, priority: '0.8' },
     { url: SITE_URL + '/resume',   lastmod: today, priority: '0.6' }
   ];
+  for (const c of classes) {
+    entries.push({ url: SITE_URL + '/classes/' + c.slug, lastmod: today, priority: c.archived ? '0.5' : '0.7' });
+  }
   for (const p of posts) {
     entries.push({
       url: SITE_URL + '/posts/' + p.slug,
@@ -217,14 +374,13 @@ function injectOgImageEverywhere() {
     '  <meta name="twitter:card" content="summary_large_image" />\n' +
     '  <meta name="twitter:image" content="' + absUrl + '" />';
 
-  const targets = [
-    'index.html', 'about.html', 'blog.html', 'projects.html', 'resume.html'
-  ].map(f => path.join(ROOT, f));
-  // Also inject into all generated post pages.
-  if (fs.existsSync(POSTS_OUT)) {
-    fs.readdirSync(POSTS_OUT)
+  const targets = ROOT_PAGES.map(f => path.join(ROOT, f));
+  // Also inject into all generated post and class pages.
+  for (const dir of [POSTS_OUT, CLASSES_OUT]) {
+    if (!fs.existsSync(dir)) continue;
+    fs.readdirSync(dir)
       .filter(f => f.endsWith('.html'))
-      .forEach(f => targets.push(path.join(POSTS_OUT, f)));
+      .forEach(f => targets.push(path.join(dir, f)));
   }
 
   let n = 0;

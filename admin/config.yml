@@ -1,8 +1,9 @@
 # Decap / Sveltia CMS configuration
 # Docs: https://decapcms.org/docs/configuration-options/
 #
-# Only blog posts are editable from /admin/. Everything else on the site
-# (homepage, about, projects, resume) is hard-coded in the HTML files.
+# Only blog posts and the class list are editable from /admin/. Everything
+# else on the site (homepage, about, projects, resume) is hard-coded in the
+# HTML files.
 #
 # OAuth proxy lives at /api/auth and /api/callback (Vercel serverless
 # functions). GitHub OAuth app's callback URL must point at
@@ -27,7 +28,7 @@ collections:
   - name: "posts"
     label: "Blog posts"
     label_singular: "Post"
-    description: "Write and edit blog posts. Personal posts and academic notes both live here — filter by category."
+    description: "Write and edit blog posts. Personal posts show on the main blog; class posts show on their class's page (pick the class below)."
     folder: "_posts"
     create: true
     delete: true
@@ -42,8 +43,35 @@ collections:
         default: "personal"
         options:
           - { label: "Personal Blog", value: "personal" }
-          - { label: "Academic Blog", value: "academic" }
+          - { label: "Class post", value: "academic" }
+      - label: "Class"
+        name: "course"
+        widget: "relation"
+        collection: "settings"
+        file: "classes"
+        value_field: "classes.*.code"
+        search_fields: ["classes.*.code", "classes.*.name"]
+        display_fields: ["classes.*.code"]
+        required: false
+        hint: "Only for class posts. Add new classes under Classes in the sidebar."
       - { label: "Short summary", name: "summary", widget: "string", hint: "1–2 sentences shown on the blog list page and in search engines." }
       - { label: "Reading time (minutes)", name: "readMinutes", widget: "number", default: 4, value_type: "int", min: 1, max: 90 }
       - { label: "Hide as draft", name: "draft", widget: "boolean", default: false, required: false, hint: "Check this to keep a post out of the live site while you finish writing it." }
       - { label: "Body", name: "body", widget: "markdown" }
+
+  - name: "settings"
+    label: "Classes"
+    description: "Each class gets its own page and a spot in the Blog menu. When you finish a class, switch on Finished to move it under Past classes."
+    files:
+      - name: "classes"
+        label: "Class list"
+        file: "_data/classes.json"
+        fields:
+          - label: "Classes"
+            name: "classes"
+            widget: "list"
+            summary: "{{fields.code}} — {{fields.name}}"
+            fields:
+              - { label: "Class code", name: "code", widget: "string", hint: "e.g. MKT 353. Used in the page address, so avoid changing it once posts use it." }
+              - { label: "Class name", name: "name", widget: "string", required: false, hint: "e.g. Web Business Creation" }
+              - { label: "Finished (move to Past classes)", name: "archived", widget: "boolean", default: false, required: false }

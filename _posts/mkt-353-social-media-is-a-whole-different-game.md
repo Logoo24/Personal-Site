@@ -2,6 +2,7 @@
 title: 'MKT 353: Social Media Is a Whole Different Game'
 date: 2026-07-09
 category: academic
+course: MKT 353
 summary: This week showed me that social and search ask for two very different things from me.
 readMinutes: 1
 draft: false

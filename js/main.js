@@ -96,16 +96,46 @@
     });
   }
 
+  // Blog dropdown: the chevron toggles it (hover also opens it on desktop,
+  // via CSS); clicking elsewhere or pressing Escape closes it.
+  document.querySelectorAll('.nav-dd').forEach(function (dd) {
+    var btn = dd.querySelector('.nav-dd-toggle');
+    if (!btn) return;
+    var setOpen = function (open) {
+      dd.classList.toggle('open', open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      setOpen(!dd.classList.contains('open'));
+    });
+    document.addEventListener('click', function (e) {
+      if (!dd.contains(e.target)) setOpen(false);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && dd.classList.contains('open')) { setOpen(false); btn.focus(); }
+    });
+  });
+
   // Active nav link. Compare bare page names so it works both locally
-  // (about.html) and on Vercel, where cleanUrls serves /about. Post pages
-  // highlight Blog.
+  // (about.html) and on Vercel, where cleanUrls serves /about. Post and
+  // class pages highlight Blog; a class page also highlights its entry in
+  // the Blog dropdown.
   function pageName(p) {
     return (p.split(/[?#]/)[0].split('/').pop() || 'index').replace(/\.html$/, '');
   }
-  var current = /\/posts\//.test(location.pathname) ? 'blog' : pageName(location.pathname);
+  var path = location.pathname;
+  var onPost = /\/posts\//.test(path);
+  var onClass = /\/classes\//.test(path);
+  var current = pageName(path);
   document.querySelectorAll('.nav-links a').forEach(function (a) {
     var href = a.getAttribute('href');
-    if (href && pageName(href) === current) {
+    if (!href) return;
+    var name = pageName(href);
+    var match = a.closest('.nav-dd-menu')
+      ? !onPost && name === current && /(^|\/)classes\//.test(href) === onClass
+      : (name === current && !onPost && !onClass) || ((onPost || onClass) && name === 'blog');
+    if (match) {
       a.classList.add('active');
       a.setAttribute('aria-current', 'page');
     }

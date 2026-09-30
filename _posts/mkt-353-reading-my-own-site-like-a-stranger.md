@@ -1,7 +1,8 @@
 ---
 title: 'MKT 353: Reading My Own Site Like a Stranger'
 date: 2026-07-06
-category: personal
+category: academic
+course: MKT 353
 summary: A week of landing page optimization and basic SEO that made me realize my site was not saying what I thought it was.
 readMinutes: 1
 draft: false

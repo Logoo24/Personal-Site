@@ -2,6 +2,7 @@
 title: 'MKT 353: Sourcing the Product'
 date: 2026-05-11
 category: academic
+course: MKT 353
 summary: Why cheap suppliers aren't always cheap once you factor in shipping and quality.
 readMinutes: 1
 draft: false

@@ -196,6 +196,60 @@ section { padding: clamp(3rem, 8vw, 7rem) 0; position: relative; }
 .nav-links a:hover, .nav-links a.active { color: var(--accent); }
 .nav-links a:hover::after, .nav-links a.active::after { width: 100%; }
 
+/* Blog dropdown. "Blog" itself is a normal link to the main blog; the
+   chevron button (or hovering, on desktop) opens the list of classes.
+   The menu's contents are written by build.js between BLOG_MENU markers. */
+.nav-dd { position: relative; display: flex; align-items: center; gap: 0.2rem; }
+.nav-dd-toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; padding: 0;
+  background: none; border: 0; border-radius: 4px;
+  color: var(--text-soft); cursor: pointer;
+}
+.nav-dd-toggle svg { width: 14px; height: 14px; transition: transform .25s var(--ease-out); }
+.nav-dd-toggle:hover, .nav-dd.open .nav-dd-toggle { color: var(--accent); }
+.nav-dd-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.nav-dd.open .nav-dd-toggle svg { transform: rotate(180deg); }
+.nav-dd-menu {
+  position: absolute; top: calc(100% + 0.75rem); left: 50%;
+  min-width: 240px; padding: 0.45rem;
+  display: flex; flex-direction: column;
+  background: var(--bg);
+  border: 1px solid var(--line-strong); border-radius: 10px;
+  box-shadow: var(--shadow);
+  opacity: 0; visibility: hidden;
+  transform: translate(-50%, -6px);
+  transition: opacity .2s var(--ease-out), transform .2s var(--ease-out), visibility 0s linear .2s;
+}
+/* Invisible bridge so the menu doesn't close while the mouse crosses the gap */
+.nav-dd-menu::before { content: ""; position: absolute; left: 0; right: 0; top: -0.8rem; height: 0.8rem; }
+.nav-dd.open .nav-dd-menu {
+  opacity: 1; visibility: visible; transform: translate(-50%, 0);
+  transition: opacity .2s var(--ease-out), transform .2s var(--ease-out), visibility 0s;
+}
+@media (hover: hover) and (min-width: 761px) {
+  .nav-dd:hover .nav-dd-menu {
+    opacity: 1; visibility: visible; transform: translate(-50%, 0);
+    transition: opacity .2s var(--ease-out), transform .2s var(--ease-out), visibility 0s;
+  }
+  .nav-dd:hover .nav-dd-toggle { color: var(--accent); }
+  .nav-dd:hover .nav-dd-toggle svg { transform: rotate(180deg); }
+}
+.nav-links .nav-dd-menu a {
+  display: flex; flex-direction: column;
+  padding: 0.5rem 0.75rem; border-radius: 6px;
+  color: var(--text); font-size: 0.9rem; white-space: nowrap;
+}
+.nav-links .nav-dd-menu a::after { display: none; }
+.nav-links .nav-dd-menu a:hover,
+.nav-links .nav-dd-menu a.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.nav-dd-menu small { font-size: 0.76rem; font-weight: 400; color: var(--text-muted); }
+.nav-dd-label {
+  padding: 0.7rem 0.75rem 0.3rem;
+  font-size: 0.66rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+
 /* Theme toggle button */
 .theme-toggle {
   background: transparent;
@@ -308,6 +362,23 @@ section { padding: clamp(3rem, 8vw, 7rem) 0; position: relative; }
   .nav-links a:hover::after, .nav-links a.active::after { width: calc(100% - 2rem); }
   .nav-toggle { display: block; }
   body.menu-open { overflow: hidden; }
+  .nav-links { overflow-y: auto; }
+
+  /* In the full-screen menu the class list opens inline under "Blog". */
+  .nav-dd { flex-wrap: wrap; justify-content: center; }
+  .nav-dd-toggle { width: 36px; height: 36px; }
+  .nav-dd-toggle svg { width: 20px; height: 20px; }
+  .nav-dd-menu {
+    position: static; flex-basis: 100%;
+    min-width: 0; margin-top: 0.5rem; padding: 0;
+    align-items: center;
+    background: none; border: 0; box-shadow: none;
+    transform: none; display: none;
+  }
+  .nav-dd-menu::before { display: none; }
+  .nav-dd.open .nav-dd-menu { display: flex; transform: none; }
+  .nav-links .nav-dd-menu a { font-size: 1.05rem; align-items: center; text-align: center; padding: 0.4rem 1rem; }
+  .nav-links .nav-dd-menu a.active { background: none; }
 }
 
 /* ========== HERO ========== */
@@ -531,6 +602,24 @@ a.card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .feature-row:hover .arrow { transform: translate(6px, -6px); }
 .feature-row a, a.feature-row { color: inherit; }
 a.feature-row:hover h3 { color: var(--accent); }
+
+/* ========== POST LISTS (blog.html + class pages) ========== */
+.post-card { display: block; padding: 2rem 0; border-top: 1px solid var(--line); transition: padding .35s var(--ease-out); }
+.post-card:last-of-type { border-bottom: 1px solid var(--line); }
+.post-card:hover { padding-left: 1rem; }
+.post-card:hover h3 { color: var(--accent); }
+.post-meta { display: flex; gap: 1rem; font-size: 0.82rem; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 0.6rem; }
+.post-card h3 { font-size: clamp(1.4rem, 2.4vw, 1.85rem); transition: color .25s var(--ease-out); color: var(--text); }
+.post-card p { margin-top: 0.6rem; max-width: 720px; }
+.post-empty { padding: 2rem 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.post-empty p { max-width: 720px; }
+.post-empty p + p { margin-top: 0.5rem; }
+.post-empty a { color: var(--accent); font-weight: 600; }
+.class-facts { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.5rem; }
+.class-facts span {
+  padding: 0.3rem 0.8rem; border: 1px solid var(--line-strong); border-radius: 99px;
+  font-size: 0.8rem; font-weight: 500; color: var(--text-soft);
+}
 
 @media (max-width: 720px) {
   /* Date on its own line, then title with the arrow pinned to its right. */

@@ -20,11 +20,12 @@ There are no tests and no linter. To preview locally, run a static file server f
 
 ## Build pipeline (`build.js`)
 
-`npm run build` does six things:
+`npm run build` does these things:
 
 1. For each `_posts/*.md` (skipping `draft: true`): parses frontmatter with `gray-matter`, renders markdown with `marked`, substitutes `{{key}}` placeholders into `_src/post-template.html`, writes to `posts/<slug>.html`.
-2. Rewrites the post list inside `blog.html` between the literal HTML comments `<!-- POSTS_START -->` and `<!-- POSTS_END -->`.
-3. Rewrites the top-3 recent posts inside `index.html` between `<!-- RECENT_POSTS_START -->` and `<!-- RECENT_POSTS_END -->`.
+2. Rewrites the post list inside `blog.html` between the literal HTML comments `<!-- POSTS_START -->` and `<!-- POSTS_END -->`. **Personal posts only** — class posts live on their class page (see "Classes" below). With no personal posts it writes an empty-state message linking to the class pages.
+3. Rewrites the top-3 recent **personal** posts inside `index.html` between `<!-- RECENT_POSTS_START -->` and `<!-- RECENT_POSTS_END -->` (falls back to links to the class pages when there are none).
+3b. Writes one page per class, `classes/<slug>.html`, from `_src/class-template.html` (deletes pages for classes no longer in the list), and fills the nav's Blog dropdown on every page (root pages, `404.html` with root-absolute links, `posts/*`, `classes/*`) between `<!-- BLOG_MENU_START -->` / `<!-- BLOG_MENU_END -->`.
 4. Writes the homepage stats via `setStat()`, which rewrites the `<div data-stat="…" data-count="N">N</div>` elements in `index.html`: projects shipped (count of `.proj` cards in `projects.html`), blog posts, and academic posts.
 5. Injects `<meta og:image>` / `<meta twitter:image>` tags into every page (including each generated post) between `<!-- OG_IMAGE_START -->` and `<!-- OG_IMAGE_END -->` markers. The URL is `SITE_URL` + `OG_IMAGE` (both constants in `build.js`; currently `/images/og-card.jpg`, a 1200×630 JPG). Social crawlers don't run JS, so these tags **have to** be baked in at build time — and the image must be PNG/JPG, since most crawlers ignore SVG.
 6. Generates `sitemap.xml` at the repo root listing every static page + every blog post (with publish date as `lastmod`), using clean URLs (`/about`, `/posts/<slug>`) since `vercel.json` has `cleanUrls: true`. `robots.txt` references the sitemap so crawlers find it.
@@ -46,13 +47,18 @@ Slug = filename minus `.md`, lowercased, non-`[a-z0-9-]` replaced with `-`. Date
 title: "..."
 date: 2026-06-15
 category: personal | academic    # the only two live categories
+course: "MKT 353"                 # academic posts only: which class
 summary: "..."
 readMinutes: 5
 draft: false
 ---
 ```
 
-`build.js` `CATEGORY_LABELS` also accepts the legacy values `essay`/`class`/`research`/`project` and maps them onto the two new labels, so un-migrated old posts still render — but new posts should use the two-value set. The blog page's filter pills (`blog.html`) and the CMS category options (`admin/config.yml`) are both pinned to the two new values, so out-of-set values won't be filterable.
+`build.js` `CATEGORY_LABELS` also accepts the legacy values `essay`/`class`/`research`/`project` and maps them onto the two new labels, so un-migrated old posts still render — but new posts should use the two-value set (`academic`/`class`/`research` all count as class posts).
+
+**Classes**: the class list is `_data/classes.json` (`{ classes: [{ code, name, archived }] }`), editable from `/admin/` → Classes. Slug = `code` lowercased with non-alphanumerics → `-` (`MKT 353` → `mkt-353`), so changing a class's code changes its URL. An academic post's `course` is matched to a class by slug; a class not in the list gets a page anyway (build warns), and an academic post with no `course` goes under "Other classes". `archived: true` moves a class from "Classes" to "Past classes" in the Blog dropdown and labels its page "Past class" — the page and its posts stay live. Class posts' "back" button links to their class page instead of `blog.html`.
+
+**Blog dropdown** (`li.nav-dd` in every page's nav, including `_src/post-template.html`, `_src/class-template.html` and `404.html`): the "Blog" word is a normal link to `blog.html`; the chevron `button.nav-dd-toggle` toggles `.open` (wired in `main.js`), and on desktop hovering also opens it (CSS). In the mobile full-screen menu the list opens inline under Blog. Any new page with a nav needs the same `li.nav-dd` block with the BLOG_MENU markers, and `build.js` must know about it (`ROOT_PAGES`).
 
 **Projects** appear in two independent places: the homepage "Selected work" grid (`index.html`, plain `.card`s) and the full list on `projects.html`. On the projects page each project is a `.card.proj-card` inside a `.proj.proj--<name>` wrapper in a 2-column `.proj-grid`. A project with a custom look gets styles under `.proj--<name>` in `css/projects.css`, and can put decoration in a `.proj-behind` div that renders under the card (z-index 0) — that's how the ChooseAMovie popcorn bucket peeks over the card's top edge. Linked cards are `<a class="card proj-card">`; external links use `target="_blank" rel="noopener"` and a `↗` in the corner label. The ChooseAMovie card hotlinks its logo from `https://www.chooseamovie.app/brand/logo-lockup.svg` and falls back to a text wordmark via an inline `onerror`.
 
@@ -64,7 +70,7 @@ draft: false
 
 ## CMS (`/admin/`)
 
-Sveltia CMS (a Decap-compatible drop-in, loaded in `admin/index.html`) configured in `admin/config.yml`. It has a single collection: blog posts in `_posts/`. If you add a frontmatter field that the build uses, add it to that collection too.
+Sveltia CMS (a Decap-compatible drop-in, loaded in `admin/index.html`) configured in `admin/config.yml`. Two collections: blog posts in `_posts/`, and "Classes" (a file collection editing `_data/classes.json`). A post's Class field is a relation widget onto that class list. If you add a frontmatter field that the build uses, add it to the posts collection too.
 
 Auth flow (Vercel serverless, in `api/`):
 - `api/auth.js` — redirects to GitHub OAuth authorize URL.
@@ -91,7 +97,7 @@ Anywhere content was intentionally left blank for Logan to fill in, the literal 
 
 ## Things that bite
 
-- The `injectBetween` markers in `index.html` / `blog.html` / every page's `<head>` are required — losing them silently breaks the build's output without an error. The full marker set: `POSTS_START`/`POSTS_END` (blog.html), `RECENT_POSTS_START`/`RECENT_POSTS_END` (index.html), `OG_IMAGE_START`/`OG_IMAGE_END` (every page's `<head>`).
+- The `injectBetween` markers in `index.html` / `blog.html` / every page's `<head>` are required — losing them silently breaks the build's output without an error. The full marker set: `POSTS_START`/`POSTS_END` (blog.html), `RECENT_POSTS_START`/`RECENT_POSTS_END` (index.html), `OG_IMAGE_START`/`OG_IMAGE_END` (every page's `<head>`), `BLOG_MENU_START`/`BLOG_MENU_END` (every page's nav).
 - All three homepage stats are rewritten by `build.js` via their `data-stat` attributes (projects shipped = number of `<article class="proj …">` cards in `projects.html`; blog posts and academic posts from `_posts/`) — keep the `data-stat="…" data-count="…"` attribute order, since `setStat()` matches it with a regex. Don't hand-edit those numbers.
 - `SITE_URL` in `build.js` is hardcoded to `https://www.loganbrandall.com`. If the domain ever changes, update it there or social-share previews will point at the old URL.
 - The hero photo's height is pinned via CSS `clamp()` (`clamp(540px, 72vh, 780px)` on desktop, `clamp(360px, 50vh, 500px)` under 900px wide) for the cutout variant. The previous viewport-based `max-height: 82vh` caused the image to render at wildly different sizes on different laptops; don't revert it.
