@@ -196,6 +196,27 @@
 
     if (window.gsap && window.ScrollTrigger) {
       gsap.registerPlugin(ScrollTrigger);
+      // Phones resize the viewport every time the address bar slides in or
+      // out; recalculating every trigger on each of those causes hitches.
+      ScrollTrigger.config({ ignoreMobileResize: true });
+
+      // GSAP sets transform/opacity on every frame. If the element also has
+      // a CSS transition on those properties (.reveal, .card and .btn all
+      // do), each frame's value gets eased toward instead of applied, and
+      // the animation looks laggy. So: switch the element's transitions off
+      // while GSAP animates it, then hand it back to CSS when it's done -
+      // which also frees its transform again for hover effects.
+      // (The transition comes back a couple of frames after the final state
+      // is in place, so restoring it can't itself kick off a transition.)
+      function takeOver(targets) { gsap.set(targets, { transition: 'none' }); }
+      function handBack(targets) {
+        return function () {
+          gsap.set(targets, { clearProps: 'transform,opacity' });
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () { gsap.set(targets, { clearProps: 'transition' }); });
+          });
+        };
+      }
 
       var tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
       var eb = document.querySelector('.hero .eyebrow');
@@ -205,7 +226,10 @@
       if (eb) tl.from(eb, { y: 24, opacity: 0, duration: 0.7 });
       if (words.length) tl.from(words, { y: 110, opacity: 0, stagger: 0.08, duration: 1.1 }, '-=0.4');
       if (lede) tl.from(lede, { y: 24, opacity: 0, duration: 0.8 }, '-=0.6');
-      if (btns.length) tl.from(btns, { y: 18, opacity: 0, stagger: 0.1, duration: 0.6 }, '-=0.5');
+      if (btns.length) {
+        takeOver(btns);
+        tl.from(btns, { y: 18, opacity: 0, stagger: 0.1, duration: 0.6, onComplete: handBack(btns) }, '-=0.5');
+      }
 
       if (document.querySelector('.hero-orb.one')) {
         gsap.to('.hero-orb.one', { yPercent: 30, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true } });
@@ -228,18 +252,23 @@
         } else {
           to.scrollTrigger = { trigger: node, start: 'top 85%', toggleActions: 'play none none none' };
         }
+        // Once revealed, .reveal.in holds the visible state in CSS.
+        to.onComplete = function () { node.classList.add('in'); handBack(node)(); };
+        takeOver(node);
         gsap.fromTo(node, { y: 40, opacity: 0 }, to);
       });
 
       gsap.utils.toArray('.feature-row').forEach(function (row) {
-        gsap.from(row, { y: 30, opacity: 0, duration: 0.8, ease: 'power3.out',
+        takeOver(row);
+        gsap.from(row, { y: 30, opacity: 0, duration: 0.8, ease: 'power3.out', onComplete: handBack(row),
           scrollTrigger: { trigger: row, start: 'top 88%' } });
       });
 
       gsap.utils.toArray('.grid').forEach(function (grid) {
         var items = grid.querySelectorAll('.card');
         if (!items.length) return;
-        gsap.from(items, { y: 40, opacity: 0, duration: 0.9, stagger: 0.12, ease: 'power3.out',
+        takeOver(items);
+        gsap.from(items, { y: 40, opacity: 0, duration: 0.9, stagger: 0.12, ease: 'power3.out', onComplete: handBack(items),
           scrollTrigger: { trigger: grid, start: 'top 85%' } });
       });
 

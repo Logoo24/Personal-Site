@@ -523,6 +523,9 @@ section { padding: clamp(3rem, 8vw, 7rem) 0; position: relative; }
   opacity: 0.65;
   z-index: 1;
   pointer-events: none;
+  /* The orbs drift as you scroll. Their own layer means the (expensive)
+     blur is drawn once and then just moved, not redrawn every frame. */
+  will-change: transform;
 }
 /* Orbs scale with viewport — they're decorative atmosphere, not content,
    so they grow on big screens and shrink on phones rather than sitting at
@@ -677,7 +680,7 @@ a.feature-row:hover h3 { color: var(--accent); }
 
 /* ========== STATS / NUMBERS ========== */
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr)); gap: 2rem; padding: 3rem 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); text-align: center; }
-.stat .num { font-family: var(--display); font-size: clamp(2.4rem, 4vw, 3.4rem); color: var(--accent); line-height: 1; font-weight: 700; letter-spacing: -0.03em; }
+.stat .num { font-variant-numeric: tabular-nums; font-family: var(--display); font-size: clamp(2.4rem, 4vw, 3.4rem); color: var(--accent); line-height: 1; font-weight: 700; letter-spacing: -0.03em; }
 .stat .lbl { font-size: 0.78rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); margin-top: 0.6rem; font-weight: 600; }
 @media (max-width: 520px) {
   /* Keep all three on one row rather than wrapping to 2 + 1 */
