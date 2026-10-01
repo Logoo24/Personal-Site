@@ -47,6 +47,40 @@ const CLASS_CATEGORIES = new Set(['academic', 'class', 'research']);
 // Class used for an academic post that doesn't say which class it's for.
 const FALLBACK_CLASS = 'Other classes';
 
+// Images in posts. Markdown has no way to say where an image sits, so the
+// image's *title* carries it: ![alt](src "left"), "right" or "center"
+// (the default), optionally followed by a caption - "right: My caption".
+// A title without a position word is just a caption on a centered image.
+// Left/right images float with the text wrapping around them.
+marked.use({
+  renderer: {
+    image(href, title, text) {
+      const m = /^\s*(left|right|center|centre)\b\s*[:|\-–—]?\s*([\s\S]*)$/i.exec(title || '');
+      const pos = m ? m[1].toLowerCase().replace('centre', 'center') : 'center';
+      const caption = (m ? m[2] : (title || '')).trim();
+      return '<figure class="post-img post-img--' + pos + '">' +
+        '<img src="' + escapeHtml(href) + '" alt="' + escapeHtml(text || '') + '" loading="lazy" decoding="async" />' +
+        (caption ? '<figcaption>' + escapeHtml(caption) + '</figcaption>' : '') +
+        '</figure>';
+    }
+  }
+});
+
+// marked wraps an image in the paragraph it was typed in, but a <figure>
+// can't live inside a <p>. Lift each figure out in front of its paragraph
+// (so a floated image still sits beside the text that followed it).
+function renderMarkdown(md) {
+  let html = marked.parse(md || '');
+  const figure = '<figure class="post-img[\\s\\S]*?</figure>';
+  const inPara = new RegExp('<p>((?:(?!</p>)[\\s\\S])*?)(' + figure + ')\\s*', 'g');
+  let prev;
+  do {
+    prev = html;
+    html = html.replace(inPara, (all, before, fig) => (before.trim() ? '<p>' + before.trim() + '</p>\n' : '') + fig + '\n<p>');
+  } while (html !== prev);
+  return html.replace(/<p>\s*<\/p>\n?/g, '');
+}
+
 function slugify(s) {
   return String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
@@ -159,7 +193,7 @@ function build() {
       readMinutes: data.readMinutes || 4,
       backHref: cls ? '../classes/' + cls.slug + '.html' : '../blog.html',
       backLabel: cls ? 'All ' + cls.code + ' posts' : 'All posts',
-      body: marked.parse(parsed.content || ''),
+      body: renderMarkdown(parsed.content),
       cls
     });
   }

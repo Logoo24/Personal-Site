@@ -21,6 +21,18 @@ backend:
 media_folder: "images/uploads"
 public_folder: "/images/uploads"
 
+# Shrink photos as they're uploaded (phone photos are far bigger than a
+# blog post needs). Sveltia CMS feature; SVGs and GIFs are left alone.
+media_libraries:
+  default:
+    config:
+      transformations:
+        raster_image:
+          format: webp
+          quality: 85
+          width: 1600
+          height: 1600
+
 # Preview links while editing posts
 show_preview_links: true
 
@@ -57,7 +69,10 @@ collections:
       - { label: "Short summary", name: "summary", widget: "string", hint: "1–2 sentences shown on the blog list page and in search engines." }
       - { label: "Reading time (minutes)", name: "readMinutes", widget: "number", default: 4, value_type: "int", min: 1, max: 90 }
       - { label: "Hide as draft", name: "draft", widget: "boolean", default: false, required: false, hint: "Check this to keep a post out of the live site while you finish writing it." }
-      - { label: "Body", name: "body", widget: "markdown" }
+      - label: "Body"
+        name: "body"
+        widget: "markdown"
+        hint: "Images: insert one, then type left, right or center in its Title box to place it (left/right wrap the text around it). Add a caption after a colon, e.g. right: Our storefront."
 
   - name: "settings"
     label: "Classes"
