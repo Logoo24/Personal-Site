@@ -55,6 +55,12 @@ const FALLBACK_CLASS = 'Other classes';
 marked.use({
   renderer: {
     image(href, title, text) {
+      // marked hands these over already HTML-escaped; undo that so the
+      // escapeHtml() calls below don't escape them twice (&#39; showing
+      // up literally in a caption).
+      const raw = s => String(s || '').replace(/&(amp|lt|gt|quot|#39);/g,
+        (all, e) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" })[e]);
+      href = raw(href); title = raw(title); text = raw(text);
       const m = /^\s*(left|right|center|centre)\b\s*[:|\-–—]?\s*([\s\S]*)$/i.exec(title || '');
       const pos = m ? m[1].toLowerCase().replace('centre', 'center') : 'center';
       const caption = (m ? m[2] : (title || '')).trim();
