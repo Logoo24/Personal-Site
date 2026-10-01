@@ -332,7 +332,7 @@ function injectBlogMenuEverywhere(classes) {
       (c.name ? '<small>' + escapeHtml(c.name) + '</small>' : '') + '</a>';
     const active = classes.filter(c => !c.archived);
     const past = classes.filter(c => c.archived);
-    return ['          <a href="' + prefix + 'blog.html">Personal blog</a>']
+    return ['          <a href="' + prefix + 'blog.html" class="nav-dd-main">Personal blog<small>Life, work &amp; everything else</small></a>']
       .concat(active.length ? ['          <span class="nav-dd-label">Classes</span>'].concat(active.map(link)) : [])
       .concat(past.length ? ['          <span class="nav-dd-label">Past classes</span>'].concat(past.map(link)) : [])
       .join('\n');

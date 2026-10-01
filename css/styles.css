@@ -244,6 +244,9 @@ section { padding: clamp(3rem, 8vw, 7rem) 0; position: relative; }
 .nav-links .nav-dd-menu a:hover,
 .nav-links .nav-dd-menu a.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, transparent); }
 .nav-dd-menu small { font-size: 0.76rem; font-weight: 400; color: var(--text-muted); }
+/* The main blog leads the menu: same two-line shape as a class, set a
+   touch heavier so it reads as the primary choice. */
+.nav-links .nav-dd-menu a.nav-dd-main { font-size: 0.95rem; font-weight: 600; }
 .nav-dd-label {
   padding: 0.7rem 0.75rem 0.3rem;
   font-size: 0.66rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
@@ -378,6 +381,7 @@ section { padding: clamp(3rem, 8vw, 7rem) 0; position: relative; }
   .nav-dd-menu::before { display: none; }
   .nav-dd.open .nav-dd-menu { display: flex; transform: none; }
   .nav-links .nav-dd-menu a { font-size: 1.05rem; align-items: center; text-align: center; padding: 0.4rem 1rem; }
+  .nav-links .nav-dd-menu a.nav-dd-main { font-size: 1.1rem; }
   .nav-links .nav-dd-menu a.active { background: none; }
 }
 
