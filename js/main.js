@@ -214,10 +214,21 @@
         gsap.to('.hero-orb.two', { yPercent: -25, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true } });
       }
 
+      // Anything already on screen at load fades in right away (lightly
+      // staggered); the scroll trigger only fires once an element is 15%
+      // up the viewport, which on tall screens would leave the bottom of
+      // the first screen blank. Everything further down reveals on scroll.
+      // (10% slack, since web fonts can still nudge the layout after this.)
+      var onScreen = 0;
+      var fold = window.innerHeight * 1.1;
       gsap.utils.toArray('.reveal').forEach(function (node) {
-        gsap.fromTo(node, { y: 40, opacity: 0 },
-          { y: 0, opacity: 1, duration: 1, ease: 'power3.out',
-            scrollTrigger: { trigger: node, start: 'top 85%', toggleActions: 'play none none none' } });
+        var to = { y: 0, opacity: 1, duration: 1, ease: 'power3.out' };
+        if (node.getBoundingClientRect().top < fold) {
+          to.delay = Math.min(onScreen++ * 0.08, 0.5);
+        } else {
+          to.scrollTrigger = { trigger: node, start: 'top 85%', toggleActions: 'play none none none' };
+        }
+        gsap.fromTo(node, { y: 40, opacity: 0 }, to);
       });
 
       gsap.utils.toArray('.feature-row').forEach(function (row) {
@@ -256,6 +267,10 @@
         if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
       });
     }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
-    document.querySelectorAll('.reveal, .split-reveal').forEach(function (n) { io.observe(n); });
+    document.querySelectorAll('.reveal, .split-reveal').forEach(function (n) {
+      // Same rule as above: what's on screen at load shows immediately.
+      if (n.getBoundingClientRect().top < window.innerHeight * 1.1) n.classList.add('in');
+      else io.observe(n);
+    });
   });
 })();

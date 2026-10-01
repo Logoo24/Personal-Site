@@ -62,7 +62,7 @@ draft: false
 
 **Projects** appear in two independent places: the homepage "Selected work" grid (`index.html`, plain `.card`s) and the full list on `projects.html`. On the projects page each project is a `.card.proj-card` inside a `.proj.proj--<name>` wrapper in a 2-column `.proj-grid`. A project with a custom look gets styles under `.proj--<name>` in `css/projects.css`, and can put decoration in a `.proj-behind` div that renders under the card (z-index 0) — that's how the ChooseAMovie popcorn bucket peeks over the card's top edge. Linked cards are `<a class="card proj-card">`; external links use `target="_blank" rel="noopener"` and a `↗` in the corner label. The ChooseAMovie card hotlinks its logo from `https://www.chooseamovie.app/brand/logo-lockup.svg` and falls back to a text wordmark via an inline `onerror`.
 
-**Images**: the homepage hero is `images/logan-hero-720.webp` / `-1040.webp` (via `srcset`), generated from the original full-res cutout `images/logan-hero-cutout.svg` (which is just two embedded PNGs: photo + luminance mask; it's 4 MB, so never reference it from a page). The About page uses `images/about-logan-marisa.jpg` (hero, 4:5 crop) and `images/about-wedding-day.jpg` (inline `.figure`); the Resume portrait still points at `images/placeholders/portrait.svg`. There's no image tooling in `package.json` — photos were resized with Windows' System.Drawing, and project screenshots captured with headless Chrome.
+**Images**: the homepage hero is `images/logan-hero-720.webp` / `-1040.webp` (via `srcset`), generated from the original full-res cutout `images/logan-hero-cutout.svg` (which is just two embedded PNGs: photo + luminance mask; it's 4 MB, so never reference it from a page). The About page uses `images/about-logan-marisa.jpg` (hero, 4:5 crop) and `images/about-wedding-day.jpg` (inline `.figure`); the Resume headshot is `images/logan-headshot.webp` (a 694×694 square, cropped to 4:5 by CSS). There's no image tooling in `package.json` — photos were resized with Windows' System.Drawing, and project screenshots captured with headless Chrome.
 
 **Social links** (LinkedIn, Instagram, Facebook, email) are a `ul.socials` list duplicated in `about.html` and `resume.html` — keep the two in sync. On print, the resume's social links show their full URLs.
 
@@ -93,7 +93,7 @@ Auth flow (Vercel serverless, in `api/`):
 
 ## Content placeholder convention
 
-Anywhere content was intentionally left blank for Logan to fill in, the literal word `Placeholder` is used (vs. fake bio copy), with a `TODO(Logan)` HTML comment nearby. Search the repo for either to find every spot that still needs real content (currently just the Resume headshot).
+Anywhere content was intentionally left blank for Logan to fill in, the literal word `Placeholder` is used (vs. fake bio copy), with a `TODO(Logan)` HTML comment nearby. Search the repo for either to find every spot that still needs real content (currently none).
 
 ## Things that bite
 
