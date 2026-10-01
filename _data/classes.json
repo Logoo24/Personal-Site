@@ -3,6 +3,11 @@
     {
       "code": "MKT 353",
       "name": "Web Business Creation",
+      "archived": true
+    },
+    {
+      "code": "HUM 202",
+      "name": "Searching for Meaning in the Modern World",
       "archived": false
     }
   ]
