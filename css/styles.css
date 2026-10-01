@@ -195,6 +195,12 @@ section { padding: clamp(3rem, 8vw, 7rem) 0; position: relative; }
 }
 .nav-links a:hover, .nav-links a.active { color: var(--accent); }
 .nav-links a:hover::after, .nav-links a.active::after { width: 100%; }
+/* Center the links on the page itself. Left to flexbox they sit between
+   the brand and the theme toggle, which are different widths, so they'd
+   land off-center. */
+@media (min-width: 761px) {
+  .nav-links { position: absolute; left: 50%; transform: translateX(-50%); }
+}
 
 /* Blog dropdown. "Blog" itself is a normal link to the main blog; the
    chevron button (or hovering, on desktop) opens the list of classes.
@@ -543,6 +549,9 @@ section { padding: clamp(3rem, 8vw, 7rem) 0; position: relative; }
 .section-head { margin-bottom: 3.5rem; max-width: 720px; }
 .section-head h2 { margin-top: 1rem; }
 .section-head p { margin-top: 1.1rem; font-size: 1.05rem; }
+/* Heading on the left, its "see all" link on the right, sharing a baseline */
+.section-head--row { max-width: none; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1.5rem 2rem; }
+.section-head--row > div { max-width: 720px; }
 
 /* ========== CARDS / GRID ========== */
 .grid { display: grid; gap: 1.75rem; }
@@ -558,6 +567,9 @@ section { padding: clamp(3rem, 8vw, 7rem) 0; position: relative; }
   grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 400px));
   justify-content: center;
 }
+/* Cards share the full row, so the grid's edges line up with the section
+   heading above it. */
+.grid--fill { grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); }
 
 .card {
   background: var(--bg-alt);
@@ -643,7 +655,7 @@ a.feature-row:hover h3 { color: var(--accent); }
 .split .label h2 { margin-top: 1rem; }
 
 /* ========== STATS / NUMBERS ========== */
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr)); gap: 2rem; padding: 3rem 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr)); gap: 2rem; padding: 3rem 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); text-align: center; }
 .stat .num { font-family: var(--display); font-size: clamp(2.4rem, 4vw, 3.4rem); color: var(--accent); line-height: 1; font-weight: 700; letter-spacing: -0.03em; }
 .stat .lbl { font-size: 0.78rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); margin-top: 0.6rem; font-weight: 600; }
 
