@@ -28,7 +28,7 @@ const RECIPES_SRC = path.join(ROOT, '_recipes');
 const RECIPES_OUT = path.join(ROOT, 'recipes');
 
 // Top-level pages that carry the site nav (and so the Blog dropdown).
-const ROOT_PAGES = ['index.html', 'about.html', 'blog.html', 'recipes.html', 'projects.html', 'resume.html'];
+const ROOT_PAGES = ['index.html', 'about.html', 'blog.html', 'recipes.html', 'projects.html', 'resume.html', 'privacy.html'];
 
 // Absolute URL of the production site. Used to build absolute URLs for
 // Open Graph / Twitter share-card image meta tags (social crawlers don't
@@ -398,7 +398,8 @@ function generateSitemap(posts, classes, recipes) {
     { url: SITE_URL + '/blog',     lastmod: today, priority: '0.8' },
     { url: SITE_URL + '/recipes',  lastmod: today, priority: '0.6' },
     { url: SITE_URL + '/projects', lastmod: today, priority: '0.8' },
-    { url: SITE_URL + '/resume',   lastmod: today, priority: '0.6' }
+    { url: SITE_URL + '/resume',   lastmod: today, priority: '0.6' },
+    { url: SITE_URL + '/privacy',  lastmod: today, priority: '0.3' }
   ];
   for (const c of classes) {
     entries.push({ url: SITE_URL + '/classes/' + c.slug, lastmod: today, priority: c.archived ? '0.5' : '0.7' });

@@ -716,6 +716,9 @@ a.feature-row:hover h3 { color: var(--accent); }
   letter-spacing: 0.05em;
 }
 .footer-signin:hover { color: var(--accent); border-color: var(--accent); }
+.footer-legal { display: inline-flex; align-items: center; gap: 1.1rem; }
+.footer-privacy { font-size: 0.78rem; color: var(--text-muted); font-weight: 500; letter-spacing: 0.05em; }
+.footer-privacy:hover { color: var(--accent); }
 
 /* ========== ARTICLE / POST ========== */
 .article { padding-top: 8rem; padding-bottom: 6rem; }
