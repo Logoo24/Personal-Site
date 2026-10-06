@@ -37,6 +37,7 @@
     lock: I('<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'),
     list: I('<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>'),
     quote: I('<path d="M3 21c3 0 7-1 7-8V5H3v7h4c0 3.5-1.5 5-4 6zM14 21c3 0 7-1 7-8V5h-7v7h4c0 3.5-1.5 5-4 6z"/>'),
+    bookmark: I('<path d="M6 3h12v18l-6-4.5L6 21z"/>'),
     sparkle: I('<path d="M10 3c.7 4.1 2.9 6.3 7 7-4.1.7-6.3 2.9-7 7-.7-4.1-2.9-6.3-7-7 4.1-.7 6.3-2.9 7-7z"/><path d="M18.5 15c.3 1.7 1.3 2.7 3 3-1.7.3-2.7 1.3-3 3-.3-1.7-1.3-2.7-3-3 1.7-.3 2.7-1.3 3-3z"/>'),
     sun: I('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>', ' class="sun" stroke-width="2.25"'),
     moon: I('<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>', ' class="moon" stroke-width="2.25"')
@@ -295,10 +296,20 @@
 
   applyTheme(document.documentElement.getAttribute('data-theme') || 'light');
 
+  /* ---------- "Want to make" ----------
+     A special tag for recipes the family hasn't tried yet. They stay out of
+     the cookbook proper (All, the other tags, search, the home page and the
+     whole-cookbook PDF) and only show under their own chip, until the tag
+     comes off. */
+  var WANT_TAG = 'Want to make';
+  function isWantTag(t) { return String(t).trim().toLowerCase() === WANT_TAG.toLowerCase(); }
+  function isWant(r) { return (r.tags || []).some(isWantTag); }
+
   window.Hub = {
     icons: ICONS, esc: esc, $: $, $$: $$, api: api, session: session, ready: ready, toast: toast,
     confirm: confirmBox, minutes: minutes, hue: hue, placeholderBg: placeholderBg, mediaUrl: mediaUrl,
     plural: plural, md: md, recipeHTML: recipeHTML, ingredientsHTML: ingredientsHTML, upload: upload,
-    initials: initials, applyTheme: applyTheme, toggleTheme: toggleTheme
+    initials: initials, applyTheme: applyTheme, toggleTheme: toggleTheme,
+    WANT_TAG: WANT_TAG, isWantTag: isWantTag, isWant: isWant
   };
 })();

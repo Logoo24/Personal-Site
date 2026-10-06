@@ -7,6 +7,10 @@
   "functions": {
     "api/family.js": { "maxDuration": 60 }
   },
+  "rewrites": [
+    { "source": "/recipes/:slug/photos/:file", "destination": "/api/recipe?slug=:slug&f=:file" },
+    { "source": "/recipes/:slug", "destination": "/api/recipe?slug=:slug" }
+  ],
   "redirects": [
     { "source": "/admin", "destination": "/family/manage", "permanent": false },
     { "source": "/admin/:path*", "destination": "/family/manage", "permanent": false }

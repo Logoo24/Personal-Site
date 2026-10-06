@@ -42,7 +42,7 @@
           <label class="field col-full"><span>Recipe name</span><input class="input" name="title" required maxlength="140" placeholder="Grandma’s cinnamon rolls" /></label>
           <label class="field col-full"><span>Short description</span><input class="input" name="summary" maxlength="400" placeholder="Soft, gooey, and gone by 9am every Christmas morning." /></label>
           <label class="field col-half"><span>Recipe from</span><input class="input" name="source" maxlength="120" placeholder="Grandma Randall" /></label>
-          <label class="field col-half"><span>Tags</span><input class="input" name="tags" placeholder="Breakfast, Holidays" /><small>Separate with commas.</small></label>
+          <label class="field col-half"><span>Tags</span><input class="input" name="tags" placeholder="Breakfast, Holidays" /><small>Separate with commas. “Want to make” keeps a recipe off the main list until you’ve tried it.</small></label>
           <div class="col-full chips" id="tag-suggest"></div>
           <label class="field col-quarter"><span>Makes</span><input class="input" name="servings" type="number" min="0" step="any" placeholder="12" /></label>
           <label class="field col-quarter"><span>Unit</span><input class="input" name="yieldUnit" placeholder="servings" list="yield-units" /></label>
@@ -324,7 +324,9 @@
     function renderTagSuggest(all) {
       var have = currentTags().map(function (t) { return t.toLowerCase(); });
       var left = all.filter(function (t) { return have.indexOf(t.toLowerCase()) < 0; }).slice(0, 14);
-      $('#tag-suggest').innerHTML = left.map(function (t) { return '<button type="button" class="chip" data-add-tag="' + esc(t) + '">+ ' + esc(t) + '</button>'; }).join('');
+      $('#tag-suggest').innerHTML = left.map(function (t) {
+        return '<button type="button" class="chip' + (Hub.isWantTag(t) ? ' chip-want' : '') + '" data-add-tag="' + esc(t) + '">+ ' + esc(t) + '</button>';
+      }).join('');
     }
     var knownTags = [];
     $('#tag-suggest').addEventListener('click', function (e) {
@@ -397,7 +399,9 @@
       $('#import').classList.add('is-busy');
       $('#import-input').disabled = true;
       setImportStatus(isLink ? 'Reading the recipe… this can take a few seconds.' : 'Reading the pasted recipe…');
-      Hub.api('import', { body: isLink ? { url: value, tags: knownTags } : { text: value, tags: knownTags } }).then(function (res) {
+      // The import picks categories; whether it's a to-try recipe is the family's call.
+      var importTags = knownTags.filter(function (t) { return !Hub.isWantTag(t); });
+      Hub.api('import', { body: isLink ? { url: value, tags: importTags } : { text: value, tags: importTags } }).then(function (res) {
         applyImport(res.recipe);
         $('#import-input').value = isLink ? value : '';
         pastedText = null;
@@ -439,7 +443,7 @@
       $('#save').disabled = true; $('#save').textContent = 'Saving…';
       Hub.api('recipe', { body: data }).then(function (res) {
         dirty = false;
-        location.href = '/family/cookbook/recipe?id=' + encodeURIComponent(res.recipe.id) + (res.recipe.published ? '&saved=1' : '');
+        location.href = '/family/cookbook/recipe?id=' + encodeURIComponent(res.recipe.id);
       }).catch(function (err) {
         saving = false;
         $('#save').disabled = false; $('#save').textContent = 'Save recipe';
@@ -469,14 +473,17 @@
         res[1].recipes.forEach(function (r) { (r.tags || []).forEach(function (t) { counts[t] = (counts[t] || 0) + 1; }); });
         knownTags = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; });
         if (!knownTags.length) knownTags = ['Breakfast', 'Dinner', 'Dessert', 'Sides', 'Holidays', 'Treats'];
-        fill(recipe || {});
+        // "Want to make" is always offered first.
+        knownTags = [Hub.WANT_TAG].concat(knownTags.filter(function (t) { return !Hub.isWantTag(t); }));
+        var startTag = new URLSearchParams(location.search).get('tag');
+        fill(recipe || { tags: startTag ? [startTag] : [] });
         renderTagSuggest(knownTags);
         if (recipe) {
           $('#heading').textContent = 'Edit recipe';
           document.title = 'Edit ' + recipe.title + ' · Randall Family';
           $('#cancel').href = '/family/cookbook/recipe?id=' + encodeURIComponent(recipe.id);
           $('#danger').hidden = false;
-          if (recipe.published) $('#status').textContent = 'Shared on the website — update the website copy after saving.';
+          if (recipe.published) $('#status').textContent = 'This recipe is public. Its link shows your changes as soon as you save.';
         }
         $('#loading').remove();
         form.hidden = false;

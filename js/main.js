@@ -118,25 +118,23 @@
   });
 
   // Active nav link. Compare bare page names so it works both locally
-  // (about.html) and on Vercel, where cleanUrls serves /about. Post, class
-  // and recipe pages highlight Blog; a class or recipe page also highlights
-  // its entry in the Blog dropdown.
+  // (about.html) and on Vercel, where cleanUrls serves /about. Post and
+  // class pages highlight Blog; a class page also highlights its entry in
+  // the Blog dropdown.
   function pageName(p) {
     return (p.split(/[?#]/)[0].split('/').pop() || 'index').replace(/\.html$/, '');
   }
   var path = location.pathname;
   var onPost = /\/posts\//.test(path);
   var onClass = /\/classes\//.test(path);
-  var onRecipe = /\/recipes\//.test(path);
   var current = pageName(path);
-  var inRecipes = onRecipe || current === 'recipes';
   document.querySelectorAll('.nav-links a').forEach(function (a) {
     var href = a.getAttribute('href');
     if (!href) return;
     var name = pageName(href);
     var match = a.closest('.nav-dd-menu')
-      ? (!onPost && !onRecipe && name === current && /(^|\/)classes\//.test(href) === onClass) || (inRecipes && name === 'recipes')
-      : (name === current && !onPost && !onClass && !onRecipe) || ((onPost || onClass || inRecipes) && name === 'blog');
+      ? !onPost && name === current && /(^|\/)classes\//.test(href) === onClass
+      : (name === current && !onPost && !onClass) || ((onPost || onClass) && name === 'blog');
     if (match) {
       a.classList.add('active');
       a.setAttribute('aria-current', 'page');
@@ -306,8 +304,9 @@
   });
 
   /* ---------- FAMILY RECIPES ---------- */
-  // Shared recipe pages (built by build.js): the servings scaler, which
-  // needs js/recipe-scale.js (loaded by the page), and the print button.
+  // Shared recipe pages (/recipes/<slug>, rendered by api/recipe.js): the
+  // servings scaler, which needs js/recipe-scale.js (loaded by the page),
+  // and the print button.
   ready(function () {
     var card = document.querySelector('.recipe-card');
     if (!card) return;

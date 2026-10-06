@@ -54,13 +54,19 @@
     Hub.$$('[data-icon]').forEach(function (el) { el.innerHTML = Hub.icons[el.getAttribute('data-icon')]; el.style.display = 'contents'; });
     Hub.$$('[data-icon-before]').forEach(function (el) { el.insertAdjacentHTML('afterbegin', Hub.icons[el.getAttribute('data-icon-before')]); });
 
-    var all = [], tag = null, selecting = false, picked = new Set();
+    var all = [], tag = new URLSearchParams(location.search).get('tag'), selecting = false, picked = new Set();
+    var WANT = Hub.WANT_TAG;
+    if (tag && Hub.isWantTag(tag)) tag = WANT;
+    // "Want to make" recipes aren't in the cookbook yet: they only show under
+    // their own chip.
+    function cookbook() { return all.filter(function (r) { return !Hub.isWant(r); }); }
+    function wants() { return all.filter(Hub.isWant); }
 
     function card(r) {
       var meta = [];
       if (r.totalMinutes) meta.push(Hub.minutes(r.totalMinutes));
       if (r.servings) meta.push(r.servings + ' ' + (r.yieldUnit || 'servings'));
-      if (r.published) meta.push('<span class="shared">● On the website</span>');
+      if (r.published) meta.push('<span class="shared">● Public</span>');
       return '<a class="cb-card' + (picked.has(r.id) ? ' picked' : '') + '" href="/family/cookbook/recipe?id=' + encodeURIComponent(r.id) + '" data-id="' + esc(r.id) + '">' +
         '<span class="cb-check">' + Hub.icons.check + '</span>' +
         '<div class="cb-thumb">' + (r.cover
@@ -72,13 +78,22 @@
 
     function render() {
       var q = $('#q').value.trim().toLowerCase();
-      var shown = all.filter(function (r) {
-        if (tag && (r.tags || []).indexOf(tag) < 0) return false;
+      var want = tag === WANT;
+      var shown = (want ? wants() : cookbook()).filter(function (r) {
+        if (tag && !want && (r.tags || []).indexOf(tag) < 0) return false;
         if (!q) return true;
         return [r.title, r.summary, (r.tags || []).join(' '), r.createdBy, r.search].join(' ').toLowerCase().indexOf(q) > -1;
       });
       if (!all.length) {
         $('#list').innerHTML = '<div class="hub-empty"><h3>The cookbook is empty</h3><p>Start with the recipe everyone always asks for.</p><a class="btn btn-primary" href="/family/cookbook/edit">' + Hub.icons.plus + 'Add the first recipe</a></div>';
+        return;
+      }
+      if (want && !shown.length && !q) {
+        $('#list').innerHTML = '<div class="hub-empty"><h3>Nothing on the list yet</h3><p>Found something to try? Add it as a new recipe and tag it “' + esc(WANT) + '”. It’ll wait here, out of the cookbook, until you’ve made it.</p><a class="btn btn-primary" href="/family/cookbook/edit?tag=' + encodeURIComponent(WANT) + '">' + Hub.icons.plus + 'Add a recipe to try</a></div>';
+        return;
+      }
+      if (!tag && !q && !shown.length) {
+        $('#list').innerHTML = '<div class="hub-empty"><h3>The cookbook is empty</h3><p>Everything so far is on the “' + esc(WANT) + '” list. Once you’ve made one, open it and add it to the cookbook.</p></div>';
         return;
       }
       $('#list').innerHTML = shown.length
@@ -88,11 +103,13 @@
 
     function renderTags() {
       var counts = {};
-      all.forEach(function (r) { (r.tags || []).forEach(function (t) { counts[t] = (counts[t] || 0) + 1; }); });
+      cookbook().forEach(function (r) { (r.tags || []).forEach(function (t) { counts[t] = (counts[t] || 0) + 1; }); });
       var tags = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a] || a.localeCompare(b); });
-      $('#tags').innerHTML = tags.length ? ['<button class="chip' + (tag ? '' : ' on') + '" data-tag="">All</button>'].concat(tags.map(function (t) {
+      var waiting = wants().length;
+      $('#tags').innerHTML = all.length ? ['<button class="chip' + (tag ? '' : ' on') + '" data-tag="">All</button>'].concat(tags.map(function (t) {
         return '<button class="chip' + (tag === t ? ' on' : '') + '" data-tag="' + esc(t) + '">' + esc(t) + '</button>';
-      })).join('') : '';
+      })).concat('<button class="chip chip-want' + (tag === WANT ? ' on' : '') + '" data-tag="' + esc(WANT) + '">' + Hub.icons.bookmark + esc(WANT) +
+        (waiting ? '<span class="chip-count">' + waiting + '</span>' : '') + '</button>').join('') : '';
     }
 
     function updateSelectBar() {
@@ -112,6 +129,8 @@
       var b = e.target.closest('[data-tag]');
       if (!b) return;
       tag = b.getAttribute('data-tag') || null;
+      // Keep the chosen tag in the address, so "back" from a recipe returns to it.
+      history.replaceState(null, '', tag ? '?tag=' + encodeURIComponent(tag) : location.pathname);
       renderTags(); render();
     });
     $('#select-btn').addEventListener('click', function () { setSelecting(!selecting); });
@@ -132,7 +151,10 @@
     Hub.ready(function () {
       Hub.api('recipes').then(function (data) {
         all = data.recipes.slice().sort(function (a, b) { return a.title.localeCompare(b.title); });
-        $('#count').textContent = all.length ? Hub.plural(all.length, 'family recipe') + (all.some(function (r) { return r.published; }) ? ' · ' + all.filter(function (r) { return r.published; }).length + ' shared on the website' : '') : 'Recipes, stories and photos from our kitchen.';
+        var book = cookbook(), shared = book.filter(function (r) { return r.published; }).length, waiting = wants().length;
+        $('#count').textContent = all.length
+          ? [Hub.plural(book.length, 'family recipe'), shared ? shared + ' public' : '', waiting ? waiting + ' to try' : ''].filter(Boolean).join(' · ')
+          : 'Recipes, stories and photos from our kitchen.';
         $('#select-btn').hidden = !all.length;
         renderTags(); render();
       }).catch(function (e) {

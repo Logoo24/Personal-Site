@@ -11,17 +11,17 @@
 //   DELETE recipe&id=
 //   POST upload   (raw image body)  -> { name, url }
 //   GET  media&f=                   -> a stored photo
-//   POST publish  {id, publish}     -> share to / remove from the public site
+//   POST publish  {id, publish, slug?} -> make public (or change its link) / private
 //   POST import   {url|text, tags}  -> a draft recipe read from a link or pasted text
 //   GET  calendar&from=&to=         -> calendar events (YYYY-MM-DD range)
 //
 // Env: FAMILY_PASSWORD, FAMILY_SESSION_SECRET, GOOGLE_CLIENT_ID,
-// FAMILY_GOOGLE_EMAILS (comma-separated), GITHUB_PUBLISH_TOKEN, the Blob
+// FAMILY_GOOGLE_EMAILS (comma-separated), the Blob
 // store's BLOB_READ_WRITE_TOKEN, and ANTHROPIC_API_KEY (recipe import).
 
 import { createToken, readSession, sessionCookie, clearedCookie, sessionSecret, safeEqual } from './_family/session.js';
 import { listRecipes, allRecipes, getRecipe, saveRecipe, deleteRecipe, saveMedia, mediaIn, MEDIA_URL } from './_family/recipes.js';
-import { publishRecipe, unpublishRecipe } from './_family/publish.js';
+import { shareRecipe, unshareRecipe } from './_family/share.js';
 import { eventsBetween, CALENDAR_LINKS } from './_family/calendar.js';
 import { importRecipe } from './_family/import.js';
 import { getFile, remove } from './_family/store.js';
@@ -103,7 +103,7 @@ async function route(request) {
     case 'DELETE recipe': {
       const recipe = await getRecipe(url.searchParams.get('id'));
       if (!recipe) return fail(404, 'Recipe not found');
-      if (recipe.published) await unpublishRecipe(recipe, user);
+      if (recipe.published) await unshareRecipe(recipe);
       await deleteRecipe(recipe.id);
       await Promise.all(mediaIn(recipe).map(f => remove('media/' + f).catch(() => {})));
       return json({ ok: true });
@@ -115,10 +115,10 @@ async function route(request) {
     case 'GET media':
       return media(request, url);
     case 'POST publish': {
-      const { id, publish } = await request.json();
+      const { id, publish, slug } = await request.json();
       const recipe = await getRecipe(id);
       if (!recipe) return fail(404, 'Recipe not found');
-      return json({ recipe: publish ? await publishRecipe(recipe, user) : await unpublishRecipe(recipe, user) });
+      return json({ recipe: publish ? await shareRecipe(recipe, user, slug) : await unshareRecipe(recipe) });
     }
     case 'POST import':
       return json(await importRecipe(await request.json().catch(() => ({}))));

@@ -886,20 +886,12 @@ a.feature-row:hover h3 { color: var(--accent); }
 .skill-pill { padding: 0.4rem 0.9rem; border: 1px solid var(--line-strong); border-radius: 99px; font-size: 0.82rem; color: var(--text-soft); font-weight: 500; transition: border-color .25s var(--ease-out), color .25s var(--ease-out); }
 .skill-pill:hover { border-color: var(--accent); color: var(--accent); }
 
-/* ========== FAMILY RECIPES ==========
-   recipes.html (the grid) and recipes/*.html (built by build.js from
-   recipes shared out of the family hub). */
-.recipe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 1.5rem; }
-.recipe-grid .post-empty { grid-column: 1 / -1; }
-.recipe-tile { display: flex; flex-direction: column; background: var(--bg-alt); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; color: var(--text); transition: transform .35s var(--ease-out), box-shadow .35s var(--ease-out), border-color .35s var(--ease-out); }
-.recipe-tile:hover { transform: translateY(-5px); box-shadow: var(--shadow); border-color: var(--accent); color: var(--text); }
-.recipe-tile-img { aspect-ratio: 4 / 3; overflow: hidden; display: grid; place-items: center; background: linear-gradient(135deg, var(--accent-soft), var(--accent-deep)); }
-.recipe-tile-img img { width: 100%; height: 100%; object-fit: cover; }
-.recipe-tile-img span { font-family: var(--display); font-size: 3rem; font-weight: 700; color: rgba(255, 255, 255, 0.9); }
-.recipe-tile-body { padding: 1.2rem 1.3rem 1.4rem; display: flex; flex-direction: column; gap: 0.4rem; flex: 1; }
-.recipe-tile h3 { font-size: 1.25rem; }
-.recipe-tile p { font-size: 0.9rem; }
-.recipe-tile .card-meta { margin-top: auto; padding-top: 0.6rem; }
+/* ========== SHARED RECIPES ==========
+   The page behind a public recipe link (/recipes/<slug>), rendered by
+   api/_family/share-page.js. Standalone: no site nav or footer. */
+.shared-recipe .article { padding-top: 4.5rem; }
+.shared-recipe-foot { text-align: center; padding: 0 var(--gutter) 3rem; font-size: 0.82rem; color: var(--text-muted); letter-spacing: 0.04em; }
+@media (max-width: 720px) { .shared-recipe .article { padding-top: 3rem; } }
 
 .recipe-cover { margin: 0 0 2rem; }
 .recipe-cover img { width: 100%; max-height: 480px; object-fit: cover; border-radius: 12px; }
@@ -968,6 +960,12 @@ a.feature-row:hover h3 { color: var(--accent); }
   .feature-row:hover { padding-left: 0; }
   .feature-row:hover .arrow, .btn:hover .arrow { transform: none; }
   .btn-primary:hover { transform: none; box-shadow: none; }
+}
+
+/* Touch screens: the Blog dropdown's chevron is small for a finger, so
+   give it a bigger tap area without moving anything around it. */
+@media (pointer: coarse) {
+  .nav-dd-toggle { width: 36px; height: 36px; margin: -7px; }
 }
 
 /* Prevent flash of unstyled theme */

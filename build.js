@@ -1,17 +1,15 @@
 /* ============================================================
    build.js - reads markdown posts from _posts/ and generates
    posts/[slug].html and one page per class in classes/[slug].html,
-   turns recipes shared from the family hub (_recipes/*.md) into
-   recipes/[slug].html, and injects post lists into blog.html,
-   index.html and recipes.html and the Blog dropdown menu into every
-   page's nav.
+   and injects post lists into blog.html and index.html and the Blog
+   dropdown menu into every page's nav. (Recipes the family makes public
+   aren't built here: api/recipe.js serves them live at /recipes/<slug>.)
    Vercel runs this on every push via `npm run build`.
    ============================================================ */
 const fs = require('fs');
 const path = require('path');
 const matter = require('gray-matter');
 const { marked } = require('marked');
-const RecipeScale = require('./js/recipe-scale.js');
 
 const ROOT = __dirname;
 const POSTS_SRC = path.join(ROOT, '_posts');
@@ -22,13 +20,9 @@ const CLASSES_OUT = path.join(ROOT, 'classes');
 // The class list (edited from /admin/ -> Classes). Each entry is
 // { code: "MKT 353", name: "Web Business Creation", archived: false }.
 const CLASSES_FILE = path.join(ROOT, '_data', 'classes.json');
-// Recipes shared publicly from the family hub (/family/cookbook). The hub
-// commits them here; they aren't edited by hand or by the CMS.
-const RECIPES_SRC = path.join(ROOT, '_recipes');
-const RECIPES_OUT = path.join(ROOT, 'recipes');
 
 // Top-level pages that carry the site nav (and so the Blog dropdown).
-const ROOT_PAGES = ['index.html', 'about.html', 'blog.html', 'recipes.html', 'projects.html', 'resume.html', 'privacy.html'];
+const ROOT_PAGES = ['index.html', 'about.html', 'blog.html', 'projects.html', 'resume.html', 'privacy.html'];
 
 // Absolute URL of the production site. Used to build absolute URLs for
 // Open Graph / Twitter share-card image meta tags (social crawlers don't
@@ -41,7 +35,6 @@ const OG_IMAGE = '/images/og-card.jpg';
 const CATEGORY_LABELS = {
   personal: 'Personal Blog',
   academic: 'Academic Blog',
-  recipe: 'Family Recipes',
   // Legacy values kept as fallbacks so older posts still render a sensible
   // label if they haven't been migrated. New posts should use personal/academic.
   essay: 'Personal Blog',
@@ -152,7 +145,7 @@ function build() {
     console.log('No _posts/ directory; nothing to build.');
     return;
   }
-  for (const dir of [POSTS_OUT, CLASSES_OUT, RECIPES_OUT]) {
+  for (const dir of [POSTS_OUT, CLASSES_OUT]) {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   }
   for (const t of [TEMPLATE, CLASS_TEMPLATE]) {
@@ -213,20 +206,17 @@ function build() {
     });
   }
 
-  const recipes = loadRecipes();
-
-  for (const post of posts.concat(recipes)) {
+  for (const post of posts) {
     // Substitute {{key}} placeholders in template. Everything but the
     // rendered markdown body is escaped so quotes can't break attributes.
     let out = tpl;
     for (const [k, v] of Object.entries(post)) {
-      if (k === 'cls' || k === 'recipe') continue;
+      if (k === 'cls') continue;
       out = out.split('{{' + k + '}}').join(k === 'body' ? String(v) : escapeHtml(v));
     }
     fs.writeFileSync(path.join(ROOT, post.urlPath + '.html'), out);
     console.log('built:', post.urlPath + '.html');
   }
-  removeStale(RECIPES_OUT, new Set(recipes.map(r => r.slug + '.html')));
 
   // Newest first
   posts.sort((a, b) => asDate(b.date).getTime() - asDate(a.date).getTime());
@@ -268,12 +258,6 @@ function build() {
       : '        <p>New posts are on the way.</p>';
   injectBetween(path.join(ROOT, 'index.html'), '<!-- RECENT_POSTS_START -->', '<!-- RECENT_POSTS_END -->', recent);
 
-  recipes.sort((a, b) => asDate(b.date).getTime() - asDate(a.date).getTime());
-  const recipeList = recipes.length
-    ? recipes.map(recipeTile).join('\n\n')
-    : '        <div class="post-empty reveal"><p>No family recipes shared yet &mdash; check back soon.</p></div>';
-  injectBetween(path.join(ROOT, 'recipes.html'), '<!-- RECIPES_START -->', '<!-- RECIPES_END -->', recipeList);
-
   buildClassPages(classes);
 
   // Homepage stat counters. "My projects" counts the project cards on
@@ -281,15 +265,15 @@ function build() {
   const projectsHtml = fs.readFileSync(path.join(ROOT, 'projects.html'), 'utf8');
   setStat(path.join(ROOT, 'index.html'), {
     projects_shipped: (projectsHtml.match(/<article class="proj[ "]/g) || []).length,
-    blog_posts: posts.length + recipes.length,
+    blog_posts: posts.length,
     classes_documented: posts.filter(p => p.cls).length
   });
 
-  injectBlogMenuEverywhere(classes, recipes.length);
+  injectBlogMenuEverywhere(classes);
   injectOgImageEverywhere();
-  generateSitemap(posts, classes, recipes);
+  generateSitemap(posts, classes);
 
-  console.log('\nBuilt ' + posts.length + ' post(s), ' + recipes.length + ' recipe(s) and ' + classes.length + ' class page(s).');
+  console.log('\nBuilt ' + posts.length + ' post(s) and ' + classes.length + ' class page(s).');
 }
 
 function classTitle(c) {
@@ -349,21 +333,20 @@ function removeStale(dir, keep) {
 // Fills the Blog dropdown in every page's nav, between
 // <!-- BLOG_MENU_START --> and <!-- BLOG_MENU_END -->: the main blog, the
 // current classes, then finished ("Past") classes.
-function injectBlogMenuEverywhere(classes, recipeCount) {
+function injectBlogMenuEverywhere(classes) {
   const menu = prefix => {
     const link = c => '          <a href="' + prefix + 'classes/' + c.slug + '.html">' + escapeHtml(c.code) +
       (c.name ? '<small>' + escapeHtml(c.name) + '</small>' : '') + '</a>';
     const active = classes.filter(c => !c.archived);
     const past = classes.filter(c => c.archived);
     return ['          <a href="' + prefix + 'blog.html" class="nav-dd-main">Personal blog<small>Life, work &amp; everything else</small></a>']
-      .concat(recipeCount ? ['          <a href="' + prefix + 'recipes.html">Family recipes<small>From the Randall kitchen</small></a>'] : [])
       .concat(active.length ? ['          <span class="nav-dd-label">Classes</span>'].concat(active.map(link)) : [])
       .concat(past.length ? ['          <span class="nav-dd-label">Past classes</span>'].concat(past.map(link)) : [])
       .join('\n');
   };
   // 404.html can be served at any depth, so it uses root-absolute links.
   const targets = ROOT_PAGES.map(f => [f, '']).concat([['404.html', '/']]);
-  for (const dir of ['posts', 'classes', 'recipes']) {
+  for (const dir of ['posts', 'classes']) {
     const abs = path.join(ROOT, dir);
     if (!fs.existsSync(abs)) continue;
     fs.readdirSync(abs).filter(f => f.endsWith('.html')).forEach(f => targets.push([dir + '/' + f, '../']));
@@ -390,13 +373,12 @@ function setStat(file, values) {
   console.log('stats:', JSON.stringify(values));
 }
 
-function generateSitemap(posts, classes, recipes) {
+function generateSitemap(posts, classes) {
   const today = new Date().toISOString().slice(0, 10);
   const entries = [
     { url: SITE_URL + '/',              lastmod: today, priority: '1.0' },
     { url: SITE_URL + '/about',    lastmod: today, priority: '0.8' },
     { url: SITE_URL + '/blog',     lastmod: today, priority: '0.8' },
-    { url: SITE_URL + '/recipes',  lastmod: today, priority: '0.6' },
     { url: SITE_URL + '/projects', lastmod: today, priority: '0.8' },
     { url: SITE_URL + '/resume',   lastmod: today, priority: '0.6' },
     { url: SITE_URL + '/privacy',  lastmod: today, priority: '0.3' }
@@ -404,7 +386,7 @@ function generateSitemap(posts, classes, recipes) {
   for (const c of classes) {
     entries.push({ url: SITE_URL + '/classes/' + c.slug, lastmod: today, priority: c.archived ? '0.5' : '0.7' });
   }
-  for (const p of posts.concat(recipes)) {
+  for (const p of posts) {
     entries.push({
       url: SITE_URL + '/' + p.urlPath,
       lastmod: p.date ? asDate(p.date).toISOString().slice(0, 10) : today,
@@ -442,7 +424,7 @@ function injectOgImageEverywhere() {
 
   const targets = ROOT_PAGES.map(f => path.join(ROOT, f));
   // Also inject into all generated post and class pages.
-  for (const dir of [POSTS_OUT, CLASSES_OUT, RECIPES_OUT]) {
+  for (const dir of [POSTS_OUT, CLASSES_OUT]) {
     if (!fs.existsSync(dir)) continue;
     fs.readdirSync(dir)
       .filter(f => f.endsWith('.html'))
@@ -462,150 +444,6 @@ function injectOgImageEverywhere() {
     n++;
   }
   console.log('OG image injected into ' + n + ' file(s): ' + absUrl);
-}
-
-// ---------- Family recipes ----------
-
-// Reads _recipes/*.md (written by the family hub's "Share on the website")
-// into post-like objects that render through the post template.
-function loadRecipes() {
-  if (!fs.existsSync(RECIPES_SRC)) return [];
-  return fs.readdirSync(RECIPES_SRC).filter(f => f.endsWith('.md')).map(f => {
-    const parsed = matter(fs.readFileSync(path.join(RECIPES_SRC, f), 'utf8'));
-    const data = parsed.data || {};
-    const r = data.recipe || {};
-    const slug = f.replace(/\.md$/, '').toLowerCase().replace(/[^a-z0-9-]/g, '-');
-    const title = data.title || 'Untitled recipe';
-    return {
-      slug,
-      title,
-      date: data.date,
-      dateFormatted: data.date ? fmtLong(data.date) : '',
-      shortDate: data.date ? fmtShort(data.date) : '',
-      category: 'recipe',
-      categoryLabel: CATEGORY_LABELS.recipe,
-      summary: data.summary || '',
-      readMinutes: data.readMinutes || 3,
-      backHref: '../recipes.html',
-      backLabel: 'All recipes',
-      urlPath: 'recipes/' + slug,
-      body: recipeBody(title, data, r, renderMarkdown(parsed.content)),
-      recipe: r
-    };
-  });
-}
-
-function minutesLabel(n) {
-  const h = Math.floor(n / 60), m = n % 60;
-  return (h ? h + ' hr' : '') + (h && m ? ' ' : '') + (m ? m + ' min' : '');
-}
-function isoDuration(n) {
-  return 'PT' + (Math.floor(n / 60) ? Math.floor(n / 60) + 'H' : '') + (n % 60 ? (n % 60) + 'M' : '');
-}
-
-function recipeFacts(r) {
-  const facts = [];
-  if (r.servings) facts.push('<span class="recipe-fact" data-yield="' + escapeHtml(r.yieldUnit || 'servings') + '">' + escapeHtml(RecipeScale.formatNum(r.servings) + ' ' + (r.yieldUnit || 'servings')) + '</span>');
-  if (r.prepMinutes) facts.push('<span class="recipe-fact">Prep ' + minutesLabel(r.prepMinutes) + '</span>');
-  if (r.cookMinutes) facts.push('<span class="recipe-fact">Cook ' + minutesLabel(r.cookMinutes) + '</span>');
-  if (r.prepMinutes && r.cookMinutes) facts.push('<span class="recipe-fact">Total ' + minutesLabel(r.prepMinutes + r.cookMinutes) + '</span>');
-  return facts;
-}
-
-// The article body for a shared recipe: cover, the story, then a recipe
-// card with a servings scaler (wired up by main.js + js/recipe-scale.js).
-function recipeBody(title, data, r, storyHtml) {
-  const ingredients = (r.ingredients || []).map(i => {
-    if (i.section != null) return '            <li class="ing-section">' + escapeHtml(i.section) + '</li>';
-    const q = RecipeScale.parseQty(i.qty);
-    const amount = [q ? RecipeScale.formatQty(q) : (i.qty || ''), i.unit || ''].filter(Boolean).join(' ');
-    return '            <li>' +
-      (amount ? '<span class="ing-amt"' + (q ? ' data-qty="' + escapeHtml(i.qty) + '" data-unit="' + escapeHtml(i.unit || '') + '"' : '') + '>' + escapeHtml(amount) + '</span> ' : '') +
-      escapeHtml(i.item || '') + (i.note ? '<span class="ing-note">, ' + escapeHtml(i.note) + '</span>' : '') + '</li>';
-  }).join('\n');
-  const steps = (r.steps || []).map(s => '            <li>' + escapeHtml(s).replace(/\n/g, '<br>') + '</li>').join('\n');
-  const facts = recipeFacts(r);
-  // The scaler only appears once main.js has loaded (it's hidden until then).
-  const scaler = r.servings
-    ? '        <div class="recipe-scale" data-servings="' + r.servings + '" hidden>\n' +
-      '          <span class="recipe-scale-label">Scale</span>\n' +
-      [0.5, 1, 2, 3].map(f => '          <button type="button" class="recipe-scale-btn' + (f === 1 ? ' on' : '') + '" data-factor="' + f + '">' + (f === 0.5 ? '½' : f) + '×</button>').join('\n') + '\n' +
-      '        </div>'
-    : '';
-
-  // schema.org Recipe data, so search engines can show it as a recipe.
-  const abs = u => (/^https?:/.test(u) ? u : SITE_URL + u);
-  const ld = {
-    '@context': 'https://schema.org',
-    '@type': 'Recipe',
-    name: title,
-    description: data.summary || undefined,
-    image: r.cover ? [abs(r.cover)] : undefined,
-    datePublished: data.date ? asDate(data.date).toISOString().slice(0, 10) : undefined,
-    author: { '@type': 'Person', name: r.source || 'The Randall family' },
-    prepTime: r.prepMinutes ? isoDuration(r.prepMinutes) : undefined,
-    cookTime: r.cookMinutes ? isoDuration(r.cookMinutes) : undefined,
-    totalTime: r.prepMinutes || r.cookMinutes ? isoDuration((r.prepMinutes || 0) + (r.cookMinutes || 0)) : undefined,
-    recipeYield: r.servings ? r.servings + ' ' + (r.yieldUnit || 'servings') : undefined,
-    recipeCategory: (r.tags || [])[0],
-    keywords: (r.tags || []).join(', ') || undefined,
-    recipeIngredient: (r.ingredients || []).filter(i => i.section == null).map(i => [i.qty, i.unit, i.item].filter(Boolean).join(' ') + (i.note ? ', ' + i.note : '')),
-    recipeInstructions: (r.steps || []).map(text => ({ '@type': 'HowToStep', text }))
-  };
-
-  return [
-    r.cover ? '<figure class="recipe-cover"><img src="' + escapeHtml(r.cover) + '" alt="' + escapeHtml(title) + '" /></figure>' : '',
-    facts.length || storyHtml.trim()
-      ? '<div class="recipe-intro">' + (facts.length ? '<div class="recipe-facts">' + facts.join('') + '</div>' : '') +
-        (storyHtml.trim() ? '<a href="#recipe" class="recipe-jump">Jump to recipe ↓</a>' : '') + '</div>'
-      : '',
-    r.source ? '<p class="recipe-source">From ' + escapeHtml(r.source) + '</p>' : '',
-    storyHtml,
-    '<section class="recipe-card" id="recipe">',
-    '        <div class="recipe-card-head">',
-    '          <h2>' + escapeHtml(title) + '</h2>',
-    '          <button type="button" class="recipe-print" data-print-recipe>Print recipe</button>',
-    '        </div>',
-    facts.length ? '        <div class="recipe-facts">' + facts.join('') + '</div>' : '',
-    scaler,
-    '        <div class="recipe-cols">',
-    '          <div>',
-    '            <h3>Ingredients</h3>',
-    '            <ul class="recipe-ingredients">',
-    ingredients,
-    '            </ul>',
-    '          </div>',
-    '          <div>',
-    '            <h3>Steps</h3>',
-    '            <ol class="recipe-steps">',
-    steps,
-    '            </ol>',
-    '          </div>',
-    '        </div>',
-    r.notes ? '        <div class="recipe-notes"><h3>Notes &amp; tips</h3>' + renderMarkdown(r.notes) + '</div>' : '',
-    '      </section>',
-    '      <script type="application/ld+json">' + JSON.stringify(ld).replace(/</g, '\\u003c') + '</script>',
-    '      <script src="../js/recipe-scale.js" defer></script>'
-  ].filter(Boolean).join('\n');
-}
-
-// One card on recipes.html.
-function recipeTile(p) {
-  const r = p.recipe;
-  const meta = [];
-  if (r.prepMinutes || r.cookMinutes) meta.push(minutesLabel((r.prepMinutes || 0) + (r.cookMinutes || 0)));
-  if (r.servings) meta.push(RecipeScale.formatNum(r.servings) + ' ' + (r.yieldUnit || 'servings'));
-  return '        <a href="recipes/' + p.slug + '.html" class="recipe-tile reveal">\n' +
-    '          <div class="recipe-tile-img">' + (r.cover
-      ? '<img src="' + escapeHtml(r.cover) + '" alt="" loading="lazy" decoding="async" />'
-      : '<span>' + escapeHtml(p.title.trim().charAt(0).toUpperCase()) + '</span>') + '</div>\n' +
-    '          <div class="recipe-tile-body">\n' +
-    ((r.tags || []).length ? '            <span class="card-tag">' + escapeHtml(r.tags[0]) + '</span>\n' : '') +
-    '            <h3>' + escapeHtml(p.title) + '</h3>\n' +
-    (p.summary ? '            <p>' + escapeHtml(p.summary) + '</p>\n' : '') +
-    (meta.length ? '            <div class="card-meta">' + meta.map(m => '<span>' + escapeHtml(m) + '</span>').join('') + '</div>\n' : '') +
-    '          </div>\n' +
-    '        </a>';
 }
 
 function escapeHtml(s) {

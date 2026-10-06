@@ -19,12 +19,13 @@
 
   <main class="hub-main">
     <div class="hub-head no-print" style="margin-bottom:1.5rem">
-      <a class="btn btn-ghost btn-sm" href="/family/cookbook">← All recipes</a>
+      <a class="btn btn-ghost btn-sm" id="back" href="/family/cookbook">← All recipes</a>
       <div class="hub-actions" id="actions" hidden>
         <button class="btn btn-ghost" type="button" id="print">Print / PDF</button>
         <a class="btn btn-primary" id="edit" href="#">Edit</a>
       </div>
     </div>
+    <div class="rc-want no-print" id="want" hidden></div>
     <div class="rc-share" id="share" hidden></div>
     <article id="recipe"><p class="hub-loading">Getting the recipe…</p></article>
     <p class="rc-byline no-print" id="byline"></p>
@@ -44,7 +45,34 @@
     function render() {
       $('#recipe').innerHTML = Hub.recipeHTML(recipe, { factor: factor, interactive: true });
       document.title = recipe.title + ' · Randall Family';
+      renderWant();
     }
+
+    /* ---------- "Want to make" ---------- */
+    function renderWant() {
+      var want = Hub.isWant(recipe);
+      $('#want').hidden = !want;
+      $('#back').textContent = want ? '← ' + Hub.WANT_TAG : '← All recipes';
+      $('#back').href = '/family/cookbook' + (want ? '?tag=' + encodeURIComponent(Hub.WANT_TAG) : '');
+      if (want) {
+        $('#want').innerHTML = '<div class="rc-want-text">' + Hub.icons.bookmark + '<span><strong>On the “' + esc(Hub.WANT_TAG) + '” list</strong> · it isn’t in the cookbook yet</span></div>' +
+          '<button class="btn btn-primary btn-sm" type="button" id="made-it">We made it! Add to cookbook</button>';
+      }
+    }
+    $('#want').addEventListener('click', function (e) {
+      var b = e.target.closest('#made-it');
+      if (!b) return;
+      b.disabled = true; b.textContent = 'Adding…';
+      var tags = (recipe.tags || []).filter(function (t) { return !Hub.isWantTag(t); });
+      Hub.api('recipe', { body: Object.assign({}, recipe, { tags: tags }) }).then(function (res) {
+        recipe = res.recipe;
+        render();
+        Hub.toast('Added to the cookbook.');
+      }).catch(function (err) {
+        b.disabled = false; b.textContent = 'We made it! Add to cookbook';
+        Hub.toast(err.message, true);
+      });
+    });
 
     function setFactor(f) {
       if (!(f > 0)) return;
@@ -56,41 +84,115 @@
       Hub.$$('[data-scale-factor]').forEach(function (c) { c.classList.toggle('on', +c.getAttribute('data-scale-factor') === factor); });
     }
 
+    /* ---------- public link ----------
+       Making a recipe public gives it a link (/recipes/<slug>) anyone can
+       open. The page shows the latest version of the recipe, so there's
+       nothing to update after editing. */
+    function publicUrl() { return location.origin + '/recipes/' + recipe.published.slug; }
+    function shortUrl() { return publicUrl().replace(/^https?:\/\/(www\.)?/, ''); }
+
     function renderShare() {
       var p = recipe.published, box = $('#share');
       box.hidden = false;
       box.classList.toggle('is-shared', !!p);
-      var url = p ? location.origin + '/recipes/' + p.slug : '';
-      var stale = p && p.at && recipe.updatedAt > p.at;
       box.innerHTML = p
-        ? '<div class="rc-share-text"><span class="rc-share-dot"></span><span><strong>Shared on the website</strong> · <a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(url.replace(/^https?:\/\//, '')) + '</a>' +
-            (stale ? '<br><small>You’ve edited it since it was shared — update the website copy to match.</small>' : '') + '</span></div>' +
-          '<div class="hub-actions">' + (stale ? '<button class="btn btn-primary btn-sm" data-publish="1">Update website copy</button>' : '') +
-            '<button class="btn btn-ghost btn-sm" data-publish="0">Stop sharing</button></div>'
+        ? '<div class="rc-share-text"><span class="rc-share-dot"></span><span><strong>Public</strong> · anyone with the link can see it</span></div>' +
+          '<div class="hub-actions"><button class="btn btn-ghost btn-sm" type="button" data-link-options>Link options</button>' +
+            '<button class="btn btn-primary btn-sm" type="button" data-share-now>' + Hub.icons.share + 'Share</button></div>'
         : '<div class="rc-share-text"><span class="rc-share-dot"></span><span><strong>Private to the family</strong> · only people signed in here can see it</span></div>' +
-          '<div class="hub-actions"><button class="btn btn-ghost btn-sm" data-publish="1">' + Hub.icons.share + 'Share on the website</button></div>';
+          '<div class="hub-actions"><button class="btn btn-ghost btn-sm" type="button" data-make-public>' + Hub.icons.globe + 'Make public</button></div>';
+    }
+
+    function copyLink() {
+      var url = publicUrl();
+      var done = function () { Hub.toast('Link copied.'); };
+      if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(url).then(done, function () { prompt('Copy this link:', url); });
+      prompt('Copy this link:', url);
+    }
+    // The phone's own share sheet (Messages, group chats…), or copying the
+    // link where there isn't one.
+    function shareLink() {
+      var data = { title: recipe.title, text: recipe.title + ' — from the Randall family kitchen', url: publicUrl() };
+      if (navigator.share && (!navigator.canShare || navigator.canShare(data))) {
+        return navigator.share(data).catch(function (e) { if (e && e.name !== 'AbortError') copyLink(); });
+      }
+      copyLink();
+    }
+
+    function setPublic(on, slug) {
+      return Hub.api('publish', { body: { id: recipe.id, publish: on, slug: slug } }).then(function (data) {
+        recipe = data.recipe;
+        renderShare();
+      });
+    }
+
+    // The pop-up: shown right after making a recipe public, and from "Link options".
+    function linkDialog(justMadePublic) {
+      var m = document.createElement('div');
+      m.className = 'hub-modal';
+      m.innerHTML = '<div class="hub-modal-box rc-link-box" role="dialog" aria-modal="true" aria-labelledby="rc-link-title">' +
+        '<button class="rc-link-close" type="button" data-close aria-label="Close">' + Hub.icons.x + '</button>' +
+        '<span class="rc-link-badge">' + Hub.icons.check + '</span>' +
+        '<h3 id="rc-link-title">' + (justMadePublic ? 'Recipe made public' : 'This recipe is public') + '</h3>' +
+        '<p>Anyone with the link can see the recipe, its story and photos. It isn’t listed anywhere on the site.</p>' +
+        '<div class="rc-link" data-link-view><span class="rc-link-url"></span><button type="button" class="rc-link-edit" data-edit-slug>Edit</button></div>' +
+        '<form class="rc-link rc-link-form" data-link-form hidden><span class="rc-link-prefix"></span>' +
+          '<input class="input" name="slug" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Link name" />' +
+          '<button class="btn btn-primary btn-sm" type="submit">Save</button><button class="btn btn-ghost btn-sm" type="button" data-cancel-edit>Cancel</button>' +
+          '<small>The old link will stop working.</small></form>' +
+        '<button class="btn btn-primary rc-link-share" type="button" data-share>' + Hub.icons.share + 'Share recipe</button>' +
+        '<div class="rc-link-more">' +
+          '<button class="btn btn-ghost btn-sm" type="button" data-copy>Copy link</button>' +
+          '<a class="btn btn-ghost btn-sm" href="/family/cookbook/edit?id=' + encodeURIComponent(recipe.id) + '">' + Hub.icons.edit + 'Edit recipe</a>' +
+          '<button class="btn btn-ghost btn-sm rc-link-private" type="button" data-private>' + Hub.icons.lock + 'Make private</button>' +
+        '</div></div>';
+      var view = $('[data-link-view]', m), form = $('[data-link-form]', m);
+      function fillUrl() {
+        $('.rc-link-url', m).textContent = shortUrl();
+        $('.rc-link-prefix', m).textContent = shortUrl().replace(/[^/]*$/, '');
+        form.elements.slug.value = recipe.published.slug;
+      }
+      function close() { m.remove(); document.removeEventListener('keydown', onKey); }
+      function onKey(e) { if (e.key === 'Escape') close(); }
+      function editing(on) { view.hidden = on; form.hidden = !on; if (on) { form.elements.slug.focus(); form.elements.slug.select(); } }
+      fillUrl();
+      m.addEventListener('click', function (e) {
+        var t = e.target;
+        if (t === m || t.closest('[data-close]')) return close();
+        if (t.closest('[data-edit-slug]')) return editing(true);
+        if (t.closest('[data-cancel-edit]')) { fillUrl(); return editing(false); }
+        if (t.closest('[data-share]')) return shareLink();
+        if (t.closest('[data-copy]')) return copyLink();
+        var priv = t.closest('[data-private]');
+        if (priv) {
+          priv.disabled = true; priv.textContent = 'Making private…';
+          setPublic(false).then(function () { close(); Hub.toast('The recipe is private again. Its link no longer works.'); })
+            .catch(function (err) { priv.disabled = false; priv.innerHTML = Hub.icons.lock + 'Make private'; Hub.toast(err.message, true); });
+        }
+      });
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var slug = form.elements.slug.value.trim();
+        if (!slug || slug === recipe.published.slug) { fillUrl(); return editing(false); }
+        var save = $('[type=submit]', form);
+        save.disabled = true;
+        setPublic(true, slug).then(function () { fillUrl(); editing(false); Hub.toast('Link updated.'); })
+          .catch(function (err) { Hub.toast(err.message, true); })
+          .finally(function () { save.disabled = false; });
+      });
+      document.addEventListener('keydown', onKey);
+      document.body.appendChild(m);
+      $('[data-share]', m).focus();
     }
 
     $('#share').addEventListener('click', function (e) {
-      var b = e.target.closest('[data-publish]');
+      if (e.target.closest('[data-share-now]')) return shareLink();
+      if (e.target.closest('[data-link-options]')) return linkDialog(false);
+      var b = e.target.closest('[data-make-public]');
       if (!b) return;
-      var on = b.getAttribute('data-publish') === '1';
-      var first = on && !recipe.published;
-      var ask = first
-        ? Hub.confirm({ title: 'Share this recipe publicly?', confirm: 'Share it',
-            body: '<p>It becomes a public post under <strong>Family Recipes</strong> on loganbrandall.com — the recipe, the story and its photos. Who added it here isn’t shown.</p><p style="margin-top:.6rem">You can stop sharing any time.</p>' })
-        : on ? Promise.resolve(true)
-        : Hub.confirm({ title: 'Stop sharing?', confirm: 'Remove from website', danger: true, body: '<p>The public post and its photos come off loganbrandall.com. The recipe stays here in the family cookbook.</p>' });
-      ask.then(function (yes) {
-        if (!yes) return;
-        Hub.$$('[data-publish]').forEach(function (x) { x.disabled = true; });
-        b.textContent = on ? 'Sharing…' : 'Removing…';
-        Hub.api('publish', { body: { id: recipe.id, publish: on } }).then(function (data) {
-          recipe = data.recipe;
-          renderShare();
-          Hub.toast(on ? 'Shared! It’ll be live on the website in a minute or two.' : 'Removed from the website.');
-        }).catch(function (err) { Hub.toast(err.message, true); renderShare(); });
-      });
+      b.disabled = true; b.textContent = 'Making public…';
+      setPublic(true).then(function () { linkDialog(true); })
+        .catch(function (err) { Hub.toast(err.message, true); renderShare(); });
     });
 
     $('#recipe').addEventListener('click', function (e) {

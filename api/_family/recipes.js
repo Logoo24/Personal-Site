@@ -16,7 +16,7 @@ export function randomId(len = 10) {
 
 export function slugify(s) {
   return String(s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '')
-    .replace(/['’]/g, '').replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 70) || 'recipe';
+    .replace(/['’]/g, '').replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 70).replace(/-+$/, '') || 'recipe';
 }
 
 const str = (v, max = 400) => String(v == null ? '' : v).slice(0, max).trim();

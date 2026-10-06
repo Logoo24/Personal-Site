@@ -1,7 +1,8 @@
 // Zero-dependency static server for local preview. Mirrors vercel.json's
-// cleanUrls (/about -> about.html) and redirects, and serves 404.html for
-// missing routes. Also runs the family hub locally: middleware.js guards
-// /family/*, and /api/family is handled by api/family.js. Env vars come
+// cleanUrls (/about -> about.html), rewrites and redirects, and serves
+// 404.html for missing routes. Also runs the family hub locally:
+// middleware.js guards /family/*, and /api/<name> is handled by
+// api/<name>.js when it exports a fetch handler (api/family.js, api/recipe.js). Env vars come
 // from .env.local (gitignored), e.g. FAMILY_PASSWORD and FAMILY_SESSION_SECRET.
 const http = require('http');
 const fs = require('fs');
@@ -52,6 +53,26 @@ async function send(res, response) {
   res.end(Buffer.from(await response.arrayBuffer()));
 }
 
+// vercel.json "source" pattern ("/recipes/:slug") -> RegExp with one group per :param.
+function pattern(source) {
+  const names = [];
+  const re = new RegExp('^' + source.replace(/:path\*/g, '(.*)').replace(/:(\w+)/g, (m, n) => { names.push(n); return '([^/]+)'; }) + '$');
+  return { re, names };
+}
+
+// Applies the first matching vercel.json rewrite; returns the new URL or null.
+function rewriteFor(pathname, search) {
+  for (const r of vercel.rewrites || []) {
+    const { re, names } = pattern(r.source);
+    const m = re.exec(pathname);
+    if (!m) continue;
+    let dest = r.destination;
+    names.forEach((n, i) => { dest = dest.split(':' + n).join(m[i + 1]); });
+    return dest + (search ? (dest.includes('?') ? '&' : '?') + search.slice(1) : '');
+  }
+  return null;
+}
+
 function redirectFor(pathname) {
   for (const r of vercel.redirects || []) {
     const re = new RegExp('^' + r.source.replace(/:path\*/g, '.*').replace(/:(\w+)/g, '[^/]+') + '$');
@@ -62,14 +83,17 @@ function redirectFor(pathname) {
 
 http.createServer(async (req, res) => {
   try {
-    const pathname = req.url.split('?')[0];
+    let pathname = req.url.split('?')[0];
     const to = redirectFor(pathname);
     if (to) { res.writeHead(307, { Location: to }); return res.end(); }
+    const rewritten = !resolve(pathname) && rewriteFor(pathname, req.url.slice(pathname.length));
+    if (rewritten) { req.url = rewritten; pathname = rewritten.split('?')[0]; }
 
-    if (pathname === '/api/family') {
+    const api = /^\/api\/([\w-]+)$/.exec(pathname);
+    const handler = api && fs.existsSync(path.join(ROOT, 'api', api[1] + '.js')) && (await load(`api/${api[1]}.js`)).default;
+    if (handler && handler.fetch) {
       const chunks = [];
       for await (const c of req) chunks.push(c);
-      const handler = (await load('api/family.js')).default;
       return send(res, await handler.fetch(toRequest(req, Buffer.concat(chunks))));
     }
     if (pathname === '/family' || pathname.startsWith('/family/')) {

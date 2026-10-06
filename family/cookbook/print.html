@@ -81,7 +81,9 @@
 
     Hub.ready(function () {
       Hub.api('recipes', { query: { full: 1 } }).then(function (data) {
-        recipes = data.recipes.filter(function (r) { return !ids.length || ids.indexOf(r.id) > -1; })
+        // The whole cookbook leaves out "Want to make" recipes; a hand-picked
+        // export includes whatever was picked.
+        recipes = data.recipes.filter(function (r) { return ids.length ? ids.indexOf(r.id) > -1 : !Hub.isWant(r); })
           .sort(function (a, b) { return a.title.localeCompare(b.title); });
         if (!recipes.length) {
           $('#doc').innerHTML = '<div class="hub-empty"><h3>No recipes to export</h3><p>Add some recipes to the cookbook first.</p></div>';

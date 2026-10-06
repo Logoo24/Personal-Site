@@ -102,7 +102,7 @@
       });
 
       Hub.api('recipes').then(function (data) {
-        var list = data.recipes;
+        var list = data.recipes.filter(function (r) { return !Hub.isWant(r); });
         $('#meta-cookbook').textContent = list.length ? Hub.plural(list.length, 'recipe') + ' so far' : 'Add the first recipe';
         $('#recent').innerHTML = list.length ? list.slice(0, 6).map(function (r) {
           return '<li><a href="/family/cookbook/recipe?id=' + encodeURIComponent(r.id) + '"><span class="hub-list-title">' + esc(r.title) + '</span>' +
