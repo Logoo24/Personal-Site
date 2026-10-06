@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('lb-theme')||'light')}catch(e){}</script>
+  <title>Sign in · Randall Family</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#FAFAFA" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231F7A4D'/%3E%3Cpath d='M8 15 16 8l8 7v9h-5.5v-6h-5v6H8z' fill='%23FAFAFA'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/family/assets/hub.css" />
+</head>
+<body class="hub">
+  <main class="login-wrap">
+    <div class="login-card">
+      <span class="hub-logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></svg></span>
+      <h1>Randall Family Hub</h1>
+      <p>Sign in to get to the family cookbook, calendar and the rest.</p>
+
+      <div id="google-block" hidden>
+        <div class="login-google" id="google-btn"></div>
+        <div class="login-or">or use the family password</div>
+      </div>
+
+      <form class="login-form" id="login-form" novalidate>
+        <label class="field">
+          <span>Your name</span>
+          <input class="input" id="name" name="name" autocomplete="given-name" placeholder="e.g. Marisa" required />
+        </label>
+        <label class="field">
+          <span>Family password</span>
+          <span class="pw-wrap">
+            <input class="input" id="password" name="password" type="password" autocomplete="current-password" required />
+            <button class="pw-toggle" type="button" id="pw-toggle">Show</button>
+          </span>
+        </label>
+        <div class="login-error" id="error" role="alert"></div>
+        <button class="btn btn-primary" type="submit" id="submit">Sign in</button>
+      </form>
+      <a class="login-back" href="/">← Back to loganbrandall.com</a>
+    </div>
+  </main>
+
+  <script src="/family/assets/hub.js"></script>
+  <script>
+  (function () {
+    var $ = Hub.$;
+    var params = new URLSearchParams(location.search);
+    var next = params.get('next') || '';
+    // Only ever send people on to a hub page (never another site).
+    if (!/^\/family(\/|$)/.test(next) || /^\/family\/login/.test(next)) next = '/family';
+    function go() { location.replace(next); }
+    function showError(msg) { $('#error').textContent = msg; }
+
+    try { $('#name').value = localStorage.getItem('fh-name') || ''; } catch (e) {}
+    (($('#name').value ? $('#password') : $('#name'))).focus();
+
+    $('#pw-toggle').addEventListener('click', function () {
+      var pw = $('#password'), show = pw.type === 'password';
+      pw.type = show ? 'text' : 'password';
+      this.textContent = show ? 'Hide' : 'Show';
+    });
+
+    $('#login-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var name = $('#name').value.trim(), password = $('#password').value;
+      if (!name) { showError('Tell us who’s signing in.'); return $('#name').focus(); }
+      if (!password) { showError('Enter the family password.'); return $('#password').focus(); }
+      var btn = $('#submit');
+      btn.disabled = true; btn.textContent = 'Signing in…'; showError('');
+      Hub.api('login', { body: { name: name, password: password }, noRedirect: true }).then(function () {
+        try { localStorage.setItem('fh-name', name); } catch (e) {}
+        go();
+      }).catch(function (err) {
+        showError(err.message);
+        btn.disabled = false; btn.textContent = 'Sign in';
+        $('#password').select();
+      });
+    });
+
+    Hub.session().then(function (s) {
+      if (s.user) return go();
+      if (!s.googleClientId) return;
+      var script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.onload = function () {
+        google.accounts.id.initialize({
+          client_id: s.googleClientId,
+          callback: function (resp) {
+            showError('');
+            Hub.api('google', { body: { credential: resp.credential }, noRedirect: true }).then(go).catch(function (err) { showError(err.message); });
+          }
+        });
+        google.accounts.id.renderButton($('#google-btn'), {
+          theme: document.documentElement.getAttribute('data-theme') === 'dark' ? 'filled_black' : 'outline',
+          size: 'large', shape: 'pill', text: 'signin_with', width: Math.min(340, $('.login-card').clientWidth - 64)
+        });
+        $('#google-block').hidden = false;
+      };
+      document.head.appendChild(script);
+    }).catch(function () {});
+  })();
+  </script>
+</body>
+</html>

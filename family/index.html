@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('lb-theme')||'light')}catch(e){}</script>
+  <title>Randall Family Hub</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#FAFAFA" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231F7A4D'/%3E%3Cpath d='M8 15 16 8l8 7v9h-5.5v-6h-5v6H8z' fill='%23FAFAFA'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/family/assets/hub.css" />
+</head>
+<body class="hub">
+  <header class="hub-bar"></header>
+
+  <main class="hub-main">
+    <section class="hub-greeting">
+      <span class="eyebrow" id="today"></span>
+      <h1 id="hello">Welcome home</h1>
+    </section>
+
+    <!-- One card per tool. To add a tool: add a card here with its own
+         /family/<slug> page and a .hub-app--<slug> color in hub.css. -->
+    <div class="hub-apps">
+      <a class="hub-app hub-app--cookbook" href="/family/cookbook">
+        <span class="hub-app-icon" data-icon="chef"></span>
+        <span class="hub-app-go" data-icon="arrow"></span>
+        <h3>Family Cookbook</h3>
+        <p>Our recipes, the stories behind them and the photos. Scale them, print them, or share them on the website.</p>
+        <span class="hub-app-meta" id="meta-cookbook">&nbsp;</span>
+      </a>
+      <a class="hub-app hub-app--calendar" href="/family/calendar">
+        <span class="hub-app-icon" data-icon="calendar"></span>
+        <span class="hub-app-go" data-icon="arrow"></span>
+        <h3>Family Calendar</h3>
+        <p>Everything on the Randalls’ Google Calendar — church, games, appointments and trips — on one screen.</p>
+        <span class="hub-app-meta" id="meta-calendar">&nbsp;</span>
+      </a>
+      <a class="hub-app hub-app--manage" href="/family/manage">
+        <span class="hub-app-icon" data-icon="pen"></span>
+        <span class="hub-app-go" data-icon="arrow"></span>
+        <h3>Manage LoganBRandall</h3>
+        <p>Write and edit blog posts and class pages on loganbrandall.com.</p>
+        <span class="hub-app-meta">Asks for a GitHub sign-in with edit access</span>
+      </a>
+      <div class="hub-app hub-app--soon">
+        <span class="hub-app-icon" data-icon="sparkle" style="--tint: var(--text-muted); --tint-bg: var(--bg-alt)"></span>
+        <p>More family tools on the way.</p>
+      </div>
+    </div>
+
+    <div class="hub-two">
+      <section>
+        <h2 class="hub-section-title">Coming up</h2>
+        <ul class="hub-list" id="upcoming"><li class="hub-list-empty">Loading the calendar…</li></ul>
+      </section>
+      <section>
+        <h2 class="hub-section-title">Recently added recipes</h2>
+        <ul class="hub-list" id="recent"><li class="hub-list-empty">Loading the cookbook…</li></ul>
+      </section>
+    </div>
+  </main>
+
+  <script src="/family/assets/hub.js"></script>
+  <script>
+  (function () {
+    var $ = Hub.$, esc = Hub.esc;
+    Hub.$$('[data-icon]').forEach(function (el) { el.innerHTML = Hub.icons[el.getAttribute('data-icon')]; });
+
+    var now = new Date();
+    $('#today').textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+    function dayKey(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+    function eventDate(ev) { return ev.allDay ? new Date(ev.start + 'T12:00:00') : new Date(ev.start); }
+    function whenLabel(ev) {
+      var d = eventDate(ev), today = dayKey(now), tmr = new Date(now); tmr.setDate(tmr.getDate() + 1);
+      var day = dayKey(d) === today ? 'Today' : dayKey(d) === dayKey(tmr) ? 'Tomorrow' : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      return { day: day, time: ev.allDay ? 'All day' : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) };
+    }
+
+    Hub.ready(function (user) {
+      var h = now.getHours();
+      var part = h < 5 ? 'Good evening' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+      $('#hello').textContent = part + ', ' + user.name.split(' ')[0];
+      document.title = 'Randall Family Hub';
+
+      var end = new Date(now); end.setDate(end.getDate() + 21);
+      Hub.api('calendar', { query: { from: dayKey(now), to: dayKey(end) } }).then(function (data) {
+        var upcoming = data.events.filter(function (ev) {
+          return ev.allDay ? ev.end > dayKey(now) : new Date(ev.end) > now;
+        }).slice(0, 6);
+        $('#upcoming').innerHTML = upcoming.length ? upcoming.map(function (ev) {
+          var w = whenLabel(ev);
+          return '<li><a href="/family/calendar?date=' + dayKey(eventDate(ev)) + '"><span class="hub-list-when">' + esc(w.day) + '</span>' +
+            '<span class="hub-list-title">' + esc(ev.title) + '</span><span class="hub-list-sub">' + esc(w.time) + '</span></a></li>';
+        }).join('') : '<li class="hub-list-empty">Nothing on the calendar for the next three weeks.</li>';
+        if (upcoming[0]) {
+          var w = whenLabel(upcoming[0]);
+          $('#meta-calendar').textContent = 'Next: ' + upcoming[0].title + ' · ' + w.day + (upcoming[0].allDay ? '' : ', ' + w.time);
+        }
+      }).catch(function (e) {
+        $('#upcoming').innerHTML = '<li class="hub-list-empty">Couldn’t load the calendar: ' + esc(e.message) + '</li>';
+      });
+
+      Hub.api('recipes').then(function (data) {
+        var list = data.recipes;
+        $('#meta-cookbook').textContent = list.length ? Hub.plural(list.length, 'recipe') + ' so far' : 'Add the first recipe';
+        $('#recent').innerHTML = list.length ? list.slice(0, 6).map(function (r) {
+          return '<li><a href="/family/cookbook/recipe?id=' + encodeURIComponent(r.id) + '"><span class="hub-list-title">' + esc(r.title) + '</span>' +
+            '<span class="hub-list-sub">' + esc(r.createdBy || '') + '</span></a></li>';
+        }).join('') : '<li class="hub-list-empty">No recipes yet — <a href="/family/cookbook/edit" style="display:inline;padding:0;color:var(--accent)">add the first one</a>.</li>';
+      }).catch(function (e) {
+        $('#recent').innerHTML = '<li class="hub-list-empty">Couldn’t load the cookbook: ' + esc(e.message) + '</li>';
+      });
+    });
+  })();
+  </script>
+</body>
+</html>

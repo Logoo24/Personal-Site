@@ -3,12 +3,18 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Admin - Logan Randall</title>
+  <title>Manage LoganBRandall · Randall Family</title>
+  <meta name="robots" content="noindex, nofollow" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231F7A4D'/%3E%3Ctext x='50%25' y='58%25' text-anchor='middle' font-family='-apple-system,Segoe UI,Inter,sans-serif' font-size='15' font-weight='700' fill='%23FAFAFA'%3ELB%3C/text%3E%3C/svg%3E" />
+  <!-- Absolute config URL: /family/manage (no trailing slash) would
+       otherwise resolve a relative config.yml to /family/config.yml. -->
+  <link href="/family/manage/config.yml" type="application/yaml" rel="cms-config-url" />
 </head>
 <body>
   <!-- Sveltia CMS - modern fork of Decap CMS, drop-in replacement.
-       Reads config.yml in this same folder, then renders the entire admin UI in this page. -->
+       Reads config.yml (linked above), then renders the entire admin UI in
+       this page. The family hub's sign-in (middleware.js) guards this page;
+       the CMS then asks for its own GitHub sign-in to commit changes. -->
   <script type="module" src="https://unpkg.com/@sveltia/cms/dist/sveltia-cms.js"></script>
 </body>
 </html>

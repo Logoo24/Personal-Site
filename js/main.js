@@ -118,23 +118,25 @@
   });
 
   // Active nav link. Compare bare page names so it works both locally
-  // (about.html) and on Vercel, where cleanUrls serves /about. Post and
-  // class pages highlight Blog; a class page also highlights its entry in
-  // the Blog dropdown.
+  // (about.html) and on Vercel, where cleanUrls serves /about. Post, class
+  // and recipe pages highlight Blog; a class or recipe page also highlights
+  // its entry in the Blog dropdown.
   function pageName(p) {
     return (p.split(/[?#]/)[0].split('/').pop() || 'index').replace(/\.html$/, '');
   }
   var path = location.pathname;
   var onPost = /\/posts\//.test(path);
   var onClass = /\/classes\//.test(path);
+  var onRecipe = /\/recipes\//.test(path);
   var current = pageName(path);
+  var inRecipes = onRecipe || current === 'recipes';
   document.querySelectorAll('.nav-links a').forEach(function (a) {
     var href = a.getAttribute('href');
     if (!href) return;
     var name = pageName(href);
     var match = a.closest('.nav-dd-menu')
-      ? !onPost && name === current && /(^|\/)classes\//.test(href) === onClass
-      : (name === current && !onPost && !onClass) || ((onPost || onClass) && name === 'blog');
+      ? (!onPost && !onRecipe && name === current && /(^|\/)classes\//.test(href) === onClass) || (inRecipes && name === 'recipes')
+      : (name === current && !onPost && !onClass && !onRecipe) || ((onPost || onClass || inRecipes) && name === 'blog');
     if (match) {
       a.classList.add('active');
       a.setAttribute('aria-current', 'page');
@@ -300,6 +302,38 @@
       // Same rule as above: what's on screen at load shows immediately.
       if (n.getBoundingClientRect().top < window.innerHeight * 1.1) n.classList.add('in');
       else io.observe(n);
+    });
+  });
+
+  /* ---------- FAMILY RECIPES ---------- */
+  // Shared recipe pages (built by build.js): the servings scaler, which
+  // needs js/recipe-scale.js (loaded by the page), and the print button.
+  ready(function () {
+    var card = document.querySelector('.recipe-card');
+    if (!card) return;
+    var printBtn = card.querySelector('[data-print-recipe]');
+    if (printBtn) printBtn.addEventListener('click', function () {
+      document.documentElement.classList.add('print-recipe');
+      window.print();
+      document.documentElement.classList.remove('print-recipe');
+    });
+    var scale = card.querySelector('.recipe-scale');
+    var RS = window.RecipeScale;
+    if (!scale || !RS) return;
+    scale.hidden = false;
+    var servings = parseFloat(scale.getAttribute('data-servings'));
+    scale.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-factor]');
+      if (!btn) return;
+      var f = parseFloat(btn.getAttribute('data-factor'));
+      scale.querySelectorAll('[data-factor]').forEach(function (b) { b.classList.toggle('on', b === btn); });
+      card.querySelectorAll('.ing-amt[data-qty]').forEach(function (el) {
+        var qty = el.getAttribute('data-qty'), q = RS.parseQty(qty);
+        el.textContent = [RS.scaleQty(qty, f), RS.unitFor(el.getAttribute('data-unit'), q ? q.max * f : null)].filter(Boolean).join(' ');
+      });
+      document.querySelectorAll('.recipe-fact[data-yield]').forEach(function (el) {
+        el.textContent = RS.formatNum(servings * f) + ' ' + el.getAttribute('data-yield');
+      });
     });
   });
 })();

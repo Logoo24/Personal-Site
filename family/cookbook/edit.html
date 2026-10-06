@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('lb-theme')||'light')}catch(e){}</script>
+  <title>Edit recipe · Randall Family</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#FAFAFA" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231F7A4D'/%3E%3Cpath d='M8 15 16 8l8 7v9h-5.5v-6h-5v6H8z' fill='%23FAFAFA'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/family/assets/hub.css" />
+</head>
+<body class="hub">
+  <header class="hub-bar" data-crumbs='[["Cookbook","/family/cookbook"]]'></header>
+
+  <main class="hub-main hub-main--narrow">
+    <div class="hub-head">
+      <div>
+        <span class="eyebrow">Family Cookbook</span>
+        <h1 style="margin-top:0.8rem" id="heading">New recipe</h1>
+      </div>
+    </div>
+
+    <form id="form" autocomplete="off" hidden>
+      <section class="ed-section">
+        <h2>The basics</h2>
+        <p class="ed-hint">Only the name is required — fill in the rest whenever.</p>
+        <div class="ed-grid">
+          <label class="field col-full"><span>Recipe name</span><input class="input" name="title" required maxlength="140" placeholder="Grandma’s cinnamon rolls" /></label>
+          <label class="field col-full"><span>Short description</span><input class="input" name="summary" maxlength="400" placeholder="Soft, gooey, and gone by 9am every Christmas morning." /></label>
+          <label class="field col-half"><span>Recipe from</span><input class="input" name="source" maxlength="120" placeholder="Grandma Randall" /></label>
+          <label class="field col-half"><span>Tags</span><input class="input" name="tags" placeholder="Breakfast, Holidays" /><small>Separate with commas.</small></label>
+          <div class="col-full chips" id="tag-suggest"></div>
+          <label class="field col-quarter"><span>Makes</span><input class="input" name="servings" type="number" min="0" step="any" placeholder="12" /></label>
+          <label class="field col-quarter"><span>Unit</span><input class="input" name="yieldUnit" placeholder="servings" list="yield-units" /></label>
+          <label class="field col-quarter"><span>Prep (min)</span><input class="input" name="prepMinutes" type="number" min="0" placeholder="20" /></label>
+          <label class="field col-quarter"><span>Cook (min)</span><input class="input" name="cookMinutes" type="number" min="0" placeholder="25" /></label>
+        </div>
+        <datalist id="yield-units"><option value="servings"><option value="cookies"><option value="rolls"><option value="loaves"><option value="cups"><option value="muffins"><option value="pieces"></datalist>
+      </section>
+
+      <section class="ed-section">
+        <h2>Cover photo</h2>
+        <p class="ed-hint">Shows on the cookbook card and at the top of the recipe.</p>
+        <div class="ed-cover">
+          <div class="ed-cover-img" id="cover-img">No photo yet</div>
+          <div class="hub-actions">
+            <button class="btn btn-ghost btn-sm" type="button" id="cover-pick">Choose photo</button>
+            <button class="btn btn-ghost btn-sm" type="button" id="cover-remove" hidden>Remove</button>
+          </div>
+          <input type="file" accept="image/*" id="cover-file" hidden />
+        </div>
+      </section>
+
+      <section class="ed-section">
+        <h2>Ingredients</h2>
+        <p class="ed-hint">Amounts like 1 ½, 1/3 or 2–3 scale automatically. Press Enter to add another line.</p>
+        <div class="ed-ing-head"><span></span><span>Amount</span><span>Unit</span><span>Ingredient</span><span>Note</span><span></span></div>
+        <div class="ed-rows" id="ings"></div>
+        <div class="ed-paste" id="ing-paste" hidden>
+          <span class="field-label">Paste a list — one ingredient per line. A line ending in “:” starts a section.</span>
+          <textarea id="ing-paste-text" placeholder="2 cups flour&#10;1 1/2 tsp baking soda&#10;3 eggs, beaten&#10;For the frosting:&#10;1 cup powdered sugar"></textarea>
+          <div class="hub-actions"><button class="btn btn-primary btn-sm" type="button" id="ing-paste-add">Add these</button><button class="btn btn-ghost btn-sm" type="button" data-close-paste>Cancel</button></div>
+        </div>
+        <div class="hub-actions">
+          <button class="btn btn-ghost btn-sm" type="button" id="add-ing">+ Ingredient</button>
+          <button class="btn btn-ghost btn-sm" type="button" id="add-section">+ Section</button>
+          <button class="btn btn-ghost btn-sm" type="button" id="paste-ings">Paste a list</button>
+        </div>
+      </section>
+
+      <section class="ed-section">
+        <h2>Steps</h2>
+        <p class="ed-hint">One step per box.</p>
+        <div class="ed-rows" id="steps"></div>
+        <div class="ed-paste" id="step-paste" hidden>
+          <span class="field-label">Paste the directions — each line (or numbered paragraph) becomes a step.</span>
+          <textarea id="step-paste-text"></textarea>
+          <div class="hub-actions"><button class="btn btn-primary btn-sm" type="button" id="step-paste-add">Add these</button><button class="btn btn-ghost btn-sm" type="button" data-close-paste>Cancel</button></div>
+        </div>
+        <div class="hub-actions">
+          <button class="btn btn-ghost btn-sm" type="button" id="add-step">+ Step</button>
+          <button class="btn btn-ghost btn-sm" type="button" id="paste-steps">Paste directions</button>
+        </div>
+      </section>
+
+      <section class="ed-section">
+        <h2>The story</h2>
+        <p class="ed-hint">Where the recipe came from, who makes it, the time it went wrong — and photos. Shown below the recipe.</p>
+        <div class="ed-toolbar" data-for="story">
+          <button type="button" data-md="bold" title="Bold"><b>B</b></button>
+          <button type="button" data-md="italic" title="Italic"><i>I</i></button>
+          <button type="button" data-md="heading" title="Heading">H</button>
+          <button type="button" data-md="quote" title="Quote" data-icon="quote"></button>
+          <button type="button" data-md="list" title="Bulleted list" data-icon="list"></button>
+          <span class="sep"></span>
+          <button type="button" data-md="photo" title="Add a photo"><span data-icon="image" style="display:contents"></span>Photo</button>
+          <button type="button" class="push" data-preview>Preview</button>
+        </div>
+        <div class="ed-photo-form" id="photo-form" hidden>
+          <img id="photo-thumb" alt="" />
+          <label class="field"><span>Caption (optional)</span><input class="input" id="photo-caption" placeholder="Christmas 1998" /></label>
+          <label class="field" style="flex:0 0 9rem"><span>Placement</span><select id="photo-pos"><option value="center">Full width</option><option value="left">Left, text wraps</option><option value="right">Right, text wraps</option></select></label>
+          <div class="hub-actions"><button class="btn btn-primary btn-sm" type="button" id="photo-insert" disabled>Uploading…</button><button class="btn btn-ghost btn-sm" type="button" id="photo-cancel">Cancel</button></div>
+        </div>
+        <textarea class="ed-md" name="story" id="story" placeholder="Every Christmas Eve, Grandma would…"></textarea>
+        <div class="ed-preview rc-prose" id="story-preview" hidden></div>
+        <input type="file" accept="image/*" id="photo-file" hidden />
+      </section>
+
+      <section class="ed-section">
+        <h2>Notes &amp; tips</h2>
+        <p class="ed-hint">Substitutions, make-ahead tips, “double the frosting”.</p>
+        <textarea name="notes" id="notes" rows="4" placeholder="Freezes well for up to a month."></textarea>
+      </section>
+
+      <div class="ed-danger" id="danger" hidden>
+        <p>Deleting removes the recipe and its photos for everyone (and from the website, if it’s shared).</p>
+        <button class="btn btn-danger btn-sm" type="button" id="delete">Delete recipe</button>
+      </div>
+
+      <div class="ed-savebar">
+        <span class="ed-status" id="status"></span>
+        <a class="btn btn-ghost" id="cancel" href="/family/cookbook">Cancel</a>
+        <button class="btn btn-primary" type="submit" id="save">Save recipe</button>
+      </div>
+    </form>
+    <p class="hub-loading" id="loading">Loading…</p>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+  <script src="/js/recipe-scale.js"></script>
+  <script src="/family/assets/hub.js"></script>
+  <script>
+  (function () {
+    var $ = Hub.$, $$ = Hub.$$, esc = Hub.esc, I = Hub.icons;
+    var form = $('#form');
+    var id = new URLSearchParams(location.search).get('id');
+    var recipe = null, cover = null, dirty = false, saving = false, pendingPhoto = null;
+    $$('[data-icon]').forEach(function (el) { el.innerHTML = I[el.getAttribute('data-icon')]; });
+
+    /* ---------- ingredient rows ---------- */
+    var move = '<span class="ed-move"><button type="button" data-up title="Move up">' + I.up + '</button><button type="button" data-down title="Move down">' + I.down + '</button></span>';
+    var del = '<button type="button" class="ed-del" data-del title="Remove">' + I.x + '</button>';
+    function ingRow(ing) {
+      ing = ing || {};
+      var el = document.createElement('div');
+      if (ing.section != null) {
+        el.className = 'ed-ing is-section';
+        el.innerHTML = move + '<input class="input" data-f="section" placeholder="Section name, e.g. For the frosting" value="' + esc(ing.section) + '" />' + del;
+      } else {
+        el.className = 'ed-ing';
+        el.innerHTML = move +
+          '<input class="input q" data-f="qty" placeholder="1 ½" value="' + esc(ing.qty) + '" />' +
+          '<input class="input u" data-f="unit" placeholder="cups" value="' + esc(ing.unit) + '" />' +
+          '<input class="input i" data-f="item" placeholder="Ingredient" value="' + esc(ing.item) + '" />' +
+          '<input class="input n" data-f="note" placeholder="Note (optional)" value="' + esc(ing.note) + '" />' + del;
+      }
+      return el;
+    }
+    function stepRow(text) {
+      var el = document.createElement('div');
+      el.className = 'ed-step';
+      el.innerHTML = move + '<span class="ed-step-num"></span><textarea rows="1" placeholder="Describe this step">' + esc(text || '') + '</textarea>' + del;
+      return el;
+    }
+    function renumber() {
+      $$('#steps .ed-step-num').forEach(function (n, i) { n.textContent = i + 1; });
+      $$('#steps textarea').forEach(grow);
+    }
+    function grow(t) { t.style.height = 'auto'; t.style.height = t.scrollHeight + 2 + 'px'; }
+    function addIng(ing, after) {
+      var row = ingRow(ing);
+      after ? after.after(row) : $('#ings').appendChild(row);
+      return row;
+    }
+    function addStep(text) { var row = stepRow(text); $('#steps').appendChild(row); renumber(); return row; }
+
+    function rowsClick(e) {
+      var row = e.target.closest('.ed-ing, .ed-step');
+      if (!row) return;
+      if (e.target.closest('[data-up]') && row.previousElementSibling) row.previousElementSibling.before(row);
+      else if (e.target.closest('[data-down]') && row.nextElementSibling) row.nextElementSibling.after(row);
+      else if (e.target.closest('[data-del]')) row.remove();
+      else return;
+      dirty = true;
+      renumber();
+    }
+    $('#ings').addEventListener('click', rowsClick);
+    $('#steps').addEventListener('click', rowsClick);
+    $('#ings').addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' || !e.target.matches('input')) return;
+      e.preventDefault();
+      var row = e.target.closest('.ed-ing');
+      addIng({}, row).querySelector('input').focus();
+    });
+    $('#steps').addEventListener('input', function (e) { if (e.target.matches('textarea')) grow(e.target); });
+
+    $('#add-ing').onclick = function () { addIng({}).querySelector('input').focus(); dirty = true; };
+    $('#add-section').onclick = function () { addIng({ section: '' }).querySelector('input').focus(); dirty = true; };
+    $('#add-step').onclick = function () { addStep('').querySelector('textarea').focus(); dirty = true; };
+    $('#paste-ings').onclick = function () { $('#ing-paste').hidden = false; $('#ing-paste-text').focus(); };
+    $('#paste-steps').onclick = function () { $('#step-paste').hidden = false; $('#step-paste-text').focus(); };
+    $$('[data-close-paste]').forEach(function (b) { b.onclick = function () { b.closest('.ed-paste').hidden = true; }; });
+    $('#ing-paste-add').onclick = function () {
+      // Drop the single empty starter row before adding pasted lines.
+      $$('#ings .ed-ing').forEach(function (r) { if (!$$('input', r).some(function (i) { return i.value.trim(); })) r.remove(); });
+      $('#ing-paste-text').value.split(/\r?\n/).map(RecipeScale.parseIngredientLine).filter(Boolean).forEach(function (ing) { addIng(ing); });
+      $('#ing-paste-text').value = ''; $('#ing-paste').hidden = true; dirty = true;
+    };
+    $('#step-paste-add').onclick = function () {
+      $$('#steps .ed-step').forEach(function (r) { if (!$('textarea', r).value.trim()) r.remove(); });
+      var text = $('#step-paste-text').value.trim();
+      var parts = /(^|\n)\s*\d+[.)]\s/.test(text) ? text.split(/\n?\s*\d+[.)]\s+/) : text.split(/\r?\n+/);
+      parts.map(function (s) { return s.replace(/^\s*(?:step\s*\d+[:.]?|[-*•])\s*/i, '').trim(); }).filter(Boolean).forEach(addStep);
+      $('#step-paste-text').value = ''; $('#step-paste').hidden = true; dirty = true;
+    };
+
+    /* ---------- cover photo ---------- */
+    function showCover() {
+      $('#cover-img').innerHTML = cover ? '<img src="' + Hub.mediaUrl(cover) + '" alt="" />' : 'No photo yet';
+      $('#cover-pick').textContent = cover ? 'Change photo' : 'Choose photo';
+      $('#cover-remove').hidden = !cover;
+    }
+    $('#cover-pick').onclick = function () { $('#cover-file').click(); };
+    $('#cover-remove').onclick = function () { cover = null; dirty = true; showCover(); };
+    $('#cover-file').onchange = function () {
+      var f = this.files[0]; this.value = '';
+      if (!f) return;
+      $('#cover-img').textContent = 'Uploading…';
+      Hub.upload(f).then(function (res) { cover = res.name; dirty = true; showCover(); })
+        .catch(function (e) { Hub.toast(e.message, true); showCover(); });
+    };
+
+    /* ---------- story editor ---------- */
+    var story = $('#story');
+    function wrapSel(before, after, placeholder) {
+      var s = story.selectionStart, e = story.selectionEnd, v = story.value;
+      var sel = v.slice(s, e) || placeholder;
+      story.value = v.slice(0, s) + before + sel + after + v.slice(e);
+      story.focus();
+      story.setSelectionRange(s + before.length, s + before.length + sel.length);
+      dirty = true;
+    }
+    function prefixLines(prefix) {
+      var s = story.selectionStart, e = story.selectionEnd, v = story.value;
+      var start = v.lastIndexOf('\n', s - 1) + 1;
+      var block = v.slice(start, e) || '';
+      var out = block.split('\n').map(function (l) { return prefix + l; }).join('\n');
+      story.value = v.slice(0, start) + out + v.slice(e);
+      story.focus();
+      story.setSelectionRange(start, start + out.length);
+      dirty = true;
+    }
+    function insertBlock(text) {
+      var s = story.selectionStart, v = story.value;
+      var before = v.slice(0, s), after = v.slice(s);
+      var pre = !before || /\n\n$/.test(before) ? '' : (/\n$/.test(before) ? '\n' : '\n\n');
+      var post = /^\n\n/.test(after) ? '' : (/^\n/.test(after) ? '\n' : '\n\n');
+      story.value = before + pre + text + post + after;
+      var at = (before + pre + text + post).length;
+      story.focus(); story.setSelectionRange(at, at);
+      dirty = true;
+    }
+    $('.ed-toolbar').addEventListener('click', function (e) {
+      var b = e.target.closest('button');
+      if (!b) return;
+      if (b.hasAttribute('data-preview')) {
+        var on = $('#story-preview').hidden;
+        $('#story-preview').innerHTML = on ? (Hub.md(story.value) || '<p style="color:var(--text-muted)">Nothing written yet.</p>') : '';
+        $('#story-preview').hidden = !on; story.hidden = on;
+        b.classList.toggle('on', on); b.textContent = on ? 'Write' : 'Preview';
+        return;
+      }
+      if ($('#story-preview').hidden === false) $('[data-preview]').click();
+      var kind = b.getAttribute('data-md');
+      if (kind === 'bold') wrapSel('**', '**', 'bold text');
+      if (kind === 'italic') wrapSel('*', '*', 'italic text');
+      if (kind === 'heading') prefixLines('## ');
+      if (kind === 'quote') prefixLines('> ');
+      if (kind === 'list') prefixLines('- ');
+      if (kind === 'photo') $('#photo-file').click();
+    });
+    $('#photo-file').onchange = function () {
+      var f = this.files[0]; this.value = '';
+      if (!f) return;
+      var cursor = story.selectionStart;
+      $('#photo-form').hidden = false;
+      $('#photo-thumb').src = URL.createObjectURL(f);
+      $('#photo-caption').value = ''; $('#photo-insert').disabled = true; $('#photo-insert').textContent = 'Uploading…';
+      var token = pendingPhoto = { cursor: cursor };
+      Hub.upload(f).then(function (res) {
+        if (pendingPhoto !== token) return;
+        token.url = res.url;
+        $('#photo-insert').disabled = false; $('#photo-insert').textContent = 'Insert photo';
+        $('#photo-caption').focus();
+      }).catch(function (e) { Hub.toast(e.message, true); $('#photo-form').hidden = true; pendingPhoto = null; });
+    };
+    $('#photo-insert').onclick = function () {
+      if (!pendingPhoto || !pendingPhoto.url) return;
+      var pos = $('#photo-pos').value, cap = $('#photo-caption').value.trim().replace(/"/g, '”');
+      var title = pos === 'center' ? cap : pos + (cap ? ': ' + cap : '');
+      story.setSelectionRange(pendingPhoto.cursor, pendingPhoto.cursor);
+      insertBlock('![' + cap.replace(/[\[\]]/g, '') + '](' + pendingPhoto.url + (title ? ' "' + title + '"' : '') + ')');
+      pendingPhoto = null; $('#photo-form').hidden = true;
+    };
+    $('#photo-cancel').onclick = function () { pendingPhoto = null; $('#photo-form').hidden = true; };
+
+    /* ---------- tags ---------- */
+    function currentTags() { return form.elements.tags.value.split(',').map(function (t) { return t.trim(); }).filter(Boolean); }
+    function renderTagSuggest(all) {
+      var have = currentTags().map(function (t) { return t.toLowerCase(); });
+      var left = all.filter(function (t) { return have.indexOf(t.toLowerCase()) < 0; }).slice(0, 14);
+      $('#tag-suggest').innerHTML = left.map(function (t) { return '<button type="button" class="chip" data-add-tag="' + esc(t) + '">+ ' + esc(t) + '</button>'; }).join('');
+    }
+    var knownTags = [];
+    $('#tag-suggest').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-add-tag]');
+      if (!b) return;
+      form.elements.tags.value = currentTags().concat(b.getAttribute('data-add-tag')).join(', ');
+      dirty = true; renderTagSuggest(knownTags);
+    });
+    form.elements.tags.addEventListener('input', function () { renderTagSuggest(knownTags); });
+
+    /* ---------- load / save ---------- */
+    function fill(r) {
+      ['title', 'summary', 'source', 'servings', 'yieldUnit', 'prepMinutes', 'cookMinutes', 'story', 'notes'].forEach(function (k) {
+        form.elements[k].value = r[k] == null ? '' : r[k];
+      });
+      form.elements.tags.value = (r.tags || []).join(', ');
+      cover = r.cover || null; showCover();
+      $('#ings').innerHTML = ''; (r.ingredients && r.ingredients.length ? r.ingredients : [{}]).forEach(function (i) { addIng(i); });
+      $('#steps').innerHTML = ''; (r.steps && r.steps.length ? r.steps : ['']).forEach(addStep);
+    }
+    function collect() {
+      var ingredients = $$('#ings > .ed-ing').map(function (row) {
+        var o = {};
+        $$('[data-f]', row).forEach(function (i) { o[i.getAttribute('data-f')] = i.value.trim(); });
+        return o;
+      }).filter(function (o) { return o.section || o.item || o.qty; });
+      return {
+        id: recipe ? recipe.id : undefined,
+        title: form.elements.title.value.trim(), summary: form.elements.summary.value.trim(), source: form.elements.source.value.trim(),
+        tags: currentTags(), servings: form.elements.servings.value, yieldUnit: form.elements.yieldUnit.value.trim(),
+        prepMinutes: form.elements.prepMinutes.value, cookMinutes: form.elements.cookMinutes.value, cover: cover,
+        ingredients: ingredients,
+        steps: $$('#steps textarea').map(function (t) { return t.value.trim(); }).filter(Boolean),
+        story: story.value, notes: form.elements.notes.value
+      };
+    }
+    form.addEventListener('input', function () { dirty = true; });
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var data = collect();
+      if (!data.title) { form.elements.title.focus(); return Hub.toast('Give the recipe a name first.', true); }
+      saving = true;
+      $('#save').disabled = true; $('#save').textContent = 'Saving…';
+      Hub.api('recipe', { body: data }).then(function (res) {
+        dirty = false;
+        location.href = '/family/cookbook/recipe?id=' + encodeURIComponent(res.recipe.id) + (res.recipe.published ? '&saved=1' : '');
+      }).catch(function (err) {
+        saving = false;
+        $('#save').disabled = false; $('#save').textContent = 'Save recipe';
+        Hub.toast(err.message, true);
+      });
+    });
+    $('#delete').onclick = function () {
+      Hub.confirm({ title: 'Delete “' + recipe.title + '”?', confirm: 'Delete forever', danger: true,
+        body: '<p>This removes the recipe and its photos for the whole family' + (recipe.published ? ', and takes it off the website' : '') + '. It can’t be undone.</p>' })
+        .then(function (yes) {
+          if (!yes) return;
+          $('#delete').disabled = true;
+          Hub.api('recipe', { method: 'DELETE', query: { id: recipe.id } }).then(function () {
+            dirty = false; location.href = '/family/cookbook';
+          }).catch(function (e) { $('#delete').disabled = false; Hub.toast(e.message, true); });
+        });
+    };
+    window.addEventListener('beforeunload', function (e) {
+      if (dirty && !saving) { e.preventDefault(); e.returnValue = ''; }
+    });
+
+    Hub.ready(function () {
+      var load = id ? Hub.api('recipe', { query: { id: id } }).then(function (d) { return d.recipe; }) : Promise.resolve(null);
+      Promise.all([load, Hub.api('recipes').catch(function () { return { recipes: [] }; })]).then(function (res) {
+        recipe = res[0];
+        var counts = {};
+        res[1].recipes.forEach(function (r) { (r.tags || []).forEach(function (t) { counts[t] = (counts[t] || 0) + 1; }); });
+        knownTags = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; });
+        if (!knownTags.length) knownTags = ['Breakfast', 'Dinner', 'Dessert', 'Sides', 'Holidays', 'Treats'];
+        fill(recipe || {});
+        renderTagSuggest(knownTags);
+        if (recipe) {
+          $('#heading').textContent = 'Edit recipe';
+          document.title = 'Edit ' + recipe.title + ' · Randall Family';
+          $('#cancel').href = '/family/cookbook/recipe?id=' + encodeURIComponent(recipe.id);
+          $('#danger').hidden = false;
+          if (recipe.published) $('#status').textContent = 'Shared on the website — update the website copy after saving.';
+        }
+        $('#loading').remove();
+        form.hidden = false;
+        renumber();
+        if (!recipe) form.elements.title.focus();
+        dirty = false;
+      }).catch(function (e) {
+        $('#loading').textContent = e.message;
+      });
+    });
+  })();
+  </script>
+</body>
+</html>

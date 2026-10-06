@@ -3,5 +3,9 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".",
   "framework": null,
-  "cleanUrls": true
+  "cleanUrls": true,
+  "redirects": [
+    { "source": "/admin", "destination": "/family/manage", "permanent": false },
+    { "source": "/admin/:path*", "destination": "/family/manage", "permanent": false }
+  ]
 }

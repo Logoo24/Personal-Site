@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('lb-theme')||'light')}catch(e){}</script>
+  <title>Export cookbook · Randall Family</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#FAFAFA" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231F7A4D'/%3E%3Cpath d='M8 15 16 8l8 7v9h-5.5v-6h-5v6H8z' fill='%23FAFAFA'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/family/assets/hub.css" />
+</head>
+<body class="hub">
+  <header class="hub-bar" data-crumbs='[["Cookbook","/family/cookbook"],["Export","/family/cookbook/print"]]'></header>
+
+  <main class="hub-main">
+    <div class="hub-head no-print">
+      <div>
+        <span class="eyebrow">Export</span>
+        <h1 style="margin-top:0.8rem">Cookbook PDF</h1>
+        <p>Set it up, then use <strong>Print / Save as PDF</strong> and pick “Save as PDF” as the printer.</p>
+      </div>
+    </div>
+
+    <div class="px-panel">
+      <label class="field"><span>Cookbook title</span><input class="input" id="px-title" value="The Randall Family Cookbook" /></label>
+      <label class="field"><span>Subtitle</span><input class="input" id="px-sub" value="Recipes and stories from our kitchen" /></label>
+      <label class="check"><input type="checkbox" id="px-cover" checked /> Cover &amp; contents</label>
+      <label class="check"><input type="checkbox" id="px-story" checked /> Stories</label>
+      <label class="check"><input type="checkbox" id="px-photos" checked /> Photos</label>
+      <label class="check"><input type="checkbox" id="px-break" checked /> Each recipe on a new page</label>
+      <button class="btn btn-primary" type="button" id="px-print" disabled>Print / Save as PDF</button>
+    </div>
+
+    <div class="px-doc" id="doc"><p class="hub-loading">Gathering recipes…</p></div>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+  <script src="/js/recipe-scale.js"></script>
+  <script src="/family/assets/hub.js"></script>
+  <script>
+  (function () {
+    var $ = Hub.$, esc = Hub.esc;
+    var ids = (new URLSearchParams(location.search).get('ids') || '').split(',').filter(Boolean);
+    var recipes = [];
+
+    function render() {
+      var withCover = $('#px-cover').checked, opts = { story: $('#px-story').checked, photos: $('#px-photos').checked, headingTag: 'h2' };
+      var title = $('#px-title').value.trim(), sub = $('#px-sub').value.trim();
+      document.title = title || 'Cookbook';
+      var html = '';
+      if (withCover) {
+        html += '<section class="px-cover"><span class="hub-logo">' + Hub.icons.chef + '</span><h1>' + esc(title) + '</h1>' +
+          (sub ? '<p>' + esc(sub) + '</p>' : '') + '<p style="font-size:.9rem;color:var(--text-muted)">' + Hub.plural(recipes.length, 'recipe') + ' · ' + new Date().getFullYear() + '</p></section>';
+        if (recipes.length > 1) {
+          html += '<section class="px-toc"><h2 style="margin-bottom:1rem">Contents</h2><ol>' + recipes.map(function (r, i) {
+            return '<li><a href="#px-' + i + '">' + esc(r.title) + '</a>' + (r.tags && r.tags.length ? ' <span style="color:var(--text-muted);font-size:.85em">· ' + esc(r.tags.join(', ')) + '</span>' : '') + '</li>';
+          }).join('') + '</ol></section>';
+        }
+      }
+      html += recipes.map(function (r, i) {
+        return '<article class="px-recipe' + ($('#px-break').checked && (i || withCover) ? ' newpage' : '') + '" id="px-' + i + '"' + (i || withCover ? '' : ' style="border:0;margin:0;padding:0"') + '>' + Hub.recipeHTML(r, opts) + '</article>';
+      }).join('');
+      $('#doc').innerHTML = html;
+    }
+
+    Hub.$$('.px-panel input').forEach(function (i) { i.addEventListener(i.type === 'checkbox' ? 'change' : 'input', render); });
+    $('#px-print').addEventListener('click', function () {
+      // Wait for photos so they make it into the PDF.
+      var imgs = Hub.$$('#doc img').filter(function (img) { return !img.complete; });
+      $('#px-print').disabled = true;
+      Promise.all(imgs.map(function (img) { return new Promise(function (r) { img.onload = img.onerror = r; }); })).then(function () {
+        $('#px-print').disabled = false;
+        window.print();
+      });
+    });
+
+    Hub.ready(function () {
+      Hub.api('recipes', { query: { full: 1 } }).then(function (data) {
+        recipes = data.recipes.filter(function (r) { return !ids.length || ids.indexOf(r.id) > -1; })
+          .sort(function (a, b) { return a.title.localeCompare(b.title); });
+        if (!recipes.length) {
+          $('#doc').innerHTML = '<div class="hub-empty"><h3>No recipes to export</h3><p>Add some recipes to the cookbook first.</p></div>';
+          return;
+        }
+        if (recipes.length === 1) { $('#px-cover').checked = false; }
+        render();
+        $('#px-print').disabled = false;
+      }).catch(function (e) {
+        $('#doc').innerHTML = '<div class="hub-empty"><h3>Couldn’t gather the recipes</h3><p>' + esc(e.message) + '</p></div>';
+      });
+    });
+  })();
+  </script>
+</body>
+</html>

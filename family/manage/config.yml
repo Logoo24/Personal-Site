@@ -1,7 +1,8 @@
 # Decap / Sveltia CMS configuration
 # Docs: https://decapcms.org/docs/configuration-options/
 #
-# Only blog posts and the class list are editable from /admin/. Everything
+# Lives at /family/manage (behind the family hub sign-in; /admin redirects
+# here). Only blog posts and the class list are editable here. Everything
 # else on the site (homepage, about, projects, resume) is hard-coded in the
 # HTML files.
 #

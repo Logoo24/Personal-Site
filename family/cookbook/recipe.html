@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('lb-theme')||'light')}catch(e){}</script>
+  <title>Recipe · Randall Family</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#FAFAFA" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231F7A4D'/%3E%3Cpath d='M8 15 16 8l8 7v9h-5.5v-6h-5v6H8z' fill='%23FAFAFA'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/family/assets/hub.css" />
+</head>
+<body class="hub">
+  <header class="hub-bar" data-crumbs='[["Cookbook","/family/cookbook"]]'></header>
+
+  <main class="hub-main">
+    <div class="hub-head no-print" style="margin-bottom:1.5rem">
+      <a class="btn btn-ghost btn-sm" href="/family/cookbook">← All recipes</a>
+      <div class="hub-actions" id="actions" hidden>
+        <button class="btn btn-ghost" type="button" id="print">Print / PDF</button>
+        <a class="btn btn-primary" id="edit" href="#">Edit</a>
+      </div>
+    </div>
+    <div class="rc-share" id="share" hidden></div>
+    <article id="recipe"><p class="hub-loading">Getting the recipe…</p></article>
+    <p class="rc-byline no-print" id="byline"></p>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+  <script src="/js/recipe-scale.js"></script>
+  <script src="/family/assets/hub.js"></script>
+  <script>
+  (function () {
+    var $ = Hub.$, esc = Hub.esc;
+    var id = new URLSearchParams(location.search).get('id');
+    var recipe, factor = 1, wakeLock = null;
+    $('#print').insertAdjacentHTML('afterbegin', Hub.icons.print);
+    $('#edit').insertAdjacentHTML('afterbegin', Hub.icons.edit);
+
+    function render() {
+      $('#recipe').innerHTML = Hub.recipeHTML(recipe, { factor: factor, interactive: true });
+      document.title = recipe.title + ' · Randall Family';
+    }
+
+    function setFactor(f) {
+      if (!(f > 0)) return;
+      factor = Math.min(f, 100);
+      $('[data-ingredients]') && ($('[data-ingredients]').innerHTML = Hub.ingredientsHTML(recipe.ingredients, factor));
+      var amount = recipe.servings * factor;
+      var y = $('[data-yield]'); if (y) y.textContent = RecipeScale.formatNum(amount) + ' ' + (recipe.yieldUnit || 'servings');
+      var input = $('[data-scale-input]'); if (input && document.activeElement !== input) input.value = +amount.toFixed(2);
+      Hub.$$('[data-scale-factor]').forEach(function (c) { c.classList.toggle('on', +c.getAttribute('data-scale-factor') === factor); });
+    }
+
+    function renderShare() {
+      var p = recipe.published, box = $('#share');
+      box.hidden = false;
+      box.classList.toggle('is-shared', !!p);
+      var url = p ? location.origin + '/recipes/' + p.slug : '';
+      var stale = p && p.at && recipe.updatedAt > p.at;
+      box.innerHTML = p
+        ? '<div class="rc-share-text"><span class="rc-share-dot"></span><span><strong>Shared on the website</strong> · <a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(url.replace(/^https?:\/\//, '')) + '</a>' +
+            (stale ? '<br><small>You’ve edited it since it was shared — update the website copy to match.</small>' : '') + '</span></div>' +
+          '<div class="hub-actions">' + (stale ? '<button class="btn btn-primary btn-sm" data-publish="1">Update website copy</button>' : '') +
+            '<button class="btn btn-ghost btn-sm" data-publish="0">Stop sharing</button></div>'
+        : '<div class="rc-share-text"><span class="rc-share-dot"></span><span><strong>Private to the family</strong> · only people signed in here can see it</span></div>' +
+          '<div class="hub-actions"><button class="btn btn-ghost btn-sm" data-publish="1">' + Hub.icons.share + 'Share on the website</button></div>';
+    }
+
+    $('#share').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-publish]');
+      if (!b) return;
+      var on = b.getAttribute('data-publish') === '1';
+      var first = on && !recipe.published;
+      var ask = first
+        ? Hub.confirm({ title: 'Share this recipe publicly?', confirm: 'Share it',
+            body: '<p>It becomes a public post under <strong>Family Recipes</strong> on loganbrandall.com — the recipe, the story and its photos. Who added it here isn’t shown.</p><p style="margin-top:.6rem">You can stop sharing any time.</p>' })
+        : on ? Promise.resolve(true)
+        : Hub.confirm({ title: 'Stop sharing?', confirm: 'Remove from website', danger: true, body: '<p>The public post and its photos come off loganbrandall.com. The recipe stays here in the family cookbook.</p>' });
+      ask.then(function (yes) {
+        if (!yes) return;
+        Hub.$$('[data-publish]').forEach(function (x) { x.disabled = true; });
+        b.textContent = on ? 'Sharing…' : 'Removing…';
+        Hub.api('publish', { body: { id: recipe.id, publish: on } }).then(function (data) {
+          recipe = data.recipe;
+          renderShare();
+          Hub.toast(on ? 'Shared! It’ll be live on the website in a minute or two.' : 'Removed from the website.');
+        }).catch(function (err) { Hub.toast(err.message, true); renderShare(); });
+      });
+    });
+
+    $('#recipe').addEventListener('click', function (e) {
+      var t = e.target;
+      var li = t.closest('.rc-ing-list li:not(.rc-ing-section), .rc-steps li');
+      if (li && !t.closest('a')) li.classList.toggle('done');
+      var f = t.closest('[data-scale-factor]');
+      if (f) setFactor(+f.getAttribute('data-scale-factor'));
+      var step = t.closest('[data-scale-step]');
+      if (step) {
+        var cur = recipe.servings * factor, d = +step.getAttribute('data-scale-step');
+        var next = cur + d * (cur <= 2 ? 0.5 : 1);
+        if (next > 0) setFactor(next / recipe.servings);
+      }
+    });
+    $('#recipe').addEventListener('input', function (e) {
+      if (e.target.matches('[data-scale-input]')) { var v = parseFloat(e.target.value); if (v > 0) setFactor(v / recipe.servings); }
+    });
+    $('#recipe').addEventListener('change', function (e) {
+      if (!e.target.matches('[data-wake]')) return;
+      if (e.target.checked) {
+        navigator.wakeLock.request('screen').then(function (l) { wakeLock = l; Hub.toast('Screen will stay on while this page is open.'); })
+          .catch(function () { e.target.checked = false; Hub.toast('This browser won’t keep the screen on.', true); });
+      } else if (wakeLock) { wakeLock.release(); wakeLock = null; }
+    });
+    document.addEventListener('visibilitychange', function () {
+      var box = $('[data-wake]');
+      if (document.visibilityState === 'visible' && box && box.checked && !wakeLock) navigator.wakeLock.request('screen').then(function (l) { wakeLock = l; }).catch(function () {});
+      if (document.visibilityState === 'hidden') wakeLock = null;
+    });
+    $('#print').addEventListener('click', function () { window.print(); });
+
+    Hub.ready(function () {
+      if (!id) { location.replace('/family/cookbook'); return; }
+      Hub.api('recipe', { query: { id: id } }).then(function (data) {
+        recipe = data.recipe;
+        $('#edit').href = '/family/cookbook/edit?id=' + encodeURIComponent(recipe.id);
+        $('#actions').hidden = false;
+        var crumb = document.createElement('span');
+        crumb.className = 'hub-crumb';
+        crumb.innerHTML = '<a href="' + location.pathname + location.search + '">' + esc(recipe.title) + '</a>';
+        Hub.$$('.hub-crumb').pop().after(crumb);
+        render();
+        renderShare();
+        var when = function (iso) { return new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); };
+        $('#byline').textContent = 'Added by ' + recipe.createdBy + ' on ' + when(recipe.createdAt) +
+          (recipe.updatedAt !== recipe.createdAt ? ' · Last edited by ' + recipe.updatedBy + ' on ' + when(recipe.updatedAt) : '');
+        if (new URLSearchParams(location.search).get('print')) setTimeout(function () { window.print(); }, 600);
+      }).catch(function (e) {
+        $('#recipe').innerHTML = '<div class="hub-empty"><h3>' + (e.status === 404 ? 'Recipe not found' : 'Couldn’t load the recipe') + '</h3><p>' + esc(e.message) + '</p><a class="btn btn-ghost" href="/family/cookbook">Back to the cookbook</a></div>';
+      });
+    });
+  })();
+  </script>
+</body>
+</html>

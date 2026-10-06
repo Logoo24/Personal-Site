@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('lb-theme')||'light')}catch(e){}</script>
+  <title>Family Cookbook · Randall Family</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#FAFAFA" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231F7A4D'/%3E%3Cpath d='M8 15 16 8l8 7v9h-5.5v-6h-5v6H8z' fill='%23FAFAFA'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/family/assets/hub.css" />
+</head>
+<body class="hub">
+  <header class="hub-bar" data-crumbs='[["Cookbook","/family/cookbook"]]'></header>
+
+  <main class="hub-main">
+    <div class="hub-head">
+      <div>
+        <span class="eyebrow">Family Cookbook</span>
+        <h1 style="margin-top:0.8rem">What’s cooking?</h1>
+        <p id="count">&nbsp;</p>
+      </div>
+      <div class="hub-actions">
+        <button class="btn btn-ghost" type="button" id="select-btn" data-icon-before="print">Export PDF</button>
+        <a class="btn btn-primary" href="/family/cookbook/edit" data-icon-before="plus">New recipe</a>
+      </div>
+    </div>
+
+    <div class="cb-toolbar">
+      <label class="search"><span data-icon="search"></span><input class="input" type="search" id="q" placeholder="Search recipes or ingredients" autocomplete="off" /></label>
+    </div>
+    <div class="chips cb-tags" id="tags"></div>
+
+    <div id="list"><p class="hub-loading">Opening the cookbook…</p></div>
+
+    <div class="cb-selectbar" id="selectbar" hidden>
+      <span id="picked-count">Tap recipes to choose them</span>
+      <div class="hub-actions">
+        <button class="btn btn-ghost btn-sm" type="button" id="select-cancel">Cancel</button>
+        <a class="btn btn-ghost btn-sm" href="/family/cookbook/print">Whole cookbook</a>
+        <button class="btn btn-primary btn-sm" type="button" id="export-picked" disabled>Export chosen</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="/family/assets/hub.js"></script>
+  <script>
+  (function () {
+    var $ = Hub.$, esc = Hub.esc;
+    Hub.$$('[data-icon]').forEach(function (el) { el.innerHTML = Hub.icons[el.getAttribute('data-icon')]; el.style.display = 'contents'; });
+    Hub.$$('[data-icon-before]').forEach(function (el) { el.insertAdjacentHTML('afterbegin', Hub.icons[el.getAttribute('data-icon-before')]); });
+
+    var all = [], tag = null, selecting = false, picked = new Set();
+
+    function card(r) {
+      var meta = [];
+      if (r.totalMinutes) meta.push(Hub.minutes(r.totalMinutes));
+      if (r.servings) meta.push(r.servings + ' ' + (r.yieldUnit || 'servings'));
+      if (r.published) meta.push('<span class="shared">● On the website</span>');
+      return '<a class="cb-card' + (picked.has(r.id) ? ' picked' : '') + '" href="/family/cookbook/recipe?id=' + encodeURIComponent(r.id) + '" data-id="' + esc(r.id) + '">' +
+        '<span class="cb-check">' + Hub.icons.check + '</span>' +
+        '<div class="cb-thumb">' + (r.cover
+          ? '<img src="' + Hub.mediaUrl(r.cover) + '" alt="" loading="lazy" />'
+          : '<div class="cb-placeholder" style="background:' + Hub.placeholderBg(r.title) + '">' + esc(r.title.trim().charAt(0).toUpperCase()) + '</div>') + '</div>' +
+        '<div class="cb-card-body"><h3>' + esc(r.title) + '</h3>' + (r.summary ? '<p>' + esc(r.summary) + '</p>' : '') +
+        '<div class="cb-card-meta">' + meta.map(function (m) { return '<span>' + (m.charAt(0) === '<' ? m : esc(m)) + '</span>'; }).join('') + '</div></div></a>';
+    }
+
+    function render() {
+      var q = $('#q').value.trim().toLowerCase();
+      var shown = all.filter(function (r) {
+        if (tag && (r.tags || []).indexOf(tag) < 0) return false;
+        if (!q) return true;
+        return [r.title, r.summary, (r.tags || []).join(' '), r.createdBy, r.search].join(' ').toLowerCase().indexOf(q) > -1;
+      });
+      if (!all.length) {
+        $('#list').innerHTML = '<div class="hub-empty"><h3>The cookbook is empty</h3><p>Start with the recipe everyone always asks for.</p><a class="btn btn-primary" href="/family/cookbook/edit">' + Hub.icons.plus + 'Add the first recipe</a></div>';
+        return;
+      }
+      $('#list').innerHTML = shown.length
+        ? '<div class="cb-grid' + (selecting ? ' cb-select' : '') + '">' + shown.map(card).join('') + '</div>'
+        : '<div class="hub-empty"><h3>No matches</h3><p>Nothing in the cookbook matches “' + esc(q || tag) + '”.</p></div>';
+    }
+
+    function renderTags() {
+      var counts = {};
+      all.forEach(function (r) { (r.tags || []).forEach(function (t) { counts[t] = (counts[t] || 0) + 1; }); });
+      var tags = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a] || a.localeCompare(b); });
+      $('#tags').innerHTML = tags.length ? ['<button class="chip' + (tag ? '' : ' on') + '" data-tag="">All</button>'].concat(tags.map(function (t) {
+        return '<button class="chip' + (tag === t ? ' on' : '') + '" data-tag="' + esc(t) + '">' + esc(t) + '</button>';
+      })).join('') : '';
+    }
+
+    function updateSelectBar() {
+      $('#picked-count').textContent = picked.size ? Hub.plural(picked.size, 'recipe') + ' chosen' : 'Tap recipes to choose them';
+      $('#export-picked').disabled = !picked.size;
+    }
+    function setSelecting(on) {
+      selecting = on;
+      if (!on) picked.clear();
+      $('#selectbar').hidden = !on;
+      updateSelectBar();
+      render();
+    }
+
+    $('#q').addEventListener('input', render);
+    $('#tags').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-tag]');
+      if (!b) return;
+      tag = b.getAttribute('data-tag') || null;
+      renderTags(); render();
+    });
+    $('#select-btn').addEventListener('click', function () { setSelecting(!selecting); });
+    $('#select-cancel').addEventListener('click', function () { setSelecting(false); });
+    $('#list').addEventListener('click', function (e) {
+      var c = e.target.closest('.cb-card');
+      if (!c || !selecting) return;
+      e.preventDefault();
+      var id = c.getAttribute('data-id');
+      picked.has(id) ? picked.delete(id) : picked.add(id);
+      c.classList.toggle('picked', picked.has(id));
+      updateSelectBar();
+    });
+    $('#export-picked').addEventListener('click', function () {
+      location.href = '/family/cookbook/print?ids=' + encodeURIComponent(Array.from(picked).join(','));
+    });
+
+    Hub.ready(function () {
+      Hub.api('recipes').then(function (data) {
+        all = data.recipes.slice().sort(function (a, b) { return a.title.localeCompare(b.title); });
+        $('#count').textContent = all.length ? Hub.plural(all.length, 'family recipe') + (all.some(function (r) { return r.published; }) ? ' · ' + all.filter(function (r) { return r.published; }).length + ' shared on the website' : '') : 'Recipes, stories and photos from our kitchen.';
+        $('#select-btn').hidden = !all.length;
+        renderTags(); render();
+      }).catch(function (e) {
+        $('#list').innerHTML = '<div class="hub-empty"><h3>Couldn’t open the cookbook</h3><p>' + esc(e.message) + '</p></div>';
+      });
+    });
+  })();
+  </script>
+</body>
+</html>

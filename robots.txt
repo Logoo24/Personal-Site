@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /family
+Disallow: /api/
 
 Sitemap: https://www.loganbrandall.com/sitemap.xml

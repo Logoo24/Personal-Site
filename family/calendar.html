@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('lb-theme')||'light')}catch(e){}</script>
+  <title>Family Calendar · Randall Family</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#FAFAFA" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231F7A4D'/%3E%3Cpath d='M8 15 16 8l8 7v9h-5.5v-6h-5v6H8z' fill='%23FAFAFA'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/family/assets/hub.css" />
+</head>
+<body class="hub hub-cal">
+  <header class="hub-bar" data-crumbs='[["Calendar","/family/calendar"]]'></header>
+
+  <main class="hub-main">
+    <div class="cal-toolbar">
+      <div class="cal-nav">
+        <button class="btn btn-ghost btn-icon" type="button" id="prev" aria-label="Previous month"></button>
+        <button class="btn btn-ghost btn-icon" type="button" id="next" aria-label="Next month"></button>
+      </div>
+      <h1 class="cal-title" id="title">&nbsp;</h1>
+      <button class="btn btn-ghost btn-sm" type="button" id="today">Today</button>
+      <div class="push">
+        <div class="cal-seg" role="tablist">
+          <button type="button" data-view="month" role="tab">Month</button>
+          <button type="button" data-view="agenda" role="tab">Agenda</button>
+        </div>
+        <a class="btn btn-ghost btn-sm" id="open-google" target="_blank" rel="noopener" title="Open in Google Calendar"><span>Google Calendar</span></a>
+        <a class="btn btn-ghost btn-sm" id="subscribe" target="_blank" rel="noopener" title="Add this calendar to your own Google Calendar"><span>Add to mine</span></a>
+      </div>
+    </div>
+
+    <div class="cal-month" id="month">
+      <div class="cal-dow"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+      <div class="cal-weeks" id="weeks"></div>
+    </div>
+    <div class="cal-agenda" id="agenda" hidden></div>
+  </main>
+
+  <div class="cal-backdrop" id="backdrop"></div>
+  <aside class="cal-drawer" id="drawer" aria-hidden="true">
+    <div class="cal-drawer-head"><h2 id="drawer-title"></h2><button class="btn btn-ghost btn-icon" type="button" id="drawer-close" aria-label="Close"></button></div>
+    <div class="cal-drawer-body" id="drawer-body"></div>
+  </aside>
+
+  <script src="/family/assets/hub.js"></script>
+  <script>
+  (function () {
+    var $ = Hub.$, $$ = Hub.$$, esc = Hub.esc;
+    var COLORS = ['#2563EB', '#059669', '#D97706', '#DB2777', '#7C3AED', '#0891B2', '#DC2626', '#4D7C0F'];
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    var cursor = new Date(today.getFullYear(), today.getMonth(), 1);
+    var view = null, cache = {}, byDay = {};
+    $('#prev').innerHTML = Hub.icons.left; $('#next').innerHTML = Hub.icons.right; $('#drawer-close').innerHTML = Hub.icons.x;
+    $('#open-google').insertAdjacentHTML('afterbegin', Hub.icons.external);
+    $('#subscribe').insertAdjacentHTML('afterbegin', Hub.icons.plus);
+
+    function key(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+    function parseDay(s) { var p = s.split('-'); return new Date(+p[0], p[1] - 1, +p[2]); }
+    function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
+    function color(ev) { return COLORS[Hub.hue(ev.title) % COLORS.length]; }
+    function shortTime(d) {
+      return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(':00', '').replace(/\s?([AP])M/, function (m, a) { return a.toLowerCase(); });
+    }
+    function longTime(d) { return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); }
+
+    // Which local days an event covers (multi-day events show on each day).
+    function daysOf(ev) {
+      var start, endEx;
+      if (ev.allDay) { start = parseDay(ev.start); endEx = parseDay(ev.end); }
+      else {
+        var s = new Date(ev.start), e = new Date(ev.end);
+        start = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+        endEx = new Date(e.getFullYear(), e.getMonth(), e.getDate());
+        if (e > endEx || +endEx === +start) endEx = addDays(endEx, 1);
+      }
+      var out = [];
+      for (var d = start; d < endEx && out.length < 62; d = addDays(d, 1)) out.push(key(d));
+      return out.length ? out : [key(start)];
+    }
+
+    function gridRange() {
+      var start = addDays(cursor, -cursor.getDay());
+      var last = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
+      var end = addDays(last, 6 - last.getDay());
+      return { start: start, end: end };
+    }
+
+    function load() {
+      var r = gridRange(), k = key(r.start);
+      if (cache[k]) return Promise.resolve(cache[k]);
+      return Hub.api('calendar', { query: { from: key(r.start), to: key(r.end) } }).then(function (data) {
+        cache[k] = data.events;
+        if (data.links) { $('#open-google').href = data.links.open; $('#subscribe').href = data.links.subscribe; }
+        return data.events;
+      });
+    }
+
+    function index(events) {
+      byDay = {};
+      events.forEach(function (ev) {
+        daysOf(ev).forEach(function (d) { (byDay[d] = byDay[d] || []).push(ev); });
+      });
+      Object.keys(byDay).forEach(function (d) {
+        byDay[d].sort(function (a, b) { return (b.allDay - a.allDay) || (a.start < b.start ? -1 : 1); });
+      });
+    }
+
+    function chip(ev) {
+      var c = color(ev);
+      return ev.allDay
+        ? '<span class="cal-ev all" style="--ev:' + c + '"><span>' + esc(ev.title) + '</span></span>'
+        : '<span class="cal-ev" style="--ev:' + c + '"><time>' + shortTime(new Date(ev.start)) + '</time><span>' + esc(ev.title) + '</span></span>';
+    }
+
+    function renderMonth() {
+      var r = gridRange(), html = '', tk = key(today);
+      for (var d = r.start; d <= r.end; d = addDays(d, 1)) {
+        var k = key(d), evs = byDay[k] || [];
+        html += '<button type="button" class="cal-day' + (d.getMonth() !== cursor.getMonth() ? ' other' : '') + (k === tk ? ' today' : '') + '" data-day="' + k + '" aria-label="' +
+          d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) + ', ' + Hub.plural(evs.length, 'event') + '">' +
+          '<span class="cal-num">' + d.getDate() + '</span>' + evs.map(chip).join('') +
+          '<span class="cal-dots">' + evs.slice(0, 4).map(function (ev) { return '<i style="--ev:' + color(ev) + '"></i>'; }).join('') + '</span></button>';
+      }
+      $('#weeks').innerHTML = html;
+      fitCells();
+    }
+
+    // Hide chips that don't fit and say how many more there are.
+    function fitCells() {
+      if (window.innerWidth <= 700) return;
+      $$('#weeks .cal-day').forEach(function (cell) {
+        var chips = $$('.cal-ev', cell);
+        if (!chips.length || cell.scrollHeight <= cell.clientHeight + 1) return;
+        var more = document.createElement('span');
+        more.className = 'cal-more';
+        cell.insertBefore(more, $('.cal-dots', cell));
+        var hidden = 0;
+        while (chips.length && cell.scrollHeight > cell.clientHeight + 1) {
+          chips.pop().remove(); hidden++;
+          more.textContent = '+' + hidden + ' more';
+        }
+      });
+    }
+
+    function renderAgenda() {
+      var r = gridRange(), html = '', tk = key(today);
+      var from = cursor.getMonth() === today.getMonth() && cursor.getFullYear() === today.getFullYear() ? today : cursor;
+      var last = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
+      for (var d = new Date(from); d <= last; d = addDays(d, 1)) {
+        var k = key(d), evs = byDay[k];
+        if (!evs || !evs.length) continue;
+        html += '<div class="cal-ag-day' + (k === tk ? ' today' : '') + '"><div class="cal-ag-date"><span>' + d.toLocaleDateString('en-US', { weekday: 'short' }) + '</span><b>' + d.getDate() + '</b></div><div class="cal-ag-list">' +
+          evs.map(function (ev) {
+            return '<button type="button" class="cal-ag-ev" style="--ev:' + color(ev) + '" data-day="' + k + '"><time>' + (ev.allDay ? 'All day' : shortTime(new Date(ev.start)) + ' – ' + shortTime(new Date(ev.end))) + '</time>' +
+              '<span><strong>' + esc(ev.title) + '</strong>' + (ev.location ? '<small>' + esc(ev.location.split('\n')[0]) + '</small>' : '') + '</span></button>';
+          }).join('') + '</div></div>';
+      }
+      $('#agenda').innerHTML = html || '<div class="hub-empty" style="border:0"><h3>Nothing scheduled</h3><p>No events for the rest of ' + cursor.toLocaleDateString('en-US', { month: 'long' }) + '.</p></div>';
+    }
+
+    function render() {
+      $('#title').textContent = cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      $('#month').hidden = view !== 'month';
+      $('#agenda').hidden = view !== 'agenda';
+      $$('[data-view]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-view') === view); b.setAttribute('aria-selected', b.getAttribute('data-view') === view); });
+      return load().then(function (events) {
+        index(events);
+        view === 'month' ? renderMonth() : renderAgenda();
+      }).catch(function (e) {
+        var msg = '<div class="hub-empty" style="border:0;grid-column:1/-1"><h3>Couldn’t load the calendar</h3><p>' + esc(e.message) + '</p></div>';
+        view === 'month' ? ($('#weeks').innerHTML = msg) : ($('#agenda').innerHTML = msg);
+      });
+    }
+
+    function openDay(k) {
+      var d = parseDay(k), evs = byDay[k] || [];
+      $('#drawer-title').textContent = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+      $('#drawer-body').innerHTML = evs.length ? evs.map(function (ev) {
+        var when = ev.allDay
+          ? (ev.end > key(addDays(parseDay(ev.start), 1)) ? 'All day · ' + parseDay(ev.start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' – ' + addDays(parseDay(ev.end), -1).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'All day')
+          : longTime(new Date(ev.start)) + ' – ' + longTime(new Date(ev.end));
+        return '<div class="cal-detail" style="--ev:' + color(ev) + '"><h3>' + esc(ev.title) + '</h3><p class="when">' + when + (ev.recurring ? ' · Repeats' : '') + '</p>' +
+          (ev.location ? '<p><a href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(ev.location) + '" target="_blank" rel="noopener">' + esc(ev.location) + '</a></p>' : '') +
+          (ev.description ? '<p>' + esc(ev.description) + '</p>' : '') + '</div>';
+      }).join('') : '<p style="color:var(--text-muted)">Nothing on the calendar this day.</p>';
+      $('#drawer').classList.add('open'); $('#backdrop').classList.add('open');
+      $('#drawer').setAttribute('aria-hidden', 'false');
+      $('#drawer-close').focus();
+    }
+    function closeDay() {
+      $('#drawer').classList.remove('open'); $('#backdrop').classList.remove('open');
+      $('#drawer').setAttribute('aria-hidden', 'true');
+    }
+
+    function shift(n) { cursor = new Date(cursor.getFullYear(), cursor.getMonth() + n, 1); render(); }
+    $('#prev').onclick = function () { shift(-1); };
+    $('#next').onclick = function () { shift(1); };
+    $('#today').onclick = function () { cursor = new Date(today.getFullYear(), today.getMonth(), 1); render(); };
+    $$('[data-view]').forEach(function (b) {
+      b.onclick = function () { view = b.getAttribute('data-view'); try { localStorage.setItem('fh-cal-view', view); } catch (e) {} render(); };
+    });
+    document.addEventListener('click', function (e) { var d = e.target.closest('[data-day]'); if (d) openDay(d.getAttribute('data-day')); });
+    $('#backdrop').onclick = closeDay;
+    $('#drawer-close').onclick = closeDay;
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') return closeDay();
+      if (e.target.matches('input, textarea')) return;
+      if (e.key === 'ArrowLeft') shift(-1);
+      if (e.key === 'ArrowRight') shift(1);
+    });
+    var t;
+    window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(function () { if (view === 'month') renderMonth(); }, 150); });
+
+    Hub.ready(function () {
+      var saved = null;
+      try { saved = localStorage.getItem('fh-cal-view'); } catch (e) {}
+      view = saved || (window.innerWidth < 700 ? 'agenda' : 'month');
+      var dateParam = new URLSearchParams(location.search).get('date');
+      if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+        var d = parseDay(dateParam);
+        cursor = new Date(d.getFullYear(), d.getMonth(), 1);
+        render().then(function () { openDay(dateParam); });
+      } else {
+        render();
+      }
+    });
+  })();
+  </script>
+</body>
+</html>
