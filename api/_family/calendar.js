@@ -242,5 +242,12 @@ export async function eventsBetween(fromISO, toISO) {
       if (inRange(o)) out.push(o);
     }
   }
-  return out.sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
+  // Sort by real start time. An all-day event starts at local midnight, so
+  // it lands at the top of its own day — comparing its bare date string
+  // with a UTC timestamp would put Friday's all-day event ahead of a 7pm
+  // Thursday event (already Friday in UTC).
+  const startOf = o => (o.allDay
+    ? toInstant({ wall: Date.parse(o.start + 'T00:00:00Z'), tz: DEFAULT_TZ, allDay: false })
+    : Date.parse(o.start));
+  return out.sort((a, b) => startOf(a) - startOf(b));
 }
