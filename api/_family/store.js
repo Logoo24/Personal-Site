@@ -6,7 +6,12 @@ import { put, get, del, BlobPreconditionFailedError } from '@vercel/blob';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const useBlob = !!(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID || process.env.VERCEL);
+// The store was connected to the Vercel project with the env prefix "fam", so
+// its ID arrives as fam_STORE_ID. The SDK authenticates with Vercel's OIDC
+// token on its own; it only needs to be told which store.
+const STORE_ID = process.env.BLOB_STORE_ID || process.env.fam_STORE_ID;
+const STORE = STORE_ID ? { storeId: STORE_ID } : {};
+const useBlob = !!(process.env.BLOB_READ_WRITE_TOKEN || STORE_ID || process.env.VERCEL);
 const LOCAL_ROOT = path.join(process.cwd(), '.family-data');
 
 function localPath(p) {
@@ -27,7 +32,7 @@ export async function readJSON(p) {
     const text = fs.readFileSync(f, 'utf8');
     return { data: JSON.parse(text), etag: String(fs.statSync(f).mtimeMs) };
   }
-  const r = await get(p, { access: 'private', useCache: false });
+  const r = await get(p, { access: 'private', useCache: false, ...STORE });
   if (!r || r.statusCode !== 200) return null;
   return { data: JSON.parse((await streamToBuffer(r.stream)).toString('utf8')), etag: r.blob.etag };
 }
@@ -48,7 +53,7 @@ export async function writeJSON(p, data, ifMatch) {
   try {
     await put(p, body, {
       access: 'private', contentType: 'application/json', addRandomSuffix: false,
-      allowOverwrite: true, cacheControlMaxAge: 60, ...(ifMatch ? { ifMatch } : {})
+      allowOverwrite: true, cacheControlMaxAge: 60, ...STORE, ...(ifMatch ? { ifMatch } : {})
     });
   } catch (e) {
     if (e instanceof BlobPreconditionFailedError) e.precondition = true;
@@ -64,7 +69,7 @@ export async function putFile(p, bytes, contentType) {
     return;
   }
   // Media names are random and never rewritten, so they can cache for a year.
-  await put(p, bytes, { access: 'private', contentType, addRandomSuffix: false, cacheControlMaxAge: 31536000 });
+  await put(p, bytes, { access: 'private', contentType, addRandomSuffix: false, cacheControlMaxAge: 31536000, ...STORE });
 }
 
 // Returns { body: ReadableStream | Buffer, contentType, etag } or null.
@@ -75,7 +80,7 @@ export async function getFile(p) {
     const ext = path.extname(f).slice(1);
     return { body: fs.readFileSync(f), contentType: ({ webp: 'image/webp', jpg: 'image/jpeg', png: 'image/png', gif: 'image/gif' })[ext] || 'application/octet-stream', etag: null };
   }
-  const r = await get(p, { access: 'private' });
+  const r = await get(p, { access: 'private', ...STORE });
   if (!r || r.statusCode !== 200) return null;
   return { body: r.stream, contentType: r.blob.contentType, etag: r.blob.etag };
 }
@@ -92,5 +97,5 @@ export async function remove(p) {
     if (fs.existsSync(f)) fs.unlinkSync(f);
     return;
   }
-  await del(p);
+  await del(p, STORE);
 }
