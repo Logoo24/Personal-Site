@@ -40,7 +40,8 @@
         <p>What’s coming up for the family.</p>
         <span class="hub-app-meta" id="meta-calendar">&nbsp;</span>
       </a>
-      <a class="hub-app hub-app--manage" href="/family/manage">
+      <!-- Shown only to FAMILY_ADMIN_EMAILS (see isAdmin in api/_family/session.js). -->
+      <a class="hub-app hub-app--manage" href="/family/manage" id="manage" hidden>
         <span class="hub-app-icon" data-icon="pen"></span>
         <span class="hub-app-go" data-icon="arrow"></span>
         <h3>Manage LoganBRandall</h3>
@@ -77,7 +78,8 @@
       return { day: day, time: ev.allDay ? 'All day' : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) };
     }
 
-    Hub.ready(function (user) {
+    Hub.ready(function (user, s) {
+      $('#manage').hidden = !s.admin;
       var h = now.getHours();
       var part = h < 5 ? 'Good evening' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
       $('#hello').textContent = part + ', ' + user.name.split(' ')[0];

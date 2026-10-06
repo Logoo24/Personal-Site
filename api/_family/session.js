@@ -34,6 +34,15 @@ export function safeEqual(a, b) {
   return diff === 0;
 }
 
+// Who can manage the site (the blog CMS at /family/manage): Google sign-ins
+// whose email is in FAMILY_ADMIN_EMAILS (comma-separated). The list lives in
+// the environment, not the code, because the repo is public. Password
+// sign-ins have no verified email, so they never count.
+export function isAdmin(user) {
+  const allowed = String(process.env.FAMILY_ADMIN_EMAILS || '').toLowerCase().split(/[\s,]+/).filter(Boolean);
+  return !!(user && user.via === 'google' && user.email && allowed.includes(String(user.email).toLowerCase()));
+}
+
 export function sessionSecret() {
   return process.env.FAMILY_SESSION_SECRET || '';
 }

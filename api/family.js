@@ -16,10 +16,10 @@
 //   GET  calendar&from=&to=         -> calendar events (YYYY-MM-DD range)
 //
 // Env: FAMILY_PASSWORD, FAMILY_SESSION_SECRET, GOOGLE_CLIENT_ID,
-// FAMILY_GOOGLE_EMAILS (comma-separated), the Blob
+// FAMILY_GOOGLE_EMAILS and FAMILY_ADMIN_EMAILS (comma-separated), the Blob
 // store's BLOB_READ_WRITE_TOKEN, and ANTHROPIC_API_KEY (recipe import).
 
-import { createToken, readSession, sessionCookie, clearedCookie, sessionSecret, safeEqual } from './_family/session.js';
+import { createToken, readSession, sessionCookie, clearedCookie, sessionSecret, safeEqual, isAdmin } from './_family/session.js';
 import { listRecipes, allRecipes, getRecipe, saveRecipe, deleteRecipe, saveMedia, mediaIn, MEDIA_URL } from './_family/recipes.js';
 import { shareRecipe, unshareRecipe } from './_family/share.js';
 import { eventsBetween, CALENDAR_LINKS } from './_family/calendar.js';
@@ -86,7 +86,7 @@ async function route(request) {
   if (r === 'logout') return json({ ok: true }, 200, { 'Set-Cookie': clearedCookie() });
 
   const user = await readSession(request);
-  if (r === 'session') return json({ user, googleClientId: process.env.GOOGLE_CLIENT_ID || null, calendar: CALENDAR_LINKS });
+  if (r === 'session') return json({ user, admin: isAdmin(user), googleClientId: process.env.GOOGLE_CLIENT_ID || null, calendar: CALENDAR_LINKS });
   if (!user) return fail(401, 'Please sign in.');
 
   switch (`${method} ${r}`) {
