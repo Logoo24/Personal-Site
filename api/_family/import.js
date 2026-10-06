@@ -269,7 +269,10 @@ function trimLd(ld) {
 }
 
 async function askClaude({ url, tags, ld, meta, text }) {
-  const client = new Anthropic();
+  // A key that isn't tied to one workspace has to name the workspace on
+  // every request.
+  const workspace = process.env.ANTHROPIC_WORKSPACE_ID;
+  const client = new Anthropic(workspace ? { defaultHeaders: { 'anthropic-workspace-id': workspace } } : {});
   const sourceText = text.length > MAX_TEXT ? text.slice(0, MAX_TEXT) + '\n[…page text cut off here…]' : text;
   const parts = [
     url ? `Link: ${url}` : 'Pasted by a family member:',
@@ -294,7 +297,9 @@ async function askClaude({ url, tags, ld, meta, text }) {
   } catch (e) {
     console.error('Recipe import: Claude request failed', e);
     if (e instanceof Anthropic.RateLimitError) throw fail(503, 'The recipe reader is busy. Try again in a minute.');
-    if (e instanceof Anthropic.AuthenticationError) throw fail(500, 'The recipe reader isn’t set up right (ANTHROPIC_API_KEY was rejected).');
+    if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError || e instanceof Anthropic.BadRequestError) {
+      throw fail(500, 'The recipe reader isn’t set up right. The server log says why.');
+    }
     throw fail(502, 'The recipe reader couldn’t be reached. Try again in a moment.');
   }
   if (response.stop_reason === 'refusal') throw fail(422, 'Couldn’t read a recipe from that.');

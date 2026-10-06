@@ -90,7 +90,7 @@ async function updateIndex(fn) {
       if (!e.precondition) throw e;
     }
   }
-  throw new Error('The cookbook is busy — try saving again.');
+  throw Object.assign(new Error('The cookbook is busy — try saving again.'), { status: 503 });
 }
 
 export async function saveRecipe(input, user) {

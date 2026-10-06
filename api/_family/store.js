@@ -2,7 +2,7 @@
 // a gitignored .family-data/ folder when running locally without a Blob
 // token (so the hub can be tried out on the local preview server).
 
-import { put, get, del, BlobPreconditionFailedError } from '@vercel/blob';
+import { put, get, head, del, BlobNotFoundError, BlobPreconditionFailedError } from '@vercel/blob';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -32,9 +32,21 @@ export async function readJSON(p) {
     const text = fs.readFileSync(f, 'utf8');
     return { data: JSON.parse(text), etag: String(fs.statSync(f).mtimeMs) };
   }
+  // The etag comes from head(), not get(): get() downloads through the CDN,
+  // whose etag doesn't match what put()'s ifMatch is checked against, so
+  // every conditional write would fail. Asking head() first is also safe if
+  // someone writes in between: we'd hold the older etag, the write would be
+  // refused, and the caller retries.
+  let meta;
+  try {
+    meta = await head(p, STORE);
+  } catch (e) {
+    if (e instanceof BlobNotFoundError) return null;
+    throw e;
+  }
   const r = await get(p, { access: 'private', useCache: false, ...STORE });
   if (!r || r.statusCode !== 200) return null;
-  return { data: JSON.parse((await streamToBuffer(r.stream)).toString('utf8')), etag: r.blob.etag };
+  return { data: JSON.parse((await streamToBuffer(r.stream)).toString('utf8')), etag: meta.etag };
 }
 
 // ifMatch: only write if the file still has this etag (throws a
