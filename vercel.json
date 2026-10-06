@@ -4,6 +4,9 @@
   "outputDirectory": ".",
   "framework": null,
   "cleanUrls": true,
+  "functions": {
+    "api/family.js": { "maxDuration": 60 }
+  },
   "redirects": [
     { "source": "/admin", "destination": "/family/manage", "permanent": false },
     { "source": "/admin/:path*", "destination": "/family/manage", "permanent": false }

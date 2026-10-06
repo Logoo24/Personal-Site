@@ -26,6 +26,15 @@
     </div>
 
     <form id="form" autocomplete="off" hidden>
+      <div class="ed-import" id="import" hidden>
+        <label class="ed-import-box">
+          <span class="ed-import-icon" data-icon="sparkle"></span>
+          <input class="input" id="import-input" type="text" inputmode="url" spellcheck="false" aria-label="Fill in from a link"
+            placeholder="Paste a link to a recipe or Instagram post to fill this in" />
+        </label>
+        <p class="ed-import-status" id="import-status" aria-live="polite"></p>
+      </div>
+
       <section class="ed-section">
         <h2>The basics</h2>
         <p class="ed-hint">Only the name is required — fill in the rest whenever.</p>
@@ -352,6 +361,75 @@
         story: story.value, notes: form.elements.notes.value
       };
     }
+    /* ---------- fill in from a link (or pasted recipe text) ---------- */
+    var importing = false, pastedText = null;
+    function setImportStatus(text, kind) {
+      $('#import-status').textContent = text || '';
+      $('#import-status').className = 'ed-import-status' + (kind ? ' is-' + kind : '');
+    }
+    // Copies everything the import found into the form, keeping what's
+    // already been typed where the import came back empty.
+    function applyImport(found) {
+      var cur = collect(), merged = Object.assign({}, cur);
+      Object.keys(found).forEach(function (k) {
+        var v = found[k];
+        if (v == null || v === '' || (Array.isArray(v) && !v.length)) return;
+        merged[k] = v;
+      });
+      merged.tags = currentTags().concat((found.tags || []).filter(function (t) {
+        return currentTags().map(function (c) { return c.toLowerCase(); }).indexOf(t.toLowerCase()) < 0;
+      }));
+      fill(merged);
+      renderTagSuggest(knownTags);
+      renumber();
+      dirty = true;
+    }
+    function runImport(value) {
+      value = String(value || '').trim();
+      if (!value || importing) return;
+      var isLink = /^(https?:\/\/|www\.)\S+$/i.test(value) || /^[\w-]+(\.[\w-]+)+\/\S*$/.test(value);
+      // "Look at this! https://…" (a shared link with a message) -> just the link.
+      var inside = !isLink && value.length < 300 && /https?:\/\/\S+/i.exec(value);
+      if (inside) { value = inside[0]; isLink = true; }
+      if (!isLink && value.length < 40) return setImportStatus('Paste a link to the recipe, or the whole recipe text.', 'error');
+      if (isLink && !/^https?:\/\//i.test(value)) value = 'https://' + value;
+      importing = true;
+      $('#import').classList.add('is-busy');
+      $('#import-input').disabled = true;
+      setImportStatus(isLink ? 'Reading the recipe… this can take a few seconds.' : 'Reading the pasted recipe…');
+      Hub.api('import', { body: isLink ? { url: value, tags: knownTags } : { text: value, tags: knownTags } }).then(function (res) {
+        applyImport(res.recipe);
+        $('#import-input').value = isLink ? value : '';
+        pastedText = null;
+        setImportStatus('Filled in from ' + res.from + '. Look it over, add your own touches, then save.', 'done');
+      }).catch(function (e) {
+        setImportStatus(e.message, 'error');
+      }).finally(function () {
+        importing = false;
+        $('#import').classList.remove('is-busy');
+        $('#import-input').disabled = false;
+      });
+    }
+    // Pasting is the trigger. Read the clipboard directly so pasted recipe
+    // text keeps its line breaks (a one-line input would flatten them).
+    $('#import-input').addEventListener('paste', function (e) {
+      var text = (e.clipboardData || window.clipboardData).getData('text');
+      if (!text || !text.trim()) return;
+      e.preventDefault();
+      text = text.trim();
+      // Show just the first line of pasted recipe text, but keep all of it.
+      pastedText = /\n/.test(text) ? text : null;
+      this.value = pastedText ? text.split(/\r?\n/)[0] + ' …' : text;
+      runImport(text);
+    });
+    $('#import-input').addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      runImport(pastedText || this.value);
+    });
+    // Typing in the import box isn't an edit to the recipe.
+    $('#import-input').addEventListener('input', function (e) { e.stopPropagation(); pastedText = null; setImportStatus(''); });
+
     form.addEventListener('input', function () { dirty = true; });
     form.addEventListener('submit', function (e) {
       e.preventDefault();
@@ -403,7 +481,7 @@
         $('#loading').remove();
         form.hidden = false;
         renumber();
-        if (!recipe) form.elements.title.focus();
+        if (!recipe) { $('#import').hidden = false; $('#import-input').focus(); }
         dirty = false;
       }).catch(function (e) {
         $('#loading').textContent = e.message;

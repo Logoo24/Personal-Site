@@ -12,16 +12,18 @@
 //   POST upload   (raw image body)  -> { name, url }
 //   GET  media&f=                   -> a stored photo
 //   POST publish  {id, publish}     -> share to / remove from the public site
+//   POST import   {url|text, tags}  -> a draft recipe read from a link or pasted text
 //   GET  calendar&from=&to=         -> calendar events (YYYY-MM-DD range)
 //
 // Env: FAMILY_PASSWORD, FAMILY_SESSION_SECRET, GOOGLE_CLIENT_ID,
-// FAMILY_GOOGLE_EMAILS (comma-separated), GITHUB_PUBLISH_TOKEN, and the Blob
-// store's BLOB_READ_WRITE_TOKEN.
+// FAMILY_GOOGLE_EMAILS (comma-separated), GITHUB_PUBLISH_TOKEN, the Blob
+// store's BLOB_READ_WRITE_TOKEN, and ANTHROPIC_API_KEY (recipe import).
 
 import { createToken, readSession, sessionCookie, clearedCookie, sessionSecret, safeEqual } from './_family/session.js';
 import { listRecipes, allRecipes, getRecipe, saveRecipe, deleteRecipe, saveMedia, mediaIn, MEDIA_URL } from './_family/recipes.js';
 import { publishRecipe, unpublishRecipe } from './_family/publish.js';
 import { eventsBetween, CALENDAR_LINKS } from './_family/calendar.js';
+import { importRecipe } from './_family/import.js';
 import { getFile, remove } from './_family/store.js';
 
 const json = (data, status = 200, headers = {}) =>
@@ -118,6 +120,8 @@ async function route(request) {
       if (!recipe) return fail(404, 'Recipe not found');
       return json({ recipe: publish ? await publishRecipe(recipe, user) : await unpublishRecipe(recipe, user) });
     }
+    case 'POST import':
+      return json(await importRecipe(await request.json().catch(() => ({}))));
     case 'GET calendar':
       return json({ events: await eventsBetween(url.searchParams.get('from'), url.searchParams.get('to')), links: CALENDAR_LINKS });
   }

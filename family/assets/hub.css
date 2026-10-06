@@ -302,6 +302,28 @@ body.hub { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction:
 .rc-share a { overflow-wrap: anywhere; }
 
 /* ---------- editor ---------- */
+/* "Fill in from a link" box at the top of a new recipe. */
+.ed-import { margin-bottom: 1.25rem; }
+.ed-import-box {
+  display: flex; align-items: center; gap: 0.7rem; padding: 0.45rem 0.45rem 0.45rem 1rem; border-radius: 14px; cursor: text;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg-alt));
+  transition: border-color .2s, box-shadow .2s;
+}
+.ed-import-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.ed-import-icon { display: grid; place-items: center; color: var(--accent); flex: none; }
+.ed-import-icon svg { width: 22px; height: 22px; fill: color-mix(in srgb, var(--accent) 22%, transparent); }
+.ed-import-box .input { flex: 1; min-width: 0; border-color: transparent; background: var(--hub-surface); }
+.ed-import-box .input:focus { border-color: transparent; box-shadow: none; }
+.ed-import-box .input:disabled { opacity: 0.75; cursor: progress; }
+.ed-import-status { font-size: 0.84rem; color: var(--text-muted); margin: 0.5rem 0 0 0.25rem; }
+.ed-import-status:empty { display: none; }
+.ed-import-status.is-error { color: var(--hub-danger); }
+.ed-import-status.is-done { color: var(--accent); }
+.ed-import.is-busy .ed-import-icon svg { animation: ed-sparkle 1.1s ease-in-out infinite; }
+@keyframes ed-sparkle { 0%, 100% { transform: scale(1) rotate(0); } 50% { transform: scale(0.72) rotate(30deg); opacity: 0.6; } }
+@media (prefers-reduced-motion: reduce) { .ed-import.is-busy .ed-import-icon svg { animation: none; opacity: 0.6; } }
+
 .ed-section { background: var(--bg-alt); border: 1px solid var(--line); border-radius: 16px; padding: 1.5rem; margin-bottom: 1.25rem; }
 .ed-section > h2 { font-size: 1.15rem; margin-bottom: 0.3rem; }
 .ed-section > p.ed-hint { font-size: 0.86rem; color: var(--text-muted); margin-bottom: 1.1rem; }
