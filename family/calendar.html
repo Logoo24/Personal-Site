@@ -26,6 +26,7 @@
       <h1 class="cal-title" id="title">&nbsp;</h1>
       <button class="btn btn-ghost btn-sm" type="button" id="today">Today</button>
       <div class="push">
+        <button class="btn btn-primary btn-sm" type="button" id="add-event" hidden>Add event</button>
         <div class="cal-seg" role="tablist">
           <button type="button" data-view="month" role="tab">Month</button>
           <button type="button" data-view="agenda" role="tab">Agenda</button>
@@ -55,10 +56,11 @@
     var COLORS = ['#2563EB', '#059669', '#D97706', '#DB2777', '#7C3AED', '#0891B2', '#DC2626', '#4D7C0F'];
     var today = new Date(); today.setHours(0, 0, 0, 0);
     var cursor = new Date(today.getFullYear(), today.getMonth(), 1);
-    var view = null, cache = {}, byDay = {};
+    var view = null, cache = {}, byDay = {}, byId = {}, canEdit = false, openDayKey = null;
     $('#prev').innerHTML = Hub.icons.left; $('#next').innerHTML = Hub.icons.right; $('#drawer-close').innerHTML = Hub.icons.x;
     $('#open-google').insertAdjacentHTML('afterbegin', Hub.icons.external);
     $('#subscribe').insertAdjacentHTML('afterbegin', Hub.icons.plus);
+    $('#add-event').insertAdjacentHTML('afterbegin', Hub.icons.plus);
 
     function key(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
     function parseDay(s) { var p = s.split('-'); return new Date(+p[0], p[1] - 1, +p[2]); }
@@ -97,13 +99,16 @@
       return Hub.api('calendar', { query: { from: key(r.start), to: key(r.end) } }).then(function (data) {
         cache[k] = data.events;
         if (data.links) { $('#open-google').href = data.links.open; $('#subscribe').href = data.links.subscribe; }
+        canEdit = !!data.canEdit;
+        $('#add-event').hidden = !canEdit;
         return data.events;
       });
     }
 
     function index(events) {
-      byDay = {};
+      byDay = {}; byId = {};
       events.forEach(function (ev) {
+        byId[ev.id] = ev;
         daysOf(ev).forEach(function (d) { (byDay[d] = byDay[d] || []).push(ev); });
       });
       Object.keys(byDay).forEach(function (d) {
@@ -187,16 +192,194 @@
           : longTime(new Date(ev.start)) + ' – ' + longTime(new Date(ev.end));
         return '<div class="cal-detail" style="--ev:' + color(ev) + '"><h3>' + esc(ev.title) + '</h3><p class="when">' + when + (ev.recurring ? ' · Repeats' : '') + '</p>' +
           (ev.location ? '<p><a href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(ev.location) + '" target="_blank" rel="noopener">' + esc(ev.location) + '</a></p>' : '') +
-          (ev.description ? '<p>' + esc(ev.description) + '</p>' : '') + '</div>';
+          (ev.description ? '<p>' + esc(ev.description) + '</p>' : '') +
+          (ev.addedBy ? '<p class="cal-added">Added by ' + esc(ev.addedBy) + '</p>' : '') +
+          (canEdit ? '<div class="cal-detail-actions"><button class="btn btn-ghost btn-sm" type="button" data-edit-event="' + esc(ev.id) + '">' + Hub.icons.edit + 'Edit</button>' +
+            '<button class="btn btn-ghost btn-sm cal-delete" type="button" data-delete-event="' + esc(ev.id) + '">' + Hub.icons.trash + 'Delete</button></div>' : '') +
+          '</div>';
       }).join('') : '<p style="color:var(--text-muted)">Nothing on the calendar this day.</p>';
+      if (canEdit) $('#drawer-body').insertAdjacentHTML('beforeend', '<button class="btn btn-ghost cal-add-day" type="button" data-add-on="' + k + '">' + Hub.icons.plus + 'Add an event on this day</button>');
+      openDayKey = k;
       $('#drawer').classList.add('open'); $('#backdrop').classList.add('open');
       $('#drawer').setAttribute('aria-hidden', 'false');
       $('#drawer-close').focus();
     }
     function closeDay() {
+      openDayKey = null;
       $('#drawer').classList.remove('open'); $('#backdrop').classList.remove('open');
       $('#drawer').setAttribute('aria-hidden', 'true');
     }
+
+    /* ---------- adding, editing and deleting events ----------
+       Changes go straight to the family Google Calendar (api/_family/gcal.js).
+       Times are entered in this device's own time zone. */
+    var ZONE = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'America/Boise';
+    function pad(n) { return String(n).padStart(2, '0'); }
+    function hhmm(d) { return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+    function ordinal(n) { var s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+    function repeatLabels(dateStr) {
+      var d = parseDay(dateStr);
+      return {
+        '': 'Doesn’t repeat',
+        DAILY: 'Every day',
+        WEEKLY: 'Every week on ' + d.toLocaleDateString('en-US', { weekday: 'long' }),
+        MONTHLY: 'Every month on the ' + ordinal(d.getDate()),
+        YEARLY: 'Every year on ' + d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+      };
+    }
+    // Minutes since midnight of a date + time pair, for keeping durations.
+    function stamp(date, time) { return parseDay(date).getTime() / 60000 + (time ? +time.slice(0, 2) * 60 + +time.slice(3) : 0); }
+    function fromStamp(m) { var d = new Date(m * 60000); return { date: key(d), time: hhmm(d) }; }
+
+    function afterChange(dateStr, message) {
+      cache = {};
+      var d = parseDay(dateStr);
+      cursor = new Date(d.getFullYear(), d.getMonth(), 1);
+      return render().then(function () { if (openDayKey || dateStr) openDay(dateStr); Hub.toast(message); });
+    }
+
+    function eventForm(ev, onDay) {
+      var editing = !!ev, recurring = editing && ev.recurring;
+      var v;
+      if (!editing) {
+        var startH = new Date();
+        startH = onDay === key(today) ? Math.min(startH.getHours() + 1, 22) : 9;
+        v = { title: '', allDay: false, startDate: onDay, endDate: onDay, startTime: pad(startH) + ':00', endTime: pad(startH + 1) + ':00', location: '', description: '', repeat: '' };
+      } else if (ev.allDay) {
+        v = { title: ev.title, allDay: true, startDate: ev.start, endDate: key(addDays(parseDay(ev.end), -1)), startTime: '09:00', endTime: '10:00', location: ev.location, description: ev.description, repeat: '' };
+      } else {
+        var s = new Date(ev.start), e = new Date(ev.end);
+        v = { title: ev.title, allDay: false, startDate: key(s), endDate: key(e), startTime: hhmm(s), endTime: hhmm(e), location: ev.location, description: ev.description, repeat: '' };
+      }
+      var m = document.createElement('div');
+      m.className = 'hub-modal';
+      m.innerHTML = '<div class="hub-modal-box cal-form" role="dialog" aria-modal="true" aria-labelledby="cf-title">' +
+        '<h3 id="cf-title">' + (editing ? 'Edit event' : 'Add event') + '</h3>' +
+        '<form novalidate>' +
+          (recurring ? '<div class="cal-seg cf-scope" role="radiogroup" aria-label="Change which events"><button type="button" class="on" data-scope="one" role="radio" aria-checked="true">This event</button><button type="button" data-scope="all" role="radio" aria-checked="false">All events</button></div>' : '') +
+          '<label class="field"><span>Title</span><input class="input" name="title" maxlength="200" autocapitalize="sentences" placeholder="Family night" /></label>' +
+          '<label class="cf-check"><input type="checkbox" name="allDay" /> All day</label>' +
+          '<div class="cf-row"><label class="field"><span>Starts</span><input class="input" type="date" name="startDate" /></label><label class="field cf-time"><span>Time</span><input class="input" type="time" name="startTime" step="300" /></label></div>' +
+          '<div class="cf-row"><label class="field"><span>Ends</span><input class="input" type="date" name="endDate" /></label><label class="field cf-time"><span>Time</span><input class="input" type="time" name="endTime" step="300" /></label></div>' +
+          '<label class="field"><span>Repeat</span><select name="repeat"></select><small class="cf-repeat-note" hidden></small></label>' +
+          '<label class="field"><span>Location</span><input class="input" name="location" maxlength="500" placeholder="Optional" /></label>' +
+          '<label class="field"><span>Notes</span><textarea name="description" rows="3" placeholder="Optional"></textarea></label>' +
+          '<p class="cf-error" role="alert" hidden></p>' +
+          '<div class="hub-modal-actions"><button class="btn btn-ghost" type="button" data-cancel>Cancel</button><button class="btn btn-primary" type="submit">' + (editing ? 'Save' : 'Add event') + '</button></div>' +
+        '</form></div>';
+      var f = $('form', m), el = f.elements, scope = 'one', seriesRepeat = null;
+      ['title', 'startDate', 'endDate', 'startTime', 'endTime', 'location', 'description'].forEach(function (k) { el[k].value = v[k] || ''; });
+      el.allDay.checked = v.allDay;
+
+      function fillRepeat() {
+        var labels = repeatLabels(el.startDate.value || v.startDate), keep = el.repeat.value;
+        var opts = ['', 'DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'];
+        if (seriesRepeat === 'CUSTOM') opts.unshift('CUSTOM');
+        el.repeat.innerHTML = opts.map(function (o) { return '<option value="' + o + '">' + (o === 'CUSTOM' ? 'Keep its current repeat' : labels[o]) + '</option>'; }).join('');
+        el.repeat.value = keep && opts.indexOf(keep) > -1 ? keep : (seriesRepeat != null ? seriesRepeat : '');
+      }
+      // Repeating can be set when adding, on a one-off event, or for a whole series.
+      function syncRepeat() {
+        var locked = recurring && scope === 'one';
+        var loading = recurring && scope === 'all' && seriesRepeat == null;
+        el.repeat.disabled = locked || loading;
+        var note = $('.cf-repeat-note', m);
+        note.hidden = !(locked || loading);
+        note.textContent = loading ? 'Loading…' : 'Choose “All events” to change how it repeats.';
+        if (locked) el.repeat.innerHTML = '<option>Repeats</option>';
+        else fillRepeat();
+      }
+      function syncAllDay() { $$('.cf-time', m).forEach(function (t) { t.hidden = el.allDay.checked; }); }
+      fillRepeat(); syncRepeat(); syncAllDay();
+
+      // Moving the start moves the end with it, keeping the length.
+      var prevStart = stamp(el.startDate.value, el.startTime.value);
+      function onStart() {
+        if (!el.startDate.value) return;
+        var now = stamp(el.startDate.value, el.startTime.value || '00:00');
+        var end = stamp(el.endDate.value || el.startDate.value, el.endTime.value || '00:00') + (now - prevStart);
+        var e2 = fromStamp(end);
+        el.endDate.value = e2.date; if (!el.allDay.checked) el.endTime.value = e2.time;
+        prevStart = now;
+        if (!el.repeat.disabled) fillRepeat();
+      }
+      el.startDate.addEventListener('change', onStart);
+      el.startTime.addEventListener('change', onStart);
+      el.allDay.addEventListener('change', syncAllDay);
+
+      if (recurring) {
+        $$('[data-scope]', m).forEach(function (b) {
+          b.addEventListener('click', function () {
+            scope = b.getAttribute('data-scope');
+            $$('[data-scope]', m).forEach(function (x) { var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', on); });
+            syncRepeat();
+          });
+        });
+        Hub.api('calendar-series', { query: { id: ev.seriesId } }).then(function (d) { seriesRepeat = d.repeat || ''; el.repeat.value = ''; syncRepeat(); })
+          .catch(function () { seriesRepeat = 'CUSTOM'; syncRepeat(); });
+      }
+
+      function close() { m.remove(); document.removeEventListener('keydown', onKey, true); }
+      function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } }
+      function showError(msg) { var p = $('.cf-error', m); p.textContent = msg; p.hidden = !msg; }
+      m.addEventListener('click', function (e) { if (e.target === m || e.target.closest('[data-cancel]')) close(); });
+      f.addEventListener('submit', function (e) {
+        e.preventDefault();
+        showError('');
+        var event = {
+          title: el.title.value.trim(), allDay: el.allDay.checked,
+          startDate: el.startDate.value, endDate: el.endDate.value || el.startDate.value,
+          startTime: el.startTime.value, endTime: el.endTime.value,
+          location: el.location.value.trim(), description: el.description.value.trim(),
+          repeat: el.repeat.disabled ? '' : el.repeat.value, timeZone: ZONE
+        };
+        if (!event.title) { el.title.focus(); return showError('Give the event a name.'); }
+        var save = $('[type=submit]', f);
+        save.disabled = true; save.textContent = 'Saving…';
+        Hub.api('calendar-event', { body: editing ? { action: 'update', id: ev.id, scope: scope, event: event } : { action: 'create', event: event } })
+          .then(function () { close(); return afterChange(event.startDate, editing ? 'Saved to the family calendar.' : 'Added to the family calendar.'); })
+          .catch(function (err) { save.disabled = false; save.textContent = editing ? 'Save' : 'Add event'; showError(err.message); });
+      });
+      document.addEventListener('keydown', onKey, true);
+      document.body.appendChild(m);
+      el.title.focus();
+    }
+
+    function deleteEvent(ev) {
+      var dayKey = ev.allDay ? ev.start : key(new Date(ev.start));
+      function run(scope, btn) {
+        if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
+        return Hub.api('calendar-event', { body: { action: 'delete', id: ev.id, scope: scope } })
+          .then(function () { return afterChange(dayKey, scope === 'all' ? 'Deleted every event in the series.' : 'Deleted.'); })
+          .catch(function (err) { Hub.toast(err.message, true); if (btn) { btn.disabled = false; } });
+      }
+      if (!ev.recurring) {
+        return Hub.confirm({ title: 'Delete “' + ev.title + '”?', confirm: 'Delete', danger: true, body: '<p>It comes off the family Google Calendar for everyone.</p>' })
+          .then(function (yes) { if (yes) run('one'); });
+      }
+      var m = document.createElement('div');
+      m.className = 'hub-modal';
+      m.innerHTML = '<div class="hub-modal-box" role="dialog" aria-modal="true"><h3>Delete “' + esc(ev.title) + '”?</h3><p>This event repeats. It comes off the family Google Calendar for everyone.</p>' +
+        '<div class="hub-modal-actions"><button class="btn btn-ghost" type="button" data-no>Cancel</button><button class="btn btn-danger" type="button" data-scope="all">Every event</button><button class="btn btn-danger" type="button" data-scope="one">Just this one</button></div></div>';
+      function close() { m.remove(); document.removeEventListener('keydown', onKey, true); }
+      function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } }
+      m.addEventListener('click', function (e) {
+        if (e.target === m || e.target.closest('[data-no]')) return close();
+        var b = e.target.closest('[data-scope]');
+        if (b) run(b.getAttribute('data-scope'), b).then(close);
+      });
+      document.addEventListener('keydown', onKey, true);
+      document.body.appendChild(m);
+      $('[data-scope="one"]', m).focus();
+    }
+
+    $('#add-event').onclick = function () { eventForm(null, openDayKey || (cursor.getMonth() === today.getMonth() && cursor.getFullYear() === today.getFullYear() ? key(today) : key(cursor))); };
+    $('#drawer-body').addEventListener('click', function (e) {
+      var ed = e.target.closest('[data-edit-event]'), del = e.target.closest('[data-delete-event]'), add = e.target.closest('[data-add-on]');
+      if (ed && byId[ed.getAttribute('data-edit-event')]) eventForm(byId[ed.getAttribute('data-edit-event')]);
+      if (del && byId[del.getAttribute('data-delete-event')]) deleteEvent(byId[del.getAttribute('data-delete-event')]);
+      if (add) eventForm(null, add.getAttribute('data-add-on'));
+    });
 
     function shift(n) { cursor = new Date(cursor.getFullYear(), cursor.getMonth() + n, 1); render(); }
     $('#prev').onclick = function () { shift(-1); };
@@ -209,8 +392,9 @@
     $('#backdrop').onclick = closeDay;
     $('#drawer-close').onclick = closeDay;
     document.addEventListener('keydown', function (e) {
+      if (document.querySelector('.hub-modal')) return;
       if (e.key === 'Escape') return closeDay();
-      if (e.target.matches('input, textarea')) return;
+      if (e.target.matches('input, textarea, select')) return;
       if (e.key === 'ArrowLeft') shift(-1);
       if (e.key === 'ArrowRight') shift(1);
     });

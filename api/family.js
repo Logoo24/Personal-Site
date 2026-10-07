@@ -14,15 +14,18 @@
 //   POST publish  {id, publish, slug?} -> make public (or change its link) / private
 //   POST import   {url|text, tags}  -> a draft recipe read from a link or pasted text
 //   GET  calendar&from=&to=         -> calendar events (YYYY-MM-DD range)
+//   GET  calendar-series&id=        -> a repeating event's repeat setting
+//   POST calendar-event {action, id?, scope?, event?} -> add / edit / delete an event
 //
 // Env: FAMILY_PASSWORD, FAMILY_SESSION_SECRET, GOOGLE_CLIENT_ID,
 // FAMILY_GOOGLE_EMAILS and FAMILY_ADMIN_EMAILS (comma-separated), the Blob
-// store's BLOB_READ_WRITE_TOKEN, and ANTHROPIC_API_KEY (recipe import).
+// store's BLOB_READ_WRITE_TOKEN, ANTHROPIC_API_KEY (recipe import), and
+// GOOGLE_CALENDAR_SERVICE_ACCOUNT (calendar editing).
 
 import { createToken, readSession, sessionCookie, clearedCookie, sessionSecret, safeEqual, isAdmin } from './_family/session.js';
 import { listRecipes, allRecipes, getRecipe, saveRecipe, deleteRecipe, saveMedia, mediaIn, MEDIA_URL } from './_family/recipes.js';
 import { shareRecipe, unshareRecipe } from './_family/share.js';
-import { eventsBetween, CALENDAR_LINKS } from './_family/calendar.js';
+import { eventsBetween, CALENDAR_LINKS, canEditCalendar, seriesInfo, changeEvent } from './_family/calendar.js';
 import { importRecipe } from './_family/import.js';
 import { getFile, remove } from './_family/store.js';
 
@@ -123,7 +126,11 @@ async function route(request) {
     case 'POST import':
       return json(await importRecipe(await request.json().catch(() => ({}))));
     case 'GET calendar':
-      return json({ events: await eventsBetween(url.searchParams.get('from'), url.searchParams.get('to')), links: CALENDAR_LINKS });
+      return json({ events: await eventsBetween(url.searchParams.get('from'), url.searchParams.get('to')), links: CALENDAR_LINKS, canEdit: canEditCalendar() });
+    case 'GET calendar-series':
+      return json(await seriesInfo(url.searchParams.get('id') || ''));
+    case 'POST calendar-event':
+      return json({ event: await changeEvent(await request.json().catch(() => ({})), user) });
   }
   return fail(404, 'Unknown request');
 }

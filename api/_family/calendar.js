@@ -1,10 +1,14 @@
-// Reads the family Google Calendar's public iCal feed and returns the events
-// in a date range as JSON, with repeating events expanded. Covers the
+// The family Google Calendar's events in a date range, as JSON. With a
+// service account set up (api/_family/gcal.js) they come from the Calendar
+// API, which can also change them; otherwise from the calendar's public
+// iCal feed (read-only), parsed here with repeating events expanded. Covers the
 // RRULE features Google Calendar writes (DAILY/WEEKLY/MONTHLY/YEARLY with
 // INTERVAL, COUNT, UNTIL, BYDAY, BYMONTHDAY, BYMONTH), EXDATEs, edited
 // single occurrences (RECURRENCE-ID) and cancelled events.
 
-const CALENDAR_ID = 'e01d9910072240adacfad01c0bef6a3b6a351b7f1b92615ce33c4f8a02433cc0@group.calendar.google.com';
+import { gcalConfigured, gcalEvents, gcalSeries, gcalCreate, gcalUpdate, gcalDelete } from './gcal.js';
+
+export const CALENDAR_ID = 'e01d9910072240adacfad01c0bef6a3b6a351b7f1b92615ce33c4f8a02433cc0@group.calendar.google.com';
 export const ICS_URL = process.env.FAMILY_CALENDAR_ICS ||
   `https://calendar.google.com/calendar/ical/${encodeURIComponent(CALENDAR_ID)}/public/basic.ics`;
 export const CALENDAR_LINKS = {
@@ -217,6 +221,30 @@ export async function eventsBetween(fromISO, toISO) {
   if (!Number.isFinite(from) || !Number.isFinite(to) || to - from > 450 * DAY) {
     throw Object.assign(new Error('Bad date range'), { status: 400 });
   }
+  const out = gcalConfigured() ? await gcalEvents(CALENDAR_ID, from, to) : await feedEvents(from, to);
+  // Sort by real start time. An all-day event starts at local midnight, so
+  // it lands at the top of its own day — comparing its bare date string
+  // with a UTC timestamp would put Friday's all-day event ahead of a 7pm
+  // Thursday event (already Friday in UTC).
+  const startOf = o => (o.allDay
+    ? toInstant({ wall: Date.parse(o.start + 'T00:00:00Z'), tz: DEFAULT_TZ, allDay: false })
+    : Date.parse(o.start));
+  return out.sort((a, b) => startOf(a) - startOf(b));
+}
+
+// Changes from the hub's calendar page. Throws when editing isn't set up.
+export const canEditCalendar = gcalConfigured;
+export function seriesInfo(seriesId) { return gcalSeries(CALENDAR_ID, seriesId); }
+export function changeEvent({ action, id, scope, event }, user) {
+  if (!gcalConfigured()) throw Object.assign(new Error('Calendar editing isn’t set up yet.'), { status: 503 });
+  if (action === 'create') return gcalCreate(CALENDAR_ID, event, user, DEFAULT_TZ);
+  if (!id || typeof id !== 'string') throw Object.assign(new Error('Which event?'), { status: 400 });
+  if (action === 'update') return gcalUpdate(CALENDAR_ID, id, scope, event, DEFAULT_TZ);
+  if (action === 'delete') return gcalDelete(CALENDAR_ID, id, scope).then(() => null);
+  throw Object.assign(new Error('Unknown change'), { status: 400 });
+}
+
+async function feedEvents(from, to) {
   const all = await loadEvents();
   const overrides = new Map(); // uid -> Set of overridden instants
   for (const e of all) if (e.recurrenceId) {
@@ -242,12 +270,5 @@ export async function eventsBetween(fromISO, toISO) {
       if (inRange(o)) out.push(o);
     }
   }
-  // Sort by real start time. An all-day event starts at local midnight, so
-  // it lands at the top of its own day — comparing its bare date string
-  // with a UTC timestamp would put Friday's all-day event ahead of a 7pm
-  // Thursday event (already Friday in UTC).
-  const startOf = o => (o.allDay
-    ? toInstant({ wall: Date.parse(o.start + 'T00:00:00Z'), tz: DEFAULT_TZ, allDay: false })
-    : Date.parse(o.start));
-  return out.sort((a, b) => startOf(a) - startOf(b));
+  return out;
 }
