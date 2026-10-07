@@ -29,8 +29,9 @@ const md = new Marked({
     }
   }
 });
-function markdown(text) {
-  let html = md.parse(text || '');
+// opts.breaks: keep single line breaks (used for notes).
+function markdown(text, opts) {
+  let html = md.parse(text || '', opts && opts.breaks ? { breaks: true } : undefined);
   // A <figure> can't sit inside a <p>: lift each one out in front of it.
   const inPara = /<p>((?:(?!<\/p>)[\s\S])*?)(<figure class="post-img[\s\S]*?<\/figure>)\s*/g;
   let prev;
@@ -39,6 +40,18 @@ function markdown(text) {
     html = html.replace(inPara, (all, before, fig) => (before.trim() ? '<p>' + before.trim() + '</p>\n' : '') + fig + '\n<p>');
   } while (html !== prev);
   return html.replace(/<p>\s*<\/p>\n?/g, '');
+}
+
+// Notes keep every line on its own line, bulleted or not (as in the hub's
+// notesMd): a plain line after a bullet gets its own paragraph.
+function notesMarkdown(text) {
+  const item = /^\s*([-*+]|\d+[.)])\s/, out = [];
+  for (const line of String(text || '').split(/\r?\n/)) {
+    const prev = out[out.length - 1];
+    if (prev != null && item.test(prev) && line.trim() && !item.test(line) && !/^\s/.test(line)) out.push('');
+    out.push(line);
+  }
+  return markdown(out.join('\n'), { breaks: true });
 }
 
 function minutesLabel(n) {
@@ -166,7 +179,7 @@ ${steps}
               </ol>
             </div>
           </div>
-          ${r.notes ? `<div class="recipe-notes"><h3>Notes &amp; tips</h3>${markdown(publicText(r.notes))}</div>` : ''}
+          ${r.notes ? `<div class="recipe-notes"><h3>Notes &amp; tips</h3>${notesMarkdown(publicText(r.notes))}</div>` : ''}
         </section>
       </div>
     </article>

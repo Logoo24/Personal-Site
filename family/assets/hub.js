@@ -164,6 +164,18 @@
     });
   }
 
+  // Notes keep every line on its own line, bulleted or not. Markdown would
+  // join a plain line onto the bullet above it, so give it its own paragraph.
+  function notesMd(text) {
+    var item = /^\s*([-*+]|\d+[.)])\s/, out = [];
+    String(text || '').split(/\r?\n/).forEach(function (line) {
+      var prev = out[out.length - 1];
+      if (prev != null && item.test(prev) && line.trim() && !item.test(line) && !/^\s/.test(line)) out.push('');
+      out.push(line);
+    });
+    return md(out.join('\n'), { breaks: true });
+  }
+
   function minutes(n) {
     n = +n || 0;
     if (!n) return '';
@@ -184,7 +196,8 @@
 
   /* ---------- markdown (same image placement rules as build.js) ---------- */
   var markedReady = false;
-  function md(text) {
+  // opts.breaks: keep single line breaks (used for notes).
+  function md(text, opts) {
     if (!window.marked) return '<p>' + esc(text).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>') + '</p>';
     if (!markedReady) {
       markedReady = true;
@@ -202,7 +215,7 @@
         }
       });
     }
-    var html = window.marked.parse(String(text || ''));
+    var html = window.marked.parse(String(text || ''), opts && opts.breaks ? { breaks: true } : undefined);
     // Lift figures out of their paragraphs, as build.js does.
     return html.replace(/<p>((?:(?!<\/p>)[\s\S])*?)(<figure class="post-img[\s\S]*?<\/figure>)\s*/g, function (a, before, fig) {
       return (before.trim() ? '<p>' + before.trim() + '</p>\n' : '') + fig + '\n<p>';
@@ -260,7 +273,7 @@
         '<section class="rc-steps"><div class="rc-steps-head"><h2>Steps</h2>' +
           (opts.interactive && 'wakeLock' in navigator ? '<label class="rc-awake"><input type="checkbox" data-wake /> Keep screen on</label>' : '') + '</div>' +
           (r.steps && r.steps.length ? '<ol>' + r.steps.map(function (s) { return '<li>' + esc(s).replace(/\n/g, '<br>') + '</li>'; }).join('') + '</ol>' : '<p class="rc-source">No steps yet.</p>') +
-          (r.notes ? '<div class="rc-notes"><h2>Notes &amp; tips</h2><div class="rc-prose">' + md(r.notes) + '</div></div>' : '') +
+          (r.notes ? '<div class="rc-notes"><h2>Notes &amp; tips</h2><div class="rc-prose">' + notesMd(r.notes) + '</div></div>' : '') +
         '</section>' +
       '</div>' +
       (story ? '<section class="rc-story"><h2>The story</h2><div class="rc-prose">' + story + '</div></section>' : '');
