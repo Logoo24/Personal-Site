@@ -197,7 +197,7 @@
 
     $('#recipe').addEventListener('click', function (e) {
       var t = e.target;
-      var li = t.closest('.rc-ing-list li:not(.rc-ing-section), .rc-steps li');
+      var li = t.closest('.rc-ing-list li:not(.rc-ing-section), .rc-steps > ol > li');
       if (li && !t.closest('a')) li.classList.toggle('done');
       var f = t.closest('[data-scale-factor]');
       if (f) setFactor(+f.getAttribute('data-scale-factor'));

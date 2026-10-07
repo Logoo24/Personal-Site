@@ -8,6 +8,7 @@ import { recipeForSlug } from './_family/share.js';
 import { renderSharedRecipe, renderNotShared } from './_family/share-page.js';
 import { mediaIn } from './_family/recipes.js';
 import { getFile } from './_family/store.js';
+import { readSession } from './_family/session.js';
 
 const notFound = () => new Response(renderNotShared(), {
   status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }
@@ -31,7 +32,8 @@ async function route(request) {
 
   // Not cached, so making a recipe private takes effect right away.
   const origin = `${request.headers.get('x-forwarded-proto') || url.protocol.replace(':', '')}://${request.headers.get('x-forwarded-host') || url.host}`;
-  return new Response(renderSharedRecipe(recipe, { origin, slug }), {
+  const familyView = !!(await readSession(request));
+  return new Response(renderSharedRecipe(recipe, { origin, slug, familyView }), {
     headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }
   });
 }

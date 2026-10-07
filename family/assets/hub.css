@@ -280,17 +280,20 @@ body.hub { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction:
 .rc-ing-list li.rc-ing-section:first-child { padding-top: 0; }
 .rc-qty { font-weight: 700; color: var(--text); white-space: nowrap; }
 .rc-note { color: var(--text-muted); }
-.rc-steps ol { list-style: none; counter-reset: step; }
-.rc-steps li { counter-increment: step; position: relative; padding: 0 0 1.6rem 3.1rem; cursor: pointer; font-size: 1.02rem; line-height: 1.7; color: var(--text); }
-.rc-steps li::before { content: counter(step); position: absolute; left: 0; top: -0.1rem; width: 2.1rem; height: 2.1rem; border-radius: 50%; display: grid; place-items: center; background: var(--hub-cookbook-bg); color: var(--hub-cookbook); font-weight: 700; font-size: 0.92rem; transition: all .2s; }
-.rc-steps li.done { color: var(--text-muted); }
-.rc-steps li.done::before { content: "✓"; background: var(--accent); color: #fff; }
+.rc-steps > ol { list-style: none; counter-reset: step; }
+.rc-steps > ol > li { counter-increment: step; position: relative; padding: 0 0 1.6rem 3.1rem; cursor: pointer; font-size: 1.02rem; line-height: 1.7; color: var(--text); }
+.rc-steps > ol > li::before { content: counter(step); position: absolute; left: 0; top: -0.1rem; width: 2.1rem; height: 2.1rem; border-radius: 50%; display: grid; place-items: center; background: var(--hub-cookbook-bg); color: var(--hub-cookbook); font-weight: 700; font-size: 0.92rem; transition: all .2s; }
+.rc-steps > ol > li.done { color: var(--text-muted); }
+.rc-steps > ol > li.done::before { content: "✓"; background: var(--accent); color: #fff; }
 .rc-steps-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
 .rc-steps-head h2 { margin: 0 !important; }
 .rc-awake { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.82rem; color: var(--text-muted); cursor: pointer; user-select: none; }
 .rc-awake input { accent-color: var(--accent); width: 16px; height: 16px; }
 .rc-notes { margin-top: 1rem; padding: 1.25rem 1.4rem; background: var(--hub-warn-bg); border-radius: 12px; }
 .rc-notes h2 { font-size: 1.05rem !important; margin-bottom: 0.5rem !important; }
+.rc-notes .rc-prose { font-size: 0.98rem; line-height: 1.65; }
+.rc-notes .rc-prose li + li { margin-top: 0.35rem; }
+.rc-notes .rc-prose > :last-child { margin-bottom: 0; }
 .rc-story { margin-top: 3.5rem; padding-top: 2.5rem; border-top: 1px solid var(--line); }
 .rc-prose { font-size: 1.04rem; line-height: 1.8; max-width: 720px; }
 .rc-prose p, .rc-prose ul, .rc-prose ol, .rc-prose blockquote, .rc-prose figure { margin-bottom: 1.2rem; }
@@ -356,6 +359,36 @@ body.hub { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction:
 .ed-section > h2 { font-size: 1.15rem; margin-bottom: 0.3rem; }
 .ed-section > p.ed-hint { font-size: 0.86rem; color: var(--text-muted); margin-bottom: 1.1rem; }
 .ed-grid { display: grid; gap: 1rem; grid-template-columns: repeat(12, minmax(0, 1fr)); }
+/* Tag picker: chosen tags as chips, plus a search box with a drop-down list. */
+.tag-wrap { position: relative; }
+.tag-box {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; min-height: 46px; padding: 0.35rem 0.5rem;
+  border: 1px solid var(--line-strong); border-radius: 9px; background: var(--hub-surface); cursor: text;
+  transition: border-color .2s, box-shadow .2s;
+}
+.tag-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+.tag-chips { display: contents; }
+.tag-chip { display: inline-flex; align-items: center; gap: 0.15rem; padding: 0.2rem 0.2rem 0.2rem 0.65rem; border-radius: 99px; background: var(--bg-deep); font-size: 0.85rem; font-weight: 500; color: var(--text); }
+.tag-chip.is-want { background: transparent; border: 1px dashed var(--line-strong); }
+.tag-chip button { width: 22px; height: 22px; display: grid; place-items: center; border: 0; border-radius: 50%; background: none; color: var(--text-muted); cursor: pointer; padding: 0; }
+.tag-chip button:hover { background: var(--line); color: var(--text); }
+.tag-chip svg { width: 13px; height: 13px; }
+.hub .tag-input { flex: 1; min-width: 7rem; border: 0; outline: 0; background: none; padding: 0.35rem 0.25rem; font: 400 0.95rem/1.4 var(--sans); color: var(--text); box-shadow: none; }
+.tag-menu {
+  position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px); max-height: 17rem; overflow-y: auto; padding: 0.35rem;
+  background: var(--hub-surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+}
+.tag-opt { display: flex; align-items: center; gap: 0.55rem; width: 100%; padding: 0.55rem 0.7rem; border: 0; border-radius: 8px; background: none; color: var(--text); font: 500 0.9rem var(--sans); text-align: left; cursor: pointer; }
+.tag-opt span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag-opt small { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
+.tag-opt svg { width: 15px; height: 15px; flex: none; color: var(--text-muted); }
+.tag-opt:hover, .tag-opt.active { background: var(--bg-deep); }
+.tag-opt.is-want { border-bottom: 1px solid var(--line); border-radius: 8px 8px 0 0; margin-bottom: 0.25rem; }
+.tag-opt.is-want svg { color: var(--hub-cookbook); }
+.tag-opt.is-new { color: var(--accent); }
+.tag-opt.is-new svg { color: var(--accent); }
+.tag-opt.is-new strong { font-weight: 600; }
+.tag-empty { padding: 0.6rem 0.7rem; font-size: 0.85rem; color: var(--text-muted); }
 .ed-grid .col-full { grid-column: span 12; }
 .ed-grid .col-half { grid-column: span 6; }
 .ed-grid .col-quarter { grid-column: span 3; }
@@ -506,6 +539,10 @@ body.hub-cal .hub-main { display: flex; flex-direction: column; min-height: 0; m
   .hub .ed-md { font-size: 16px !important; }
   /* Finger-sized tap targets. */
   .chip { min-height: 38px; padding-top: 0.45rem; padding-bottom: 0.45rem; }
+  .hub .tag-input { font-size: 16px; }
+  .tag-opt { min-height: 44px; }
+  .tag-chip { padding-top: 0.3rem; padding-bottom: 0.3rem; }
+  .tag-chip button { width: 30px; height: 30px; }
   .rc-scale .chip { min-height: 34px; padding: 0.35rem 0.8rem; }
   .btn-sm { min-height: 40px; }
   .ed-move button { width: 32px; height: 26px; }
@@ -532,9 +569,9 @@ body.hub-cal .hub-main { display: flex; flex-direction: column; min-height: 0; m
   .rc-scale-count { border: 0; }
   .rc-scale-count input { border: 0; width: auto; text-align: left; padding: 0; }
   .rc-ing-list li { break-inside: avoid; border-bottom-color: #eee; }
-  .rc-ing-list li.done, .rc-steps li.done { text-decoration: none; color: inherit; }
-  .rc-steps li { break-inside: avoid; padding-bottom: 4mm; }
-  .rc-steps li.done::before { content: counter(step); background: var(--hub-cookbook-bg); color: var(--hub-cookbook); }
+  .rc-ing-list li.done, .rc-steps > ol > li.done { text-decoration: none; color: inherit; }
+  .rc-steps > ol > li { break-inside: avoid; padding-bottom: 4mm; }
+  .rc-steps > ol > li.done::before { content: counter(step); background: var(--hub-cookbook-bg); color: var(--hub-cookbook); }
   .rc-story { break-before: auto; }
   .rc-prose img { max-height: 70mm; width: auto; }
   .post-img--left, .post-img--right { width: 38%; }

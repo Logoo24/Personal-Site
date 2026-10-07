@@ -31,7 +31,13 @@ function normalize(input) {
       : { qty: str(i && i.qty, 40), unit: str(i && i.unit, 40), item: str(i && i.item, 200), note: str(i && i.note, 200) }
   ).filter(i => i.section || i.item || i.qty);
   const steps = (Array.isArray(input.steps) ? input.steps : []).slice(0, 100).map(s => str(s, 4000)).filter(Boolean);
-  const tags = [...new Set((Array.isArray(input.tags) ? input.tags : []).map(t => str(t, 40)).filter(Boolean))].slice(0, 12);
+  // Tags start with a capital letter, and "dessert" and "Dessert" are one tag.
+  const tags = [];
+  for (const t of (Array.isArray(input.tags) ? input.tags : []).map(t => str(t, 40).replace(/\s+/g, ' '))) {
+    const tag = t.charAt(0).toUpperCase() + t.slice(1);
+    if (tag && !tags.some(x => x.toLowerCase() === tag.toLowerCase())) tags.push(tag);
+  }
+  tags.splice(12);
   const servings = parseFloat(input.servings);
   return {
     title: str(input.title, 140) || 'Untitled recipe',

@@ -890,8 +890,16 @@ a.feature-row:hover h3 { color: var(--accent); }
    The page behind a public recipe link (/recipes/<slug>), rendered by
    api/_family/share-page.js. Standalone: no site nav or footer. */
 .shared-recipe .article { padding-top: 4.5rem; }
+.shared-recipe-back {
+  position: absolute; top: 1rem; left: var(--gutter); z-index: 5;
+  display: inline-flex; align-items: center; gap: 0.4rem; min-height: 36px; padding: 0.4rem 0.85rem;
+  border: 1px solid var(--line-strong); border-radius: 99px; background: var(--bg);
+  font-size: 0.82rem; font-weight: 600; color: var(--text-soft); text-decoration: none;
+  transition: border-color .2s var(--ease-out), color .2s var(--ease-out);
+}
+.shared-recipe-back:hover { border-color: var(--accent); color: var(--accent); }
 .shared-recipe-foot { text-align: center; padding: 0 var(--gutter) 3rem; font-size: 0.82rem; color: var(--text-muted); letter-spacing: 0.04em; }
-@media (max-width: 720px) { .shared-recipe .article { padding-top: 3rem; } }
+@media (max-width: 720px) { .shared-recipe .article { padding-top: 4.25rem; } }
 
 .recipe-cover { margin: 0 0 2rem; }
 .recipe-cover img { width: 100%; max-height: 480px; object-fit: cover; border-radius: 12px; }

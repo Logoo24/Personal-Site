@@ -255,7 +255,7 @@ How to fill each field:
 - tags: only tags from the family's existing list that clearly fit, at most three. Empty if none fit.
 - ingredientGroups: keep the source's sub-lists ("For the frosting") as groups with that heading; otherwise use one group with an empty heading. Split each ingredient into qty (just the amount, like "1 1/2", "2-3" or "½"; empty for "salt to taste"), unit (the measure as written, like "cups", "tbsp", "g", "can", "cloves"; empty when there is none), item (the ingredient itself, like "all-purpose flour") and note (preparation or extras, like "softened", "divided" or "or 2 cups frozen"). When both US and metric amounts are given, keep the US amount.
 - steps: the method, one instruction per step, in order, without numbers or "Step 1" labels. Keep the source's wording, including temperatures and times.
-- notes: the recipe's own notes and tips: substitutions, equipment, storage, make-ahead and freezing advice, troubleshooting. Write short paragraphs or "- " bullet lines. Leave notes empty if the source has none.
+- notes: the recipe's own notes and tips: substitutions, equipment, storage, make-ahead and freezing advice, troubleshooting. Write them as a "- " bullet list, one tip per line. Leave notes empty if the source has none.
 
 Leave out everything that isn't the recipe: the author's personal stories and life updates, ads, affiliate plugs, nutrition facts, reader comments, and requests to like, follow or subscribe.
 

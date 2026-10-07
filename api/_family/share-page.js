@@ -49,7 +49,8 @@ const isoDuration = n => 'PT' + (Math.floor(n / 60) ? Math.floor(n / 60) + 'H' :
 
 const HEAD_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231F7A4D'/%3E%3Cpath d='M8 15 16 8l8 7v9h-5.5v-6h-5v6H8z' fill='%23FAFAFA'/%3E%3C/svg%3E";
 
-function shell({ title, description, url, image, body, status }) {
+function shell({ title, description, url, image, body, status, back }) {
+  back = back || { href: '/', label: 'Back to loganbrandall.com' };
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -75,6 +76,7 @@ function shell({ title, description, url, image, body, status }) {
   <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
+  <a class="shared-recipe-back" href="${esc(back.href)}"><span aria-hidden="true">←</span> ${esc(back.label)}</a>
   <main id="main" class="shared-recipe">
 ${body}
   </main>
@@ -85,7 +87,9 @@ ${body}
 </html>`;
 }
 
-export function renderSharedRecipe(r, { origin, slug }) {
+// familyView: the viewer is signed in to the family hub, so the corner link
+// goes back to this recipe in the cookbook instead of to the homepage.
+export function renderSharedRecipe(r, { origin, slug, familyView }) {
   const pageUrl = `${origin}/recipes/${slug}`;
   const photo = name => `/recipes/${slug}/photos/${name}`;
   // Photos in the story and notes point at the private hub; swap in the
@@ -174,7 +178,8 @@ ${steps}
     url: pageUrl,
     image: r.cover ? origin + photo(r.cover) : origin + '/images/og-card.jpg',
     body,
-    status: 200
+    status: 200,
+    back: familyView ? { href: '/family/cookbook/recipe?id=' + encodeURIComponent(r.id), label: 'Back to the family cookbook' } : null
   });
 }
 

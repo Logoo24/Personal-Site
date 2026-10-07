@@ -42,8 +42,18 @@
           <label class="field col-full"><span>Recipe name</span><input class="input" name="title" required maxlength="140" placeholder="Grandma’s cinnamon rolls" /></label>
           <label class="field col-full"><span>Short description</span><input class="input" name="summary" maxlength="400" placeholder="Soft, gooey, and gone by 9am every Christmas morning." /></label>
           <label class="field col-half"><span>Recipe from</span><input class="input" name="source" maxlength="120" placeholder="Grandma Randall" /></label>
-          <label class="field col-half"><span>Tags</span><input class="input" name="tags" placeholder="Breakfast, Holidays" /><small>Separate with commas. “Want to make” keeps a recipe off the main list until you’ve tried it.</small></label>
-          <div class="col-full chips" id="tag-suggest"></div>
+          <div class="field col-half tag-field">
+            <span id="tags-label">Tags</span>
+            <div class="tag-wrap">
+            <div class="tag-box" id="tag-box">
+              <span class="tag-chips" id="tag-chips"></span>
+              <input class="tag-input" id="tag-input" type="text" placeholder="Add a tag" autocomplete="off" autocapitalize="sentences" spellcheck="false"
+                role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="tag-menu" aria-labelledby="tags-label" />
+            </div>
+            <div class="tag-menu" id="tag-menu" role="listbox" hidden></div>
+            </div>
+            <small>“Want to make” keeps a recipe off the main list until you’ve tried it.</small>
+          </div>
           <label class="field col-quarter"><span>Makes</span><input class="input" name="servings" type="number" min="0" step="any" placeholder="12" /></label>
           <label class="field col-quarter"><span>Unit</span><input class="input" name="yieldUnit" placeholder="servings" list="yield-units" /></label>
           <label class="field col-quarter"><span>Prep (min)</span><input class="input" name="prepMinutes" type="number" min="0" placeholder="20" /></label>
@@ -123,8 +133,8 @@
 
       <section class="ed-section">
         <h2>Notes &amp; tips</h2>
-        <p class="ed-hint">Substitutions, make-ahead tips, “double the frosting”.</p>
-        <textarea name="notes" id="notes" rows="4" placeholder="Freezes well for up to a month."></textarea>
+        <p class="ed-hint">Substitutions, make-ahead tips, “double the frosting”. One tip per bullet; press Enter for the next.</p>
+        <textarea name="notes" id="notes" rows="4" placeholder="- Freezes well for up to a month."></textarea>
       </section>
 
       <div class="ed-danger" id="danger" hidden>
@@ -319,30 +329,126 @@
     };
     $('#photo-cancel').onclick = function () { pendingPhoto = null; $('#photo-form').hidden = true; };
 
-    /* ---------- tags ---------- */
-    function currentTags() { return form.elements.tags.value.split(',').map(function (t) { return t.trim(); }).filter(Boolean); }
-    function renderTagSuggest(all) {
-      var have = currentTags().map(function (t) { return t.toLowerCase(); });
-      var left = all.filter(function (t) { return have.indexOf(t.toLowerCase()) < 0; }).slice(0, 14);
-      $('#tag-suggest').innerHTML = left.map(function (t) {
-        return '<button type="button" class="chip' + (Hub.isWantTag(t) ? ' chip-want' : '') + '" data-add-tag="' + esc(t) + '">+ ' + esc(t) + '</button>';
-      }).join('');
+    /* ---------- tags ----------
+       A picker: the chosen tags as chips, and a box that opens a list of the
+       family's tags ("Want to make" first, then most-used first). Typing
+       narrows the list, and a name that isn't there yet can be added as a
+       new category. Tags always start with a capital letter. */
+    var tags = [], knownTags = [], tagCounts = {}, tagActive = -1;
+    var tagInput = $('#tag-input'), tagMenu = $('#tag-menu'), tagOpts = [];
+    function capitalize(t) { t = String(t || '').trim().replace(/\s+/g, ' '); return t.charAt(0).toUpperCase() + t.slice(1); }
+    function hasTag(list, t) { t = String(t).trim().toLowerCase(); return list.some(function (x) { return x.toLowerCase() === t; }); }
+    function currentTags() { return tags.slice(); }
+    function setTags(list) {
+      tags = [];
+      (list || []).forEach(function (t) { t = capitalize(t); if (t && !hasTag(tags, t)) tags.push(t); });
+      renderTagChips();
     }
-    var knownTags = [];
-    $('#tag-suggest').addEventListener('click', function (e) {
-      var b = e.target.closest('[data-add-tag]');
-      if (!b) return;
-      form.elements.tags.value = currentTags().concat(b.getAttribute('data-add-tag')).join(', ');
-      dirty = true; renderTagSuggest(knownTags);
+    function renderTagChips() {
+      $('#tag-chips').innerHTML = tags.map(function (t, i) {
+        return '<span class="tag-chip' + (Hub.isWantTag(t) ? ' is-want' : '') + '">' + esc(t) +
+          '<button type="button" data-remove-tag="' + i + '" aria-label="Remove ' + esc(t) + '">' + I.x + '</button></span>';
+      }).join('');
+      tagInput.placeholder = tags.length ? 'Add another' : 'Add a tag';
+    }
+    function addTag(t) {
+      t = capitalize(t);
+      if (!t || hasTag(tags, t)) return;
+      // Keep the family's existing spelling when it's a tag they already use.
+      var known = knownTags.filter(function (k) { return k.toLowerCase() === t.toLowerCase(); })[0];
+      tags.push(known || t);
+      dirty = true;
+      renderTagChips();
+    }
+    function renderTagMenu() {
+      var typed = tagInput.value.trim(), q = typed.toLowerCase();
+      tagOpts = knownTags.filter(function (t) { return !hasTag(tags, t) && (!q || t.toLowerCase().indexOf(q) > -1); })
+        .map(function (t) { return { tag: t }; });
+      if (q && !hasTag(knownTags, q) && !hasTag(tags, q)) tagOpts.push({ tag: capitalize(typed), isNew: true });
+      tagActive = Math.min(tagActive, tagOpts.length - 1);
+      tagMenu.innerHTML = tagOpts.length ? tagOpts.map(function (o, i) {
+        var want = Hub.isWantTag(o.tag);
+        return '<button type="button" role="option" id="tag-opt-' + i + '" class="tag-opt' + (o.isNew ? ' is-new' : '') + (want ? ' is-want' : '') + (i === tagActive ? ' active' : '') +
+          '" data-pick="' + i + '" aria-selected="' + (i === tagActive) + '" tabindex="-1">' +
+          (o.isNew ? I.plus + '<span>Add new category <strong>“' + esc(o.tag) + '”</strong></span>'
+            : (want ? I.bookmark : '') + '<span>' + esc(o.tag) + '</span>' + (tagCounts[o.tag] ? '<small>' + tagCounts[o.tag] + '</small>' : '')) +
+          '</button>';
+      }).join('') : '<p class="tag-empty">Every tag is already on this recipe.</p>';
+      tagMenu.hidden = false;
+      tagInput.setAttribute('aria-expanded', 'true');
+      if (tagActive >= 0) {
+        tagInput.setAttribute('aria-activedescendant', 'tag-opt-' + tagActive);
+        var a = $('#tag-opt-' + tagActive); if (a) a.scrollIntoView({ block: 'nearest' });
+      } else tagInput.removeAttribute('aria-activedescendant');
+    }
+    function closeTagMenu() {
+      tagMenu.hidden = true; tagActive = -1;
+      tagInput.setAttribute('aria-expanded', 'false'); tagInput.removeAttribute('aria-activedescendant');
+    }
+    function pickTag(i) {
+      var o = tagOpts[i];
+      if (!o) return;
+      addTag(o.tag);
+      tagInput.value = ''; tagActive = -1;
+      renderTagMenu();
+      tagInput.focus();
+    }
+    tagInput.addEventListener('focus', renderTagMenu);
+    tagInput.addEventListener('click', function () { if (tagMenu.hidden) renderTagMenu(); });
+    // Typing a search isn't an edit to the recipe.
+    tagInput.addEventListener('input', function (e) { e.stopPropagation(); tagActive = this.value.trim() ? 0 : -1; renderTagMenu(); });
+    tagInput.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); tagActive = Math.min(tagActive + 1, tagOpts.length - 1); renderTagMenu(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); tagActive = Math.max(tagActive - 1, 0); renderTagMenu(); }
+      else if (e.key === 'Enter' || (e.key === ',' && this.value.trim())) {
+        e.preventDefault(); // never submit the form from here
+        if (tagActive >= 0) pickTag(tagActive);
+        else if (this.value.trim()) pickTag(0);
+      }
+      else if (e.key === 'Escape') closeTagMenu();
+      else if (e.key === 'Tab') closeTagMenu();
+      else if (e.key === 'Backspace' && !this.value && tags.length) { tags.pop(); dirty = true; renderTagChips(); renderTagMenu(); }
     });
-    form.elements.tags.addEventListener('input', function () { renderTagSuggest(knownTags); });
+    // Keep focus in the box while tapping the list.
+    tagMenu.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    tagMenu.addEventListener('click', function (e) { var b = e.target.closest('[data-pick]'); if (b) pickTag(+b.getAttribute('data-pick')); });
+    $('#tag-chips').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-remove-tag]');
+      if (!b) return;
+      tags.splice(+b.getAttribute('data-remove-tag'), 1);
+      dirty = true; renderTagChips();
+      if (!tagMenu.hidden) renderTagMenu();
+    });
+    $('#tag-box').addEventListener('click', function (e) { if (!e.target.closest('button')) tagInput.focus(); });
+    document.addEventListener('pointerdown', function (e) { if (!e.target.closest('.tag-field')) closeTagMenu(); });
+
+    /* ---------- notes: a bulleted list by default ---------- */
+    var notes = form.elements.notes, BULLET = '- ';
+    notes.addEventListener('focus', function () {
+      if (!notes.value.trim()) { notes.value = BULLET; notes.setSelectionRange(BULLET.length, BULLET.length); }
+    });
+    // A lone, empty bullet isn't a note.
+    notes.addEventListener('blur', function () { if (/^\s*-?\s*$/.test(notes.value)) notes.value = ''; });
+    notes.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+      var at = notes.selectionStart, end = notes.selectionEnd, v = notes.value;
+      var lineStart = v.lastIndexOf('\n', at - 1) + 1;
+      var m = /^(\s*)- /.exec(v.slice(lineStart, at));
+      if (!m) return; // not on a bullet line: an ordinary new line
+      e.preventDefault();
+      var lineEnd = v.indexOf('\n', at); if (lineEnd < 0) lineEnd = v.length;
+      if (!v.slice(lineStart + m[0].length, lineEnd).trim()) notes.setRangeText('', lineStart, lineEnd, 'end'); // Enter on an empty bullet ends the list
+      else notes.setRangeText('\n' + m[1] + BULLET, at, end, 'end');
+      notes.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    function notesValue() { return notes.value.replace(/(\n[ \t]*-?[ \t]*)+$/, '').replace(/^\s*-?\s*$/, ''); }
 
     /* ---------- load / save ---------- */
     function fill(r) {
       ['title', 'summary', 'source', 'servings', 'yieldUnit', 'prepMinutes', 'cookMinutes', 'story', 'notes'].forEach(function (k) {
         form.elements[k].value = r[k] == null ? '' : r[k];
       });
-      form.elements.tags.value = (r.tags || []).join(', ');
+      setTags(r.tags);
       cover = r.cover || null; showCover();
       $('#ings').innerHTML = ''; (r.ingredients && r.ingredients.length ? r.ingredients : [{}]).forEach(function (i) { addIng(i); });
       $('#steps').innerHTML = ''; (r.steps && r.steps.length ? r.steps : ['']).forEach(addStep);
@@ -360,7 +466,7 @@
         prepMinutes: form.elements.prepMinutes.value, cookMinutes: form.elements.cookMinutes.value, cover: cover,
         ingredients: ingredients,
         steps: $$('#steps textarea').map(function (t) { return t.value.trim(); }).filter(Boolean),
-        story: story.value, notes: form.elements.notes.value
+        story: story.value, notes: notesValue()
       };
     }
     /* ---------- fill in from a link (or pasted recipe text) ---------- */
@@ -382,7 +488,6 @@
         return currentTags().map(function (c) { return c.toLowerCase(); }).indexOf(t.toLowerCase()) < 0;
       }));
       fill(merged);
-      renderTagSuggest(knownTags);
       renumber();
       dirty = true;
     }
@@ -470,14 +575,14 @@
       Promise.all([load, Hub.api('recipes').catch(function () { return { recipes: [] }; })]).then(function (res) {
         recipe = res[0];
         var counts = {};
-        res[1].recipes.forEach(function (r) { (r.tags || []).forEach(function (t) { counts[t] = (counts[t] || 0) + 1; }); });
-        knownTags = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; });
+        res[1].recipes.forEach(function (r) { (r.tags || []).forEach(function (t) { t = capitalize(t); counts[t] = (counts[t] || 0) + 1; }); });
+        tagCounts = counts;
+        knownTags = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a] || a.localeCompare(b); });
         if (!knownTags.length) knownTags = ['Breakfast', 'Dinner', 'Dessert', 'Sides', 'Holidays', 'Treats'];
         // "Want to make" is always offered first.
         knownTags = [Hub.WANT_TAG].concat(knownTags.filter(function (t) { return !Hub.isWantTag(t); }));
         var startTag = new URLSearchParams(location.search).get('tag');
         fill(recipe || { tags: startTag ? [startTag] : [] });
-        renderTagSuggest(knownTags);
         if (recipe) {
           $('#heading').textContent = 'Edit recipe';
           document.title = 'Edit ' + recipe.title + ' · Randall Family';
