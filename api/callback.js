@@ -1,6 +1,8 @@
-// Vercel serverless function: handles GitHub's OAuth callback.
-// Exchanges the temporary code for an access token, then posts the token
-// back to the /admin/ window via window.opener.postMessage.
+// Vercel serverless function: handles GitHub's OAuth callback for the site
+// manager (Sveltia CMS). Exchanges the temporary code for an access token,
+// then hands it back to the CMS window (see api/_family/cms-auth.js).
+
+import { siteOrigin, sendAuthResult } from './_family/cms-auth.js';
 
 export default async function handler(req, res) {
   const { code } = req.query;
@@ -33,41 +35,5 @@ export default async function handler(req, res) {
   }
 
   const ok = !!payload.access_token;
-  const message = ok
-    ? `authorization:github:success:${JSON.stringify({ token: payload.access_token, provider: 'github' })}`
-    : `authorization:github:error:${JSON.stringify(payload)}`;
-
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.send(`<!doctype html>
-<html><head><title>Authorizing...</title></head>
-<body style="font-family:system-ui;padding:2rem;text-align:center;">
-<p id="status">Finishing login... you can close this window.</p>
-<script>
-(function () {
-  var sent = false;
-  function send() {
-    if (!window.opener) {
-      document.getElementById('status').textContent = 'No opener window found. Try logging in again.';
-      return;
-    }
-    sent = true;
-    try { window.opener.postMessage(${JSON.stringify(message)}, '*'); } catch (e) {}
-  }
-  // Listen for Decap's handshake first
-  window.addEventListener('message', function (e) {
-    if (e.data === 'authorizing:github' || (typeof e.data === 'string' && e.data.indexOf('authorizing:') === 0)) {
-      send();
-    }
-  });
-  // Send immediately too, in case Decap is already listening
-  send();
-  // Re-send a few times in case of timing issues
-  setTimeout(send, 300);
-  setTimeout(send, 800);
-  setTimeout(send, 1500);
-  // Close window after giving plenty of time
-  setTimeout(function () { window.close(); }, 2500);
-})();
-</script>
-</body></html>`);
+  return sendAuthResult(res, siteOrigin(req), ok, ok ? payload.access_token : payload);
 }

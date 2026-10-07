@@ -1,19 +1,30 @@
-// Vercel serverless function: starts the GitHub OAuth flow for Decap CMS.
-// When the user clicks "Login with GitHub" in /admin/, Decap opens this URL.
-// We redirect to GitHub's authorization page; GitHub then redirects back to
-// /api/callback with a code we can exchange for a token.
+// Vercel serverless function: the site manager's (Sveltia CMS) "Sign in with
+// GitHub" pop-up opens this URL.
+//
+// A hub admin already signed in with Google (FAMILY_ADMIN_EMAILS) skips
+// GitHub entirely: the pop-up hands back GITHUB_CMS_TOKEN, a fine-grained
+// token limited to this repo's contents. Anyone else goes through GitHub's
+// OAuth page, which comes back to /api/callback with a code.
 
-export default function handler(req, res) {
+import { COOKIE, cookieValue, readToken, sessionSecret, isAdmin } from './_family/session.js';
+import { siteOrigin, sendAuthResult } from './_family/cms-auth.js';
+
+export default async function handler(req, res) {
+  const origin = siteOrigin(req);
+
+  const token = process.env.GITHUB_CMS_TOKEN;
+  if (token) {
+    const user = await readToken(cookieValue(req.headers.cookie, COOKIE), sessionSecret());
+    if (isAdmin(user)) return sendAuthResult(res, origin, true, token);
+  }
+
   const clientId = process.env.GITHUB_CLIENT_ID;
   if (!clientId) {
     return res.status(500).send('Missing GITHUB_CLIENT_ID environment variable');
   }
-  const host = req.headers['x-forwarded-host'] || req.headers.host;
-  const proto = req.headers['x-forwarded-proto'] || 'https';
-  const redirectUri = `${proto}://${host}/api/callback`;
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: redirectUri,
+    redirect_uri: `${origin}/api/callback`,
     scope: 'repo,user',
     state: Math.random().toString(36).slice(2)
   });
