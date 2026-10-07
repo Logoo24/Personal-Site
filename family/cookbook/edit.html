@@ -39,8 +39,8 @@
         <h2>The basics</h2>
         <p class="ed-hint">Only the name is required — fill in the rest whenever.</p>
         <div class="ed-grid">
-          <label class="field col-full"><span>Recipe name</span><input class="input" name="title" required maxlength="140" placeholder="Grandma’s cinnamon rolls" /></label>
-          <label class="field col-full"><span>Short description</span><input class="input" name="summary" maxlength="400" placeholder="Soft, gooey, and gone by 9am every Christmas morning." /></label>
+          <label class="field col-full"><span>Recipe name</span><textarea class="input ed-oneline" name="title" rows="1" required maxlength="140" data-grow data-single placeholder="Grandma’s cinnamon rolls"></textarea></label>
+          <label class="field col-full"><span>Short description</span><textarea class="input ed-oneline" name="summary" rows="1" maxlength="400" data-grow data-single placeholder="Soft, gooey, and gone by 9am every Christmas morning."></textarea></label>
           <label class="field col-half"><span>Recipe from</span><input class="input" name="source" maxlength="120" placeholder="Grandma Randall" /></label>
           <div class="field col-half tag-field">
             <span id="tags-label">Tags</span>
@@ -82,7 +82,7 @@
         <div class="ed-rows" id="ings"></div>
         <div class="ed-paste" id="ing-paste" hidden>
           <span class="field-label">Paste a list — one ingredient per line. A line ending in “:” starts a section.</span>
-          <textarea id="ing-paste-text" placeholder="2 cups flour&#10;1 1/2 tsp baking soda&#10;3 eggs, beaten&#10;For the frosting:&#10;1 cup powdered sugar"></textarea>
+          <textarea id="ing-paste-text" data-grow placeholder="2 cups flour&#10;1 1/2 tsp baking soda&#10;3 eggs, beaten&#10;For the frosting:&#10;1 cup powdered sugar"></textarea>
           <div class="hub-actions"><button class="btn btn-primary btn-sm" type="button" id="ing-paste-add">Add these</button><button class="btn btn-ghost btn-sm" type="button" data-close-paste>Cancel</button></div>
         </div>
         <div class="hub-actions">
@@ -98,7 +98,7 @@
         <div class="ed-rows" id="steps"></div>
         <div class="ed-paste" id="step-paste" hidden>
           <span class="field-label">Paste the directions — each line (or numbered paragraph) becomes a step.</span>
-          <textarea id="step-paste-text"></textarea>
+          <textarea id="step-paste-text" data-grow></textarea>
           <div class="hub-actions"><button class="btn btn-primary btn-sm" type="button" id="step-paste-add">Add these</button><button class="btn btn-ghost btn-sm" type="button" data-close-paste>Cancel</button></div>
         </div>
         <div class="hub-actions">
@@ -126,7 +126,7 @@
           <label class="field" style="flex:0 0 9rem"><span>Placement</span><select id="photo-pos"><option value="center">Full width</option><option value="left">Left, text wraps</option><option value="right">Right, text wraps</option></select></label>
           <div class="hub-actions"><button class="btn btn-primary btn-sm" type="button" id="photo-insert" disabled>Uploading…</button><button class="btn btn-ghost btn-sm" type="button" id="photo-cancel">Cancel</button></div>
         </div>
-        <textarea class="ed-md" name="story" id="story" placeholder="Every Christmas Eve, Grandma would…"></textarea>
+        <textarea class="ed-md" name="story" id="story" data-grow placeholder="Every Christmas Eve, Grandma would…"></textarea>
         <div class="ed-preview rc-prose" id="story-preview" hidden></div>
         <input type="file" accept="image/*" id="photo-file" hidden />
       </section>
@@ -134,7 +134,7 @@
       <section class="ed-section">
         <h2>Notes &amp; tips</h2>
         <p class="ed-hint">Substitutions, make-ahead tips, “double the frosting”. One tip per bullet; press Enter for the next.</p>
-        <textarea name="notes" id="notes" rows="4" placeholder="- Freezes well for up to a month."></textarea>
+        <textarea name="notes" id="notes" rows="4" data-grow placeholder="- Freezes well for up to a month."></textarea>
       </section>
 
       <div class="ed-danger" id="danger" hidden>
@@ -192,6 +192,35 @@
       $$('#steps textarea').forEach(grow);
     }
     function grow(t) { t.style.height = 'auto'; t.style.height = t.scrollHeight + 2 + 'px'; }
+
+    /* ---------- boxes that grow as you type ----------
+       Text boxes marked data-grow get taller to fit what's in them; the
+       one-line ones (data-single: title, description) wrap long text but
+       don't take new lines. Steps grow the same way (renumber). */
+    function growAll() { $$('textarea[data-grow]').forEach(function (t) { if (t.offsetParent) grow(t); }); }
+    form.addEventListener('input', function (e) { if (e.target.matches('textarea[data-grow]')) grow(e.target); });
+    form.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.matches('[data-single]')) e.preventDefault(); });
+    // Re-fit when a box's width changes: the form appearing, the phone
+    // turning, fonts loading.
+    if ('ResizeObserver' in window) {
+      var widths = new WeakMap();
+      var fit = new ResizeObserver(function (entries) {
+        entries.forEach(function (en) {
+          var w = Math.round(en.contentRect.width);
+          if (widths.get(en.target) === w) return;
+          widths.set(en.target, w);
+          if (en.target.offsetParent) grow(en.target);
+        });
+      });
+      $$('textarea[data-grow]').forEach(function (t) { fit.observe(t); });
+    }
+    // The web font arriving changes how text wraps, so fit again then.
+    if (document.fonts) {
+      document.fonts.ready.then(function () { growAll(); renumber(); });
+      document.fonts.addEventListener && document.fonts.addEventListener('loadingdone', function () { growAll(); renumber(); });
+    }
+    var growTimer;
+    window.addEventListener('resize', function () { clearTimeout(growTimer); growTimer = setTimeout(function () { growAll(); renumber(); }, 150); });
     function addIng(ing, after) {
       var row = ingRow(ing);
       after ? after.after(row) : $('#ings').appendChild(row);
@@ -263,7 +292,7 @@
       story.value = v.slice(0, s) + before + sel + after + v.slice(e);
       story.focus();
       story.setSelectionRange(s + before.length, s + before.length + sel.length);
-      dirty = true;
+      grow(story); dirty = true;
     }
     function prefixLines(prefix) {
       var s = story.selectionStart, e = story.selectionEnd, v = story.value;
@@ -273,7 +302,7 @@
       story.value = v.slice(0, start) + out + v.slice(e);
       story.focus();
       story.setSelectionRange(start, start + out.length);
-      dirty = true;
+      grow(story); dirty = true;
     }
     function insertBlock(text) {
       var s = story.selectionStart, v = story.value;
@@ -283,7 +312,7 @@
       story.value = before + pre + text + post + after;
       var at = (before + pre + text + post).length;
       story.focus(); story.setSelectionRange(at, at);
-      dirty = true;
+      grow(story); dirty = true;
     }
     $('.ed-toolbar').addEventListener('click', function (e) {
       var b = e.target.closest('button');
@@ -292,6 +321,7 @@
         var on = $('#story-preview').hidden;
         $('#story-preview').innerHTML = on ? (Hub.md(story.value) || '<p style="color:var(--text-muted)">Nothing written yet.</p>') : '';
         $('#story-preview').hidden = !on; story.hidden = on;
+        if (!on) grow(story);
         b.classList.toggle('on', on); b.textContent = on ? 'Write' : 'Preview';
         return;
       }
@@ -452,6 +482,7 @@
       cover = r.cover || null; showCover();
       $('#ings').innerHTML = ''; (r.ingredients && r.ingredients.length ? r.ingredients : [{}]).forEach(function (i) { addIng(i); });
       $('#steps').innerHTML = ''; (r.steps && r.steps.length ? r.steps : ['']).forEach(addStep);
+      growAll();
     }
     function collect() {
       var ingredients = $$('#ings > .ed-ing').map(function (row) {
@@ -592,7 +623,7 @@
         }
         $('#loading').remove();
         form.hidden = false;
-        renumber();
+        renumber(); growAll();
         if (!recipe) { $('#import').hidden = false; $('#import-input').focus(); }
         dirty = false;
       }).catch(function (e) {

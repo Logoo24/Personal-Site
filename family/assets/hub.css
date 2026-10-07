@@ -151,6 +151,9 @@ body.hub { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction:
 }
 .input:focus, .hub textarea:focus, .hub select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
 .hub textarea { resize: vertical; min-height: 5rem; }
+/* Boxes that grow as you type (edit.html) size themselves. */
+.hub textarea[data-grow] { resize: none; overflow: hidden; }
+.hub textarea.ed-oneline { min-height: 0; line-height: 1.45; }
 .input::placeholder, .hub textarea::placeholder { color: var(--text-muted); opacity: 0.8; }
 .search { position: relative; flex: 1; min-width: 200px; max-width: 420px; }
 .search svg { position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); width: 17px; height: 17px; color: var(--text-muted); pointer-events: none; }
