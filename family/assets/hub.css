@@ -292,6 +292,26 @@ body.hub { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction:
 .rc-steps-head h2 { margin: 0 !important; }
 .rc-awake { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.82rem; color: var(--text-muted); cursor: pointer; user-select: none; }
 .rc-awake input { accent-color: var(--accent); width: 16px; height: 16px; }
+.rc-ing-head { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.rc-ing-head h2 { margin: 0 !important; }
+.rc-shop { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; border-radius: 99px; border: 1px solid var(--line-strong); background: var(--hub-surface); color: var(--text-soft); font: 600 0.8rem var(--sans); cursor: pointer; }
+.rc-shop:hover { border-color: var(--accent); color: var(--accent); }
+.rc-shop svg { width: 15px; height: 15px; }
+
+/* "Shopping list" window: pick ingredients, send them to Reminders */
+.shop-box { width: min(440px, 100%); max-height: calc(100dvh - 2rem); overflow-y: auto; }
+.shop-all { display: flex; justify-content: space-between; align-items: center; margin: 0.25rem 0 0.4rem; font-size: 0.85rem; color: var(--text-muted); }
+.shop-all button { border: 0; background: none; color: var(--accent); font: 600 0.85rem var(--sans); cursor: pointer; padding: 0.3rem 0; }
+.shop-list { list-style: none; border-top: 1px solid var(--line); }
+.shop-list label { display: flex; gap: 0.7rem; align-items: baseline; padding: 0.55rem 0; border-bottom: 1px dashed var(--line); font-size: 0.95rem; line-height: 1.45; cursor: pointer; }
+.shop-list input { accent-color: var(--accent); width: 17px; height: 17px; flex: none; transform: translateY(3px); }
+.shop-list input:not(:checked) + span { color: var(--text-muted); text-decoration: line-through; }
+.shop-help { margin-top: 1.1rem; font-size: 0.88rem; color: var(--text-soft); }
+.shop-help summary { cursor: pointer; font-weight: 600; color: var(--text); }
+.shop-help ol { padding-left: 1.3rem; margin-top: 0.6rem; }
+.shop-help li + li { margin-top: 0.4rem; }
+.shop-help code { font-size: 0.85em; background: var(--bg-deep); padding: 0.05rem 0.3rem; border-radius: 4px; }
+.shop-box .hub-modal-actions { margin-top: 1.2rem; }
 .rc-notes { margin-top: 1rem; padding: 1.25rem 1.4rem; background: var(--hub-warn-bg); border-radius: 12px; }
 .rc-notes h2 { font-size: 1.05rem !important; margin-bottom: 0.5rem !important; }
 .rc-notes .rc-prose { font-size: 0.98rem; line-height: 1.65; }
@@ -435,6 +455,18 @@ body.hub { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction:
 .ed-toolbar svg { width: 16px; height: 16px; }
 .ed-toolbar .sep { width: 1px; background: var(--line); margin: 0.3rem 0.2rem; }
 .ed-toolbar .push { margin-left: auto; }
+/* The color button's menu */
+.ed-color { position: relative; display: inline-flex; }
+.ed-color-a { display: inline-grid; justify-items: center; line-height: 1; font-weight: 700; }
+.ed-color-a::after { content: ""; width: 14px; height: 3px; margin-top: 2px; border-radius: 2px; background: linear-gradient(90deg, #C62828, #C2570C, #1F7A4D, #1D5FBF, #7B3FBF); }
+.ed-color-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; display: grid; grid-template-columns: repeat(2, minmax(6.5rem, auto)); gap: 0.2rem 0.4rem; padding: 0.5rem; background: var(--hub-surface); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: var(--shadow); }
+.ed-color-menu[hidden] { display: none; }
+.ed-toolbar .ed-color-menu button { justify-content: flex-start; font-weight: 600; white-space: nowrap; padding: 0 0.7rem; }
+.ed-color-menu .clear { grid-column: 1 / -1; justify-content: center; color: var(--text-muted); border-top: 1px solid var(--line); border-radius: 0; margin-top: 0.15rem; }
+/* A toolbar over a single text box (notes) or a list of them (steps) */
+.ed-toolbar.solo { border-bottom: 1px solid var(--line-strong); border-radius: 9px; margin-bottom: 0.6rem; }
+.ed-toolbar.top + textarea { border-radius: 0 0 9px 9px !important; }
+.ed-toolbar .hint { align-self: center; margin-left: auto; font-size: 0.75rem; color: var(--text-muted); padding: 0 0.3rem; }
 .ed-md { border-radius: 0 0 9px 9px !important; min-height: 14rem !important; font-size: 0.97rem !important; line-height: 1.65 !important; }
 .ed-preview { border: 1px solid var(--line-strong); border-radius: 0 0 9px 9px; padding: 1.25rem; min-height: 14rem; background: var(--hub-surface); }
 .ed-photo-form { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; padding: 0.9rem; border: 1px solid var(--line-strong); border-top: 0; background: var(--bg); }
@@ -572,6 +604,10 @@ body.hub-cal .hub-main { display: flex; flex-direction: column; min-height: 0; m
   .cf-check input { width: 22px; height: 22px; }
   .cf-check { min-height: 40px; }
   .rc-link-edit { padding: 0.65rem 0.5rem; margin: -0.4rem 0; }
+  .ed-toolbar button { height: 40px; min-width: 40px; }
+  .rc-shop { min-height: 36px; }
+  .shop-list input { width: 22px; height: 22px; transform: translateY(5px); }
+  .shop-list label { min-height: 44px; }
 }
 
 /* ============================================================

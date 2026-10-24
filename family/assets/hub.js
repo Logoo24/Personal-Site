@@ -38,6 +38,8 @@
     list: I('<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>'),
     quote: I('<path d="M3 21c3 0 7-1 7-8V5H3v7h4c0 3.5-1.5 5-4 6zM14 21c3 0 7-1 7-8V5h-7v7h4c0 3.5-1.5 5-4 6z"/>'),
     bookmark: I('<path d="M6 3h12v18l-6-4.5L6 21z"/>'),
+    cart: I('<circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h3l2.6 12.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L21.5 8H6.6"/>'),
+    numbered: I('<path d="M10 6h11M10 12h11M10 18h11M4 4.5h1.5V9M4 9h3M3.8 14.2a1.5 1.5 0 0 1 2.7.9c0 1.4-2.7 2.2-2.7 3.9h3"/>'),
     sparkle: I('<path d="M10 3c.7 4.1 2.9 6.3 7 7-4.1.7-6.3 2.9-7 7-.7-4.1-2.9-6.3-7-7 4.1-.7 6.3-2.9 7-7z"/><path d="M18.5 15c.3 1.7 1.3 2.7 3 3-1.7.3-2.7 1.3-3 3-.3-1.7-1.3-2.7-3-3 1.7-.3 2.7-1.3 3-3z"/>'),
     sun: I('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>', ' class="sun" stroke-width="2.25"'),
     moon: I('<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>', ' class="moon" stroke-width="2.25"')
@@ -164,16 +166,16 @@
     });
   }
 
-  // Notes keep every line on its own line, bulleted or not. Markdown would
-  // join a plain line onto the bullet above it, so give it its own paragraph.
+  // Notes keep every line on its own line, bulleted or not (the rules are
+  // in js/recipe-text.js, shared with the public recipe page).
   function notesMd(text) {
-    var item = /^\s*([-*+]|\d+[.)])\s/, out = [];
-    String(text || '').split(/\r?\n/).forEach(function (line) {
-      var prev = out[out.length - 1];
-      if (prev != null && item.test(prev) && line.trim() && !item.test(line) && !/^\s/.test(line)) out.push('');
-      out.push(line);
-    });
-    return md(out.join('\n'), { breaks: true });
+    return md(window.RecipeText ? RecipeText.notesSource(text) : text, { breaks: true });
+  }
+  // A step: bold, italic and color, but no raw HTML.
+  function stepHTML(text) {
+    if (!window.marked || !window.RecipeText) return esc(text).replace(/\n/g, '<br>');
+    md(''); // sets up the color extension
+    return window.marked.parseInline(RecipeText.stepSource(text), { breaks: true });
   }
 
   function minutes(n) {
@@ -202,6 +204,7 @@
     if (!markedReady) {
       markedReady = true;
       window.marked.use({
+        extensions: window.RecipeText ? [RecipeText.colorExtension] : [],
         renderer: {
           image: function (href, title, alt) {
             var raw = function (s) { return String(s || '').replace(/&(amp|lt|gt|quot|#39);/g, function (a, e) { return { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" }[e]; }); };
@@ -236,6 +239,20 @@
     }).join('');
   }
 
+  // The ingredients as shopping-list lines ("2 cups flour"), scaled, one
+  // per ingredient, in recipe order. Section headings and notes are left
+  // out; i is each line's index in the recipe's ingredient list.
+  function shoppingItems(list, factor) {
+    var RS = window.RecipeScale;
+    return (list || []).map(function (ing, i) {
+      if (ing.section != null || !String(ing.item || '').trim()) return null;
+      var q = RS.parseQty(ing.qty);
+      var qty = q ? RS.scaleQty(ing.qty, factor) : (ing.qty || '');
+      var unit = RS.unitFor(ing.unit, q ? q.max * factor : null);
+      return { i: i, text: [qty, unit, String(ing.item).trim()].filter(Boolean).join(' ') };
+    }).filter(Boolean);
+  }
+
   // opts: { factor, servings, story, photos, interactive, headingTag }
   function recipeHTML(r, opts) {
     opts = opts || {};
@@ -267,12 +284,14 @@
         (facts.length ? '<div class="rc-facts">' + facts.join('') + '</div>' : '') +
       '</header>' +
       '<div class="rc-body">' +
-        '<section class="rc-ingredients"><h2>Ingredients</h2>' + scale +
+        '<section class="rc-ingredients"><div class="rc-ing-head"><h2>Ingredients</h2>' +
+          (opts.interactive && (r.ingredients || []).some(function (i) { return i.section == null; })
+            ? '<button type="button" class="rc-shop no-print" data-shop>' + ICONS.cart + 'Shopping list</button>' : '') + '</div>' + scale +
           (r.ingredients && r.ingredients.length ? '<ul class="rc-ing-list" data-ingredients>' + ingredientsHTML(r.ingredients, factor) + '</ul>' : '<p class="rc-source">No ingredients listed.</p>') +
         '</section>' +
         '<section class="rc-steps"><div class="rc-steps-head"><h2>Steps</h2>' +
           (opts.interactive && 'wakeLock' in navigator ? '<label class="rc-awake"><input type="checkbox" data-wake /> Keep screen on</label>' : '') + '</div>' +
-          (r.steps && r.steps.length ? '<ol>' + r.steps.map(function (s) { return '<li>' + esc(s).replace(/\n/g, '<br>') + '</li>'; }).join('') + '</ol>' : '<p class="rc-source">No steps yet.</p>') +
+          (r.steps && r.steps.length ? '<ol>' + r.steps.map(function (s) { return '<li>' + stepHTML(s) + '</li>'; }).join('') + '</ol>' : '<p class="rc-source">No steps yet.</p>') +
           (r.notes ? '<div class="rc-notes"><h2>Notes &amp; tips</h2><div class="rc-prose">' + notesMd(r.notes) + '</div></div>' : '') +
         '</section>' +
       '</div>' +
@@ -321,7 +340,7 @@
   window.Hub = {
     icons: ICONS, esc: esc, $: $, $$: $$, api: api, session: session, ready: ready, toast: toast,
     confirm: confirmBox, minutes: minutes, hue: hue, placeholderBg: placeholderBg, mediaUrl: mediaUrl,
-    plural: plural, md: md, recipeHTML: recipeHTML, ingredientsHTML: ingredientsHTML, upload: upload,
+    plural: plural, md: md, recipeHTML: recipeHTML, ingredientsHTML: ingredientsHTML, shoppingItems: shoppingItems, upload: upload,
     initials: initials, applyTheme: applyTheme, toggleTheme: toggleTheme,
     WANT_TAG: WANT_TAG, isWantTag: isWantTag, isWant: isWant
   };

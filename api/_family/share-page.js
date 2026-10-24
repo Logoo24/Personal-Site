@@ -9,6 +9,7 @@
 
 import { Marked } from 'marked';
 import RecipeScale from '../../js/recipe-scale.js';
+import RecipeText from '../../js/recipe-text.js';
 
 const esc = s => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -16,6 +17,7 @@ const esc = s => String(s == null ? '' : s)
 // Story photos use the same placement rules as blog posts (build.js):
 // a title of "left"/"right"/"center", with an optional ": caption".
 const md = new Marked({
+  extensions: [RecipeText.colorExtension],
   renderer: {
     image(href, title, text) {
       const raw = s => String(s || '').replace(/&(amp|lt|gt|quot|#39);/g,
@@ -43,15 +45,9 @@ function markdown(text, opts) {
 }
 
 // Notes keep every line on its own line, bulleted or not (as in the hub's
-// notesMd): a plain line after a bullet gets its own paragraph.
+// notesMd; the rules are in js/recipe-text.js).
 function notesMarkdown(text) {
-  const item = /^\s*([-*+]|\d+[.)])\s/, out = [];
-  for (const line of String(text || '').split(/\r?\n/)) {
-    const prev = out[out.length - 1];
-    if (prev != null && item.test(prev) && line.trim() && !item.test(line) && !/^\s/.test(line)) out.push('');
-    out.push(line);
-  }
-  return markdown(out.join('\n'), { breaks: true });
+  return markdown(RecipeText.notesSource(text), { breaks: true });
 }
 
 function minutesLabel(n) {
@@ -123,7 +119,7 @@ export function renderSharedRecipe(r, { origin, slug, familyView }) {
     return '<li>' + (amount ? '<span class="ing-amt"' + (q ? ' data-qty="' + esc(i.qty) + '" data-unit="' + esc(i.unit || '') + '"' : '') + '>' + esc(amount) + '</span> ' : '') +
       esc(i.item || '') + (i.note ? '<span class="ing-note">, ' + esc(i.note) + '</span>' : '') + '</li>';
   }).join('\n');
-  const steps = (r.steps || []).map(s => '<li>' + esc(s).replace(/\n/g, '<br>') + '</li>').join('\n');
+  const steps = (r.steps || []).map(s => '<li>' + md.parseInline(RecipeText.stepSource(s), { breaks: true }) + '</li>').join('\n');
   const story = r.story && r.story.trim() ? markdown(publicText(r.story)) : '';
   const scaler = r.servings
     ? '<div class="recipe-scale" data-servings="' + r.servings + '" hidden><span class="recipe-scale-label">Scale</span>' +
@@ -144,7 +140,7 @@ export function renderSharedRecipe(r, { origin, slug, familyView }) {
     recipeYield: r.servings ? r.servings + ' ' + (r.yieldUnit || 'servings') : undefined,
     recipeCategory: publicTags[0],
     recipeIngredient: (r.ingredients || []).filter(i => i.section == null).map(i => [i.qty, i.unit, i.item].filter(Boolean).join(' ') + (i.note ? ', ' + i.note : '')),
-    recipeInstructions: (r.steps || []).map(text => ({ '@type': 'HowToStep', text }))
+    recipeInstructions: (r.steps || []).map(text => ({ '@type': 'HowToStep', text: RecipeText.plain(text) }))
   }));
 
   const body = `    <article class="article">

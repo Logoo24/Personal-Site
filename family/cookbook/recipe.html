@@ -33,6 +33,7 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
   <script src="/js/recipe-scale.js"></script>
+  <script src="/js/recipe-text.js"></script>
   <script src="/family/assets/hub.js"></script>
   <script>
   (function () {
@@ -195,8 +196,94 @@
         .catch(function (err) { Hub.toast(err.message, true); renderShare(); });
     });
 
+    /* ---------- shopping list -> Apple Reminders ----------
+       A web page can't reach Reminders itself, but it can run a Shortcut,
+       and a Shortcut can add reminders. Each iPhone or Mac sets up the
+       "Add to Shopping List" shortcut once (steps are in the window): it
+       splits the text it's handed into lines and adds each line to a
+       Reminders list. "Copy list" works anywhere: pasting several lines
+       into Reminders makes one reminder per line. */
+    var SHORTCUT = 'Add to Shopping List';
+    // An iCloud link to a ready-made copy of the shortcut, once someone has
+    // shared one (Shortcuts > Share > Copy iCloud Link). Shown in the setup
+    // steps when set.
+    var SHORTCUT_LINK = '';
+    var apple = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent);
+
+    function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+      return new Promise(function (resolve, reject) {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        var ok = document.execCommand('copy'); ta.remove();
+        ok ? resolve() : reject(new Error('Couldn’t copy the list.'));
+      });
+    }
+
+    function shoppingDialog() {
+      var items = Hub.shoppingItems(recipe.ingredients, factor);
+      var scaled = factor !== 1 && recipe.servings
+        ? ' Amounts are for ' + esc(RecipeScale.formatNum(recipe.servings * factor) + ' ' + (recipe.yieldUnit || 'servings')) + '.' : '';
+      var help = apple ? '<details class="shop-help"><summary>First time on this device? Set up the shortcut</summary>' +
+        '<p style="margin-top:0.6rem">Websites can only reach Reminders through Apple’s Shortcuts app, so each iPhone, iPad or Mac needs this shortcut once.</p>' +
+        (SHORTCUT_LINK ? '<p style="margin-top:0.6rem"><a href="' + esc(SHORTCUT_LINK) + '" target="_blank" rel="noopener"><strong>Get the shortcut</strong></a>, tap “Add Shortcut”, then pick your shopping list in it. Or build it yourself:</p>' : '') +
+        '<ol><li>Open the <strong>Shortcuts</strong> app and tap <strong>+</strong>.</li>' +
+        '<li>Name it exactly <code>' + esc(SHORTCUT) + '</code> (tap the name at the top, then Rename).</li>' +
+        '<li>Add the <strong>Split Text</strong> action. Tap the text it splits and choose <strong>Shortcut Input</strong>. It should split by <strong>New Lines</strong>.</li>' +
+        '<li>Add <strong>Repeat with Each</strong>. It picks up the split text by itself.</li>' +
+        '<li>Inside the repeat, add <strong>Add New Reminder</strong>. Set the reminder to <strong>Repeat Item</strong> and the list to your shopping list.</li>' +
+        '<li>Tap <strong>Done</strong>. “Add to Reminders” now works from every recipe.</li></ol></details>' : '';
+      var m = document.createElement('div');
+      m.className = 'hub-modal';
+      m.innerHTML = '<div class="hub-modal-box shop-box" role="dialog" aria-modal="true" aria-labelledby="shop-title">' +
+        '<h3 id="shop-title">Shopping list</h3><p>Untick anything you already have.' + scaled + '</p>' +
+        '<div class="shop-all"><span data-count></span><button type="button" data-all></button></div>' +
+        '<ul class="shop-list">' + items.map(function (it) {
+          return '<li><label><input type="checkbox" checked data-text="' + esc(it.text) + '" /><span>' + esc(it.text) + '</span></label></li>';
+        }).join('') + '</ul>' + help +
+        '<div class="hub-modal-actions"><button class="btn btn-ghost" type="button" data-close>Cancel</button>' +
+        '<button class="btn ' + (apple ? 'btn-ghost' : 'btn-primary') + '" type="button" data-copy>Copy list</button>' +
+        (apple ? '<button class="btn btn-primary" type="button" data-reminders>Add to Reminders</button>' : '') + '</div></div>';
+      var boxes = Hub.$$('.shop-list input', m);
+      function chosen() { return boxes.filter(function (b) { return b.checked; }).map(function (b) { return b.getAttribute('data-text'); }); }
+      function refresh() {
+        var n = chosen().length;
+        $('[data-count]', m).textContent = n + ' of ' + boxes.length + ' selected';
+        $('[data-all]', m).textContent = n === boxes.length ? 'Untick all' : 'Tick all';
+        Hub.$$('[data-copy], [data-reminders]', m).forEach(function (b) { b.disabled = !n; });
+      }
+      function close() { m.remove(); document.removeEventListener('keydown', onKey); }
+      function onKey(e) { if (e.key === 'Escape') close(); }
+      m.addEventListener('change', refresh);
+      m.addEventListener('click', function (e) {
+        if (e.target === m || e.target.closest('[data-close]')) return close();
+        if (e.target.closest('[data-all]')) {
+          var on = chosen().length !== boxes.length;
+          boxes.forEach(function (b) { b.checked = on; });
+          return refresh();
+        }
+        if (e.target.closest('[data-copy]')) {
+          copyText(chosen().join('\n')).then(function () {
+            close();
+            Hub.toast(apple ? 'Copied. Paste it into a new reminder and each line becomes its own item.' : 'Shopping list copied.');
+          }, function (err) { Hub.toast(err.message, true); });
+          return;
+        }
+        if (e.target.closest('[data-reminders]')) {
+          close();
+          location.href = 'shortcuts://run-shortcut?name=' + encodeURIComponent(SHORTCUT) + '&input=text&text=' + encodeURIComponent(chosen().join('\n'));
+        }
+      });
+      document.addEventListener('keydown', onKey);
+      document.body.appendChild(m);
+      refresh();
+      $(apple ? '[data-reminders]' : '[data-copy]', m).focus();
+    }
+
     $('#recipe').addEventListener('click', function (e) {
       var t = e.target;
+      if (t.closest('[data-shop]')) return shoppingDialog();
       var li = t.closest('.rc-ing-list li:not(.rc-ing-section), .rc-steps > ol > li');
       if (li && !t.closest('a')) li.classList.toggle('done');
       var f = t.closest('[data-scale-factor]');

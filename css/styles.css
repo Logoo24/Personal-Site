@@ -736,6 +736,21 @@ a.feature-row:hover h3 { color: var(--accent); }
 .article-body ul, .article-body ol { padding-left: 1.5rem; }
 .article-body a { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; overflow-wrap: anywhere; }
 .article-body img { height: auto; border-radius: 8px; }
+/* Colored words in recipes, written [words]{red} (js/recipe-text.js).
+   Used by the family hub and the public recipe pages. */
+.tx-red { color: #C62828; }
+.tx-orange { color: #C2570C; }
+.tx-green { color: #1F7A4D; }
+.tx-blue { color: #1D5FBF; }
+.tx-purple { color: #7B3FBF; }
+.tx-highlight { background: rgba(255, 213, 0, 0.45); border-radius: 3px; padding: 0 0.15em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+[data-theme="dark"] .tx-red { color: #FF8A8A; }
+[data-theme="dark"] .tx-orange { color: #FFAE5C; }
+[data-theme="dark"] .tx-green { color: #5BD49A; }
+[data-theme="dark"] .tx-blue { color: #82B6FF; }
+[data-theme="dark"] .tx-purple { color: #C9A3FF; }
+[data-theme="dark"] .tx-highlight { background: rgba(255, 213, 0, 0.3); color: #FFF3B0; }
+
 /* Post images (build.js turns markdown images into figure.post-img).
    Centered ones break the text; left/right ones float with the text
    wrapping around them, and un-float on phones where there's no room. */

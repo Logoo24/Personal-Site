@@ -94,7 +94,12 @@
 
       <section class="ed-section">
         <h2>Steps</h2>
-        <p class="ed-hint">One step per box.</p>
+        <p class="ed-hint">One step per box. Select words in a step to make them bold, italic or a color.</p>
+        <div class="ed-toolbar solo" data-for="steps">
+          <button type="button" data-md="bold" title="Bold"><b>B</b></button>
+          <button type="button" data-md="italic" title="Italic"><i>I</i></button>
+          <span class="ed-color" data-color-slot></span>
+        </div>
         <div class="ed-rows" id="steps"></div>
         <div class="ed-paste" id="step-paste" hidden>
           <span class="field-label">Paste the directions — each line (or numbered paragraph) becomes a step.</span>
@@ -113,9 +118,11 @@
         <div class="ed-toolbar" data-for="story">
           <button type="button" data-md="bold" title="Bold"><b>B</b></button>
           <button type="button" data-md="italic" title="Italic"><i>I</i></button>
+          <span class="ed-color" data-color-slot></span>
           <button type="button" data-md="heading" title="Heading">H</button>
           <button type="button" data-md="quote" title="Quote" data-icon="quote"></button>
           <button type="button" data-md="list" title="Bulleted list" data-icon="list"></button>
+          <button type="button" data-md="numbered" title="Numbered list" data-icon="numbered"></button>
           <span class="sep"></span>
           <button type="button" data-md="photo" title="Add a photo"><span data-icon="image" style="display:contents"></span>Photo</button>
           <button type="button" class="push" data-preview>Preview</button>
@@ -133,7 +140,15 @@
 
       <section class="ed-section">
         <h2>Notes &amp; tips</h2>
-        <p class="ed-hint">Substitutions, make-ahead tips, “double the frosting”. One tip per bullet; press Enter for the next.</p>
+        <p class="ed-hint">Substitutions, make-ahead tips, “double the frosting”. One tip per bullet; press Enter for the next. Type “1.” (or tap the numbered list button) for numbered steps.</p>
+        <div class="ed-toolbar top" data-for="notes">
+          <button type="button" data-md="bold" title="Bold"><b>B</b></button>
+          <button type="button" data-md="italic" title="Italic"><i>I</i></button>
+          <span class="ed-color" data-color-slot></span>
+          <span class="sep"></span>
+          <button type="button" data-md="list" title="Bulleted list" data-icon="list"></button>
+          <button type="button" data-md="numbered" title="Numbered list" data-icon="numbered"></button>
+        </div>
         <textarea name="notes" id="notes" rows="4" data-grow placeholder="- Freezes well for up to a month."></textarea>
       </section>
 
@@ -153,6 +168,7 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
   <script src="/js/recipe-scale.js"></script>
+  <script src="/js/recipe-text.js"></script>
   <script src="/family/assets/hub.js"></script>
   <script>
   (function () {
@@ -284,25 +300,117 @@
         .catch(function (e) { Hub.toast(e.message, true); showCover(); });
     };
 
-    /* ---------- story editor ---------- */
+    /* ---------- formatting toolbars ----------
+       Each .ed-toolbar formats one text box: the story, the notes, or (for
+       steps) the step box last tapped into. The text stays plain markdown,
+       **bold**, *italic*, "- " and "1. " lists, and [words]{red} for color
+       (js/recipe-text.js renders it). Bold, italic and color work as
+       toggles. */
     var story = $('#story');
-    function wrapSel(before, after, placeholder) {
-      var s = story.selectionStart, e = story.selectionEnd, v = story.value;
-      var sel = v.slice(s, e) || placeholder;
-      story.value = v.slice(0, s) + before + sel + after + v.slice(e);
-      story.focus();
-      story.setSelectionRange(s + before.length, s + before.length + sel.length);
-      grow(story); dirty = true;
+    var lastStep = null;
+    $('#steps').addEventListener('focusin', function (e) { if (e.target.matches('textarea')) lastStep = e.target; });
+    function toolbarTarget(bar) {
+      var f = bar.getAttribute('data-for');
+      if (f === 'story') return story;
+      if (f === 'notes') return form.elements.notes;
+      var active = document.activeElement;
+      if (active && active.matches('#steps textarea')) return active;
+      if (lastStep && lastStep.isConnected) return lastStep;
+      return null;
     }
-    function prefixLines(prefix) {
-      var s = story.selectionStart, e = story.selectionEnd, v = story.value;
+    function done(ta, s, e) {
+      ta.focus();
+      ta.setSelectionRange(s, e);
+      grow(ta); dirty = true;
+    }
+    // Leave out spaces a double-tap or drag picked up at either end.
+    function trimmedSel(ta) {
+      var s = ta.selectionStart, e = ta.selectionEnd, v = ta.value;
+      while (s < e && /\s/.test(v[s])) s++;
+      while (e > s && /\s/.test(v[e - 1])) e--;
+      return { s: s, e: e, v: v };
+    }
+    // Run fn over each line's words, keeping a list marker ("- ", "1. ")
+    // outside the formatting marks.
+    function eachLine(text, fn) {
+      return text.split('\n').map(function (l) {
+        var m = /^(\s*(?:[-*+]|\d+[.)])\s+)?([\s\S]*?)(\s*)$/.exec(l);
+        return m[2] ? (m[1] || '') + fn(m[2]) + m[3] : l;
+      }).join('\n');
+    }
+    function stars(v, i, dir) { var n = 0; while (v[dir < 0 ? i - 1 - n : i + n] === '*') n++; return n; }
+    // mark: '**' (bold) or '*' (italic)
+    function toggleMark(ta, mark, placeholder) {
+      var t = trimmedSel(ta), s = t.s, e = t.e, v = t.v, n = mark.length;
+      var sel = v.slice(s, e);
+      var has = function (before, after) { return n === 2 ? before >= 2 && after >= 2 : before % 2 === 1 && after % 2 === 1; };
+      if (sel.indexOf('\n') >= 0) {
+        var wrapped = function (w) { var b = stars(w, 0, 1), a = stars(w, w.length, -1); return w.length > 2 * n && has(b, a); };
+        var all = sel.split('\n').every(function (l) { var m = /^(\s*(?:[-*+]|\d+[.)])\s+)?(.*?)\s*$/.exec(l); return !m[2] || wrapped(m[2]); });
+        var out = eachLine(sel, function (w) { return all ? w.slice(n, w.length - n) : mark + w + mark; });
+        ta.value = v.slice(0, s) + out + v.slice(e);
+        return done(ta, s, s + out.length);
+      }
+      // Marks just outside the selection: take them off.
+      if (sel && has(stars(v, s, -1), stars(v, e, 1))) {
+        ta.value = v.slice(0, s - n) + sel + v.slice(e + n);
+        return done(ta, s - n, e - n);
+      }
+      // The selection includes its own marks: take those off.
+      if (sel.length > 2 * n && has(stars(sel, 0, 1), stars(sel, sel.length, -1))) {
+        var inner = sel.slice(n, sel.length - n);
+        ta.value = v.slice(0, s) + inner + v.slice(e);
+        return done(ta, s, s + inner.length);
+      }
+      sel = sel || placeholder;
+      ta.value = v.slice(0, s) + mark + sel + mark + v.slice(e);
+      done(ta, s + n, s + n + sel.length);
+    }
+    // color: one of RecipeText.COLORS, or '' to take color off.
+    function setColor(ta, color) {
+      var t = trimmedSel(ta), s = t.s, e = t.e, v = t.v;
+      var before = v.slice(0, s), after = v.slice(e);
+      var close = /^\]\{[a-z]+\}/.exec(after);
+      // Already colored ([selection]{red}): swap the color, or take it off.
+      if (before.slice(-1) === '[' && close) { before = before.slice(0, -1); after = after.slice(close[0].length); }
+      var sel = v.slice(s, e).replace(/\[([^\[\]\n]+)\]\{[a-z]+\}/g, '$1');
+      if (!sel && !color) return done(ta, s, e);
+      var single = sel.indexOf('\n') < 0 && !/^\s*(?:[-*+]|\d+[.)])\s/.test(sel);
+      sel = sel || 'colored text';
+      var out = !color ? sel : single ? '[' + sel + ']{' + color + '}' : eachLine(sel, function (w) { return '[' + w + ']{' + color + '}'; });
+      ta.value = before + out + after;
+      if (color && single) done(ta, before.length + 1, before.length + 1 + sel.length);
+      else done(ta, before.length, before.length + out.length);
+    }
+    // kind: 'list' ("- ") or 'numbered' ("1. "). Lines already that kind of
+    // list come out of it; other lines (or the other kind) go into it.
+    function setList(ta, kind) {
+      var s = ta.selectionStart, e = ta.selectionEnd, v = ta.value;
+      if (e > s && v[e - 1] === '\n') e--;
       var start = v.lastIndexOf('\n', s - 1) + 1;
-      var block = v.slice(start, e) || '';
-      var out = block.split('\n').map(function (l) { return prefix + l; }).join('\n');
-      story.value = v.slice(0, start) + out + v.slice(e);
-      story.focus();
-      story.setSelectionRange(start, start + out.length);
-      grow(story); dirty = true;
+      var end = v.indexOf('\n', e); if (end < 0) end = v.length;
+      var marker = /^(\s*)([-*+•]|\d+[.)])\s+/;
+      var lines = v.slice(start, end).split('\n');
+      var isKind = function (l) { var m = marker.exec(l); return m && (kind === 'numbered') === /\d/.test(m[2]); };
+      var off = lines.some(function (l) { return l.trim(); }) && lines.every(function (l) { return !l.trim() || isKind(l); });
+      // Carry on the numbering of a numbered list just above.
+      var prevLine = start ? v.slice(v.lastIndexOf('\n', start - 2) + 1, start - 1) : '';
+      var k = (/^\s*(\d+)[.)]\s/.exec(prevLine) || [0, 0])[1] * 1;
+      var out = lines.map(function (l) {
+        if (!l.trim() && lines.length > 1) return l;
+        var body = l.replace(marker, '');
+        return off ? body : (kind === 'numbered' ? (++k) + '. ' : '- ') + body;
+      }).join('\n');
+      ta.value = v.slice(0, start) + out + v.slice(end);
+      if (lines.length === 1) done(ta, start + out.length, start + out.length);
+      else done(ta, start, start + out.length);
+    }
+    function prefixLines(ta, prefix) {
+      var s = ta.selectionStart, e = ta.selectionEnd, v = ta.value;
+      var start = v.lastIndexOf('\n', s - 1) + 1;
+      var out = v.slice(start, e).split('\n').map(function (l) { return prefix + l; }).join('\n');
+      ta.value = v.slice(0, start) + out + v.slice(e);
+      done(ta, start, start + out.length);
     }
     function insertBlock(text) {
       var s = story.selectionStart, v = story.value;
@@ -311,28 +419,53 @@
       var post = /^\n\n/.test(after) ? '' : (/^\n/.test(after) ? '\n' : '\n\n');
       story.value = before + pre + text + post + after;
       var at = (before + pre + text + post).length;
-      story.focus(); story.setSelectionRange(at, at);
-      grow(story); dirty = true;
+      done(story, at, at);
     }
-    $('.ed-toolbar').addEventListener('click', function (e) {
-      var b = e.target.closest('button');
-      if (!b) return;
-      if (b.hasAttribute('data-preview')) {
-        var on = $('#story-preview').hidden;
-        $('#story-preview').innerHTML = on ? (Hub.md(story.value) || '<p style="color:var(--text-muted)">Nothing written yet.</p>') : '';
-        $('#story-preview').hidden = !on; story.hidden = on;
-        if (!on) grow(story);
-        b.classList.toggle('on', on); b.textContent = on ? 'Write' : 'Preview';
-        return;
-      }
-      if ($('#story-preview').hidden === false) $('[data-preview]').click();
-      var kind = b.getAttribute('data-md');
-      if (kind === 'bold') wrapSel('**', '**', 'bold text');
-      if (kind === 'italic') wrapSel('*', '*', 'italic text');
-      if (kind === 'heading') prefixLines('## ');
-      if (kind === 'quote') prefixLines('> ');
-      if (kind === 'list') prefixLines('- ');
-      if (kind === 'photo') $('#photo-file').click();
+
+    var COLOR_NAMES = { red: 'Red', orange: 'Orange', green: 'Green', blue: 'Blue', purple: 'Purple', highlight: 'Highlight' };
+    $$('[data-color-slot]').forEach(function (slot) {
+      slot.innerHTML = '<button type="button" data-color-toggle title="Text color"><span class="ed-color-a">A</span></button>' +
+        '<div class="ed-color-menu" hidden>' + RecipeText.COLORS.map(function (c) {
+          return '<button type="button" data-color="' + c + '"><span class="tx-' + c + '">' + COLOR_NAMES[c] + '</span></button>';
+        }).join('') + '<button type="button" class="clear" data-color="">No color</button></div>';
+    });
+    function closeColorMenus(except) { $$('.ed-color-menu').forEach(function (m) { if (m !== except) m.hidden = true; }); }
+    document.addEventListener('pointerdown', function (e) { if (!e.target.closest('.ed-color')) closeColorMenus(); });
+
+    $$('.ed-toolbar').forEach(function (bar) {
+      // Tapping a button mustn't take focus from the text box, so the
+      // selection (and a phone's keyboard) stay where they were.
+      bar.addEventListener('mousedown', function (e) { if (e.target.closest('button')) e.preventDefault(); });
+      bar.addEventListener('click', function (e) {
+        var b = e.target.closest('button');
+        if (!b) return;
+        if (b.hasAttribute('data-preview')) {
+          var on = $('#story-preview').hidden;
+          $('#story-preview').innerHTML = on ? (Hub.md(story.value) || '<p style="color:var(--text-muted)">Nothing written yet.</p>') : '';
+          $('#story-preview').hidden = !on; story.hidden = on;
+          if (!on) grow(story);
+          b.classList.toggle('on', on); b.textContent = on ? 'Write' : 'Preview';
+          return;
+        }
+        if (b.hasAttribute('data-color-toggle')) {
+          var menu = b.nextElementSibling;
+          closeColorMenus(menu);
+          menu.hidden = !menu.hidden;
+          return;
+        }
+        if (bar.getAttribute('data-for') === 'story' && $('#story-preview').hidden === false) $('[data-preview]').click();
+        var ta = toolbarTarget(bar);
+        if (b.hasAttribute('data-color')) closeColorMenus();
+        if (!ta) { Hub.toast('Tap into a step first, then select the words to format.'); return; }
+        if (b.hasAttribute('data-color')) { setColor(ta, b.getAttribute('data-color')); return; }
+        var kind = b.getAttribute('data-md');
+        if (kind === 'bold') toggleMark(ta, '**', 'bold text');
+        if (kind === 'italic') toggleMark(ta, '*', 'italic text');
+        if (kind === 'heading') prefixLines(ta, '## ');
+        if (kind === 'quote') prefixLines(ta, '> ');
+        if (kind === 'list' || kind === 'numbered') setList(ta, kind);
+        if (kind === 'photo') $('#photo-file').click();
+      });
     });
     $('#photo-file').onchange = function () {
       var f = this.files[0]; this.value = '';
@@ -459,17 +592,28 @@
     });
     // A lone, empty bullet isn't a note.
     notes.addEventListener('blur', function () { if (/^\s*-?\s*$/.test(notes.value)) notes.value = ''; });
+    // Enter on a bullet starts the next bullet; on a numbered line, the next
+    // number.
     notes.addEventListener('keydown', function (e) {
       if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
       var at = notes.selectionStart, end = notes.selectionEnd, v = notes.value;
       var lineStart = v.lastIndexOf('\n', at - 1) + 1;
-      var m = /^(\s*)- /.exec(v.slice(lineStart, at));
-      if (!m) return; // not on a bullet line: an ordinary new line
+      var m = /^(\s*)(?:- |(\d+)([.)]) )/.exec(v.slice(lineStart, at));
+      if (!m) return; // not on a list line: an ordinary new line
       e.preventDefault();
       var lineEnd = v.indexOf('\n', at); if (lineEnd < 0) lineEnd = v.length;
-      if (!v.slice(lineStart + m[0].length, lineEnd).trim()) notes.setRangeText('', lineStart, lineEnd, 'end'); // Enter on an empty bullet ends the list
-      else notes.setRangeText('\n' + m[1] + BULLET, at, end, 'end');
+      if (!v.slice(lineStart + m[0].length, lineEnd).trim()) notes.setRangeText('', lineStart, lineEnd, 'end'); // Enter on an empty item ends the list
+      else notes.setRangeText('\n' + m[1] + (m[2] ? (+m[2] + 1) + m[3] + ' ' : BULLET), at, end, 'end');
       notes.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    // Typing "1. " on a fresh bullet makes it a numbered line instead of a
+    // number inside a bullet.
+    notes.addEventListener('input', function () {
+      var at = notes.selectionStart, v = notes.value;
+      if (at !== notes.selectionEnd) return;
+      var lineStart = v.lastIndexOf('\n', at - 1) + 1;
+      var m = /^(\s*)- (\d+[.)] )$/.exec(v.slice(lineStart, at));
+      if (m) notes.setRangeText(m[1] + m[2], lineStart, at, 'end');
     });
     function notesValue() { return notes.value.replace(/(\n[ \t]*-?[ \t]*)+$/, '').replace(/^\s*-?\s*$/, ''); }
 
@@ -478,6 +622,8 @@
       ['title', 'summary', 'source', 'servings', 'yieldUnit', 'prepMinutes', 'cookMinutes', 'story', 'notes'].forEach(function (k) {
         form.elements[k].value = r[k] == null ? '' : r[k];
       });
+      // Older notes have numbered lines inside bullets ("- 1. ..."): unwrap them.
+      notes.value = notes.value.replace(/^(\s*)[-*+•]\s+(\d+[.)]\s)/gm, '$1$2');
       setTags(r.tags);
       cover = r.cover || null; showCover();
       $('#ings').innerHTML = ''; (r.ingredients && r.ingredients.length ? r.ingredients : [{}]).forEach(function (i) { addIng(i); });
