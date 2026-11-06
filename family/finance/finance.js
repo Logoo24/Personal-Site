@@ -47,6 +47,11 @@
     return (v < 0 && !zero ? '−' : opts.sign && v > 0 && !zero ? '+' : '') + s;
   }
   function amt(c, opts) { return '<span class="fin-amt">' + esc(money(c, opts)) + '</span>'; }
+  // A sentence with dollar figures in it ("Move about $1,209 out of checking"):
+  // escaped, with each figure wrapped so "hide amounts" blurs it too.
+  function amtText(s) {
+    return esc(s).replace(/[\u2212-]?\$\d[\d,]*(?:\.\d+)?(?:[KMB]\b)?/g, function (m) { return '<span class="fin-amt">' + m + '</span>'; });
+  }
   // What goes in a money text box: "12,500" or "12,500.50", no dollar sign.
   function moneyInput(c) {
     if (c == null || c === '') return '';
@@ -81,7 +86,7 @@
   var Fin = window.Fin = {
     data: null,
     person: 'all',
-    TYPES: TYPES, money: money, amt: amt, moneyInput: moneyInput, parseMoney: parseMoney, signed: signed, sideOf: sideOf,
+    TYPES: TYPES, money: money, amt: amt, amtText: amtText, amountsHidden: function () { return document.body.classList.contains('fin-hidden'); }, moneyInput: moneyInput, parseMoney: parseMoney, signed: signed, sideOf: sideOf,
     dayKey: dayKey, monthKey: monthKey, monthDate: monthDate, ago: ago,
     tab: function (id, render) { renderers[id] = render; },
     // Calls a route that answers with a fresh summary, then redraws.
@@ -219,6 +224,16 @@
     $('#drawer-close').addEventListener('click', closeDrawer);
     $('#backdrop').addEventListener('click', closeDrawer);
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !document.querySelector('.hub-modal')) closeDrawer(); });
+    // On paper the charts' tables print too: a closed <details> prints nothing.
+    var opened = [];
+    window.addEventListener('beforeprint', function () {
+      opened = $$('#view details:not([open])');
+      opened.forEach(function (d) { d.open = true; });
+    });
+    window.addEventListener('afterprint', function () {
+      opened.forEach(function (d) { d.open = false; });
+      opened = [];
+    });
     Hub.ready(function () {
       measureBar();
       window.addEventListener('resize', measureBar);

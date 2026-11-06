@@ -111,7 +111,7 @@
     return '<div class="fin-table-wrap"><table class="fin-table ' + (cls || '') + '"><thead><tr>' + head.map(function (h, i) { return '<th' + (i ? ' class="num"' : '') + '>' + esc(h) + '</th>'; }).join('') + '</tr></thead><tbody>' +
       rows.map(function (r) { return '<tr' + (r.attr || '') + '>' + r.cells.map(function (c, i) { return '<td' + (i ? ' class="num"' : '') + '>' + c + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table></div>';
   }
-  function empty(text) { return '<div class="fin-soon"><h2>Not enough to show yet</h2><p>' + esc(text) + '</p></div>'; }
+  function empty(text, title) { return '<div class="fin-soon"><h2>' + esc(title || 'Not enough to show yet') + '</h2><p>' + esc(text) + '</p></div>'; }
 
   /* ---------- 1. cash flow ---------- */
   function cashflow(box) {
@@ -254,8 +254,10 @@
     if (!series.length) { box.innerHTML = empty('Add or link accounts to see your net worth by kind.'); return; }
     var net = keys.map(function (k, i) { return series.reduce(function (s, x) { return s + x.values[i]; }, 0); });
     var first = net[0], last = net[net.length - 1];
-    box.innerHTML = '<div class="fin-row fin-row--3">' + tile('Net worth now', Fin.amt(last)) + tile('Change', Fin.amt(last - first, { sign: true }), 'since ' + esc(titles[0].replace('End of ', 'the end of '))) +
-      tile('Change', first ? (last >= first ? '+' : '') + Math.round((last - first) / Math.abs(first) * 100) + '%' : '–') + '</div>' +
+    // With only today to go on there's no change to show yet.
+    var since = cols.length ? 'since ' + esc(titles[0].replace('End of ', 'the end of ')) : 'once a month-end is in';
+    box.innerHTML = '<div class="fin-row fin-row--3">' + tile('Net worth now', Fin.amt(last)) + tile('Change', cols.length ? Fin.amt(last - first, { sign: true }) : '–', since) +
+      tile('Change', cols.length && first ? (last >= first ? '+' : '') + Math.round((last - first) / Math.abs(first) * 100) + '%' : '–') + '</div>' +
       card('What you own and owe, by kind', '<p class="fin-muted fin-flow-note">Above the line is what you own, below it what you owe. The line is net worth.</p><div data-c="nw"></div>');
     FinCharts.stackedBars($('[data-c="nw"]', box), { labels: labels, titles: titles, series: series, line: { name: 'Net worth', color: 'var(--text)', values: net }, format: fmt, axisFormat: axis, height: 300, ariaLabel: 'Assets and debts by kind each month, with net worth' });
   }
@@ -313,12 +315,12 @@
   }
   function debt(box) {
     var debts = debtList();
-    if (!debts.length) { box.innerHTML = empty('No debts with a balance. Nothing to pay off.'); return; }
+    if (!debts.length) { box.innerHTML = empty('Loans and cards with a balance show up here, with a plan for paying them off.', 'No debts to pay off'); return; }
     var av = simulate(debts, ui.extra, 'avalanche'), sb = simulate(debts, ui.extra, 'snowball'), base = simulate(debts, 0, 'avalanche');
     var pick = ui.strategy === 'snowball' ? sb : av;
     var saved = sb.interest - av.interest;
     var notes = debts.filter(function (d) { return d.noRate || d.guessedMin; }).map(function (d) {
-      return esc(d.name) + ': ' + [d.noRate ? 'no interest rate (counted as 0%)' : '', d.guessedMin ? 'minimum payment estimated at ' + Fin.money(d.min) : ''].filter(Boolean).join(', ');
+      return esc(d.name) + ': ' + [d.noRate ? 'no interest rate (counted as 0%)' : '', d.guessedMin ? 'minimum payment estimated at ' + Fin.amt(d.min) : ''].filter(Boolean).join(', ');
     });
     box.innerHTML =
       '<section class="fin-card"><div class="fin-card-head"><h2>Extra each month</h2><span class="fin-kpi-value fin-amt" data-extra-out>' + esc(Fin.money(ui.extra)) + '</span></div>' +
@@ -432,14 +434,25 @@
         '<div class="fin-report-chips" role="tablist" aria-label="Reports">' + REPORTS.map(function (r) {
           return '<button type="button" class="chip' + (r[0] === ui.report ? ' on' : '') + '" data-report="' + r[0] + '" aria-pressed="' + (r[0] === ui.report) + '">' + esc(r[1]) + '</button>';
         }).join('') + '</div>' +
-        (TIMELESS[ui.report] ? '' : '<select class="fin-period" data-period aria-label="Period">' + PERIODS.map(function (p) { return '<option value="' + p[0] + '"' + (p[0] === ui.period ? ' selected' : '') + '>' + p[1] + '</option>'; }).join('') + '</select>') +
-      '</div><div class="fin-report" data-report-box><p class="hub-loading">Adding things up…</p></div>';
+        '<div class="fin-report-tools">' +
+          (TIMELESS[ui.report] ? '' : '<select class="fin-period" data-period aria-label="Period">' + PERIODS.map(function (p) { return '<option value="' + p[0] + '"' + (p[0] === ui.period ? ' selected' : '') + '>' + p[1] + '</option>'; }).join('') + '</select>') +
+          '<button class="btn btn-ghost btn-sm" type="button" data-print>' + Hub.icons.print + 'Print</button>' +
+        '</div>' +
+      '</div>' + printHead() + '<div class="fin-report" data-report-box><p class="hub-loading">Adding things up…</p></div>';
     var box = $('[data-report-box]', view);
     var needsData = !{ networth: 1, bills: 1, debt: 1, investments: 1 }[ui.report];
     (needsData ? load() : Promise.resolve(data)).then(function () {
       if (needsData && !data) return;
       DRAW[ui.report](box);
     }).catch(function (e) { box.innerHTML = '<p class="fin-muted">Couldn’t load the numbers: ' + esc(e.message) + '</p>'; });
+  }
+  // Only on paper: which report, period and person this is, and when it was printed.
+  function printHead() {
+    var name = REPORTS.filter(function (r) { return r[0] === ui.report; })[0][1];
+    var period = TIMELESS[ui.report] ? '' : PERIODS.filter(function (p) { return p[0] === ui.period; })[0][1];
+    var who = ($('#person .on') || {}).textContent || '';
+    var printed = 'Printed ' + new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    return '<div class="fin-print-head"><h2>' + esc(name) + '</h2><p>' + esc([period, who, printed].filter(Boolean).join(' · ')) + '</p></div>';
   }
   function allMonthsFromSnapshots() {
     var cur = Fin.data.today.slice(0, 7), out = [];
@@ -450,8 +463,9 @@
   Fin.tab('reports', render);
   document.addEventListener('click', function (e) {
     if (location.hash.replace('#', '') !== 'reports') return;
-    var t = e.target.closest('[data-report],[data-trend],[data-strategy] [data-v]');
+    var t = e.target.closest('[data-report],[data-trend],[data-strategy] [data-v],[data-print]');
     if (!t || !$('#view').contains(t)) return;
+    if (t.hasAttribute('data-print')) return window.print();
     if (t.hasAttribute('data-report')) { ui.report = t.getAttribute('data-report'); return Fin.rerender(); }
     if (t.hasAttribute('data-trend')) { ui.report = 'trend'; ui.cat = t.getAttribute('data-trend'); return Fin.rerender(); }
     if (t.hasAttribute('data-v')) { ui.strategy = t.getAttribute('data-v'); return Fin.rerender(); }

@@ -119,14 +119,19 @@ export function visibleAccounts(state, viewer) {
 // The two people Finance is for: everyone on FAMILY_FINANCE_EMAILS, named
 // from their Google sign-in once they've visited.
 export function peopleList(state) {
-  return financeEmails().map(email => ({ email, name: (state.people || {})[email] || email.split('@')[0] }));
+  return financeEmails().map(email => ({ email, name: (state.people || {})[email] || nameFromEmail(email) }));
+}
+function nameFromEmail(email) {
+  const local = email.split('@')[0];
+  const word = local.split(/[._+-]/)[0].replace(/\d+$/, '') || local;
+  return word.charAt(0).toUpperCase() + word.slice(1);
 }
 
 // Records the viewer's first name the first time they open Finance (or when
 // it changes), so owner tags can say "Logan" instead of an email.
 export async function rememberViewer(state, user) {
   const email = String(user.email).toLowerCase();
-  const name = String(user.name || '').trim().split(/\s+/)[0].slice(0, 40) || email.split('@')[0];
+  const name = String(user.name || '').trim().split(/\s+/)[0].slice(0, 40) || nameFromEmail(email);
   if ((state.people || {})[email] === name) return state;
   return updateState(s => { s.people = { ...(s.people || {}), [email]: name }; });
 }

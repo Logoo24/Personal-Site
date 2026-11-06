@@ -119,7 +119,7 @@
       return '<li class="fin-budget"><div class="fin-budget-head"><span class="fin-budget-name">' + esc(c.name) + (f ? '<span class="fin-tag">Bills</span>' : '') + '</span>' +
         '<span class="fin-budget-nums"><b class="fin-amt">' + esc(Fin.money(s)) + '</b> <span class="fin-muted">of <span class="fin-amt">' + esc(Fin.money(c.budget)) + '</span></span></span></div>' +
         meter(s, c.budget, f ? 1 : pace, st.cls) +
-        '<span class="fin-budget-status ' + st.cls + '">' + st.icon + '<span class="fin-amt">' + esc(st.text) + '</span></span></li>';
+        '<span class="fin-budget-status ' + st.cls + '">' + st.icon + '<span>' + Fin.amtText(st.text) + '</span></span></li>';
     }).join('');
     var loose = Object.keys(spent).filter(function (k) { var c = cats().filter(function (x) { return x.id === k; })[0]; return !(c && c.budget) && spent[k] > 0; })
       .sort(function (a, b) { return spent[b] - spent[a]; });
@@ -274,11 +274,11 @@
       '<div class="fin-seg" role="group" aria-label="Kind of goal" data-gkind><button type="button" data-v="save"' + (kind === 'save' ? ' class="on"' : '') + '>Save up</button><button type="button" data-v="payoff"' + (kind === 'payoff' ? ' class="on"' : '') + '>Pay off a debt</button></div>' +
       '<label class="field"><span>Name</span><input class="input" name="name" maxlength="60" placeholder="Emergency fund, Hawaii trip, new car…" /></label>' +
       '<div data-for="save"><label class="field"><span>Goal amount</span><input class="input" name="target" inputmode="decimal" placeholder="10,000" /></label></div>' +
-      '<div data-for="payoff"><label class="field"><span>Which debt</span><select name="debt">' + debts.map(function (a) { return '<option value="' + esc(a.id) + '">' + esc((a.nick || a.name) + ' · ' + Fin.money(a.balance)) + '</option>'; }).join('') + '</select></label>' +
+      '<div data-for="payoff"><label class="field"><span>Which debt</span><select name="debt">' + debts.map(function (a) { return '<option value="' + esc(a.id) + '">' + esc((a.nick || a.name) + (Fin.amountsHidden() ? '' : ' · ' + Fin.money(a.balance))) + '</option>'; }).join('') + '</select></label>' +
         (debts.length ? '' : '<p class="fin-muted">No debts with a balance.</p>') + '</div>' +
       '<label class="field"><span>By when</span><input class="input" type="date" name="date" min="' + Fin.data.today + '" /><small>Optional. With a date, the goal shows what it takes a month.</small></label>' +
       '<div data-for="save"><span class="field-label">Follow these accounts</span><div class="fin-checklist">' + assets.map(function (a) {
-        return '<label class="cf-check"><input type="checkbox" name="acct" value="' + esc(a.id) + '"' + (chosen.indexOf(a.id) > -1 ? ' checked' : '') + ' /> ' + esc((a.nick || a.name) + ' · ' + Fin.money(a.balance)) + '</label>';
+        return '<label class="cf-check"><input type="checkbox" name="acct" value="' + esc(a.id) + '"' + (chosen.indexOf(a.id) > -1 ? ' checked' : '') + ' /> ' + esc(a.nick || a.name) + ' · ' + Fin.amt(a.balance) + '</label>';
       }).join('') + '</div><small class="fin-muted">Or leave them all unticked and keep track by hand.</small>' +
       '<label class="field" data-manual><span>Saved so far</span><input class="input" name="saved" inputmode="decimal" placeholder="0" /></label></div>' +
       '<p class="cf-error" role="alert" hidden></p>' +

@@ -75,6 +75,11 @@
 
 /* Hide amounts: blurred, not removed, so the layout doesn't jump. */
 .fin-hidden .fin-amt, .fin-hidden .fc-val { filter: blur(7px); user-select: none; }
+/* Chart text uses the page's own SVG blur (#fin-blur in index.html):
+   older Safari ignores CSS filter functions on SVG elements. */
+.fin-hidden svg .fc-val { filter: url(#fin-blur); }
+/* Money boxes (balances, budgets, the past-months grid) too, until tapped into. */
+.fin-hidden input[inputmode="decimal"]:not(:focus) { filter: blur(5px); }
 
 /* ---------- setup / empty state ---------- */
 .fin-setup { max-width: 760px; }
@@ -261,6 +266,8 @@
 @media (max-width: 960px) { .fin-row--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 420px) { .fin-row--4 { grid-template-columns: minmax(0, 1fr); } }
 .fin-report-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1rem; }
+.fin-report-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.fin-print-head { display: none; }
 .fin-report-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .fin-period { padding: 0.5rem 0.7rem; width: auto !important; min-width: 11rem; }
 .fin-report > * + * { margin-top: 1.25rem; }
@@ -458,6 +465,11 @@
   .fin-tx { padding-top: 0.85rem; padding-bottom: 0.85rem; }
   .fin-month .btn-icon { width: 42px; height: 42px; }
   .fin-fillback { padding: 0.45rem 0; }
+  /* Text links and "Show as table": a finger-sized hit area without moving the text. */
+  .fin-link { padding: 0.6rem 0.3rem; margin: -0.6rem -0.3rem; }
+  .fin-card > .fin-link { margin-top: 0.4rem; margin-bottom: -0.6rem; }
+  .fc-table summary, .fin-hidden-accts summary { padding: 0.65rem 0; }
+  .fin-range { height: 40px; }
 }
 @media (max-width: 560px) {
   .fin-head-tools { width: 100%; }
@@ -471,3 +483,29 @@
   .fin-acct-head .hub-actions .btn { flex: 1; justify-content: center; }
 }
 @media (prefers-reduced-motion: reduce) { .fc-draw { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; } }
+
+/* ---------- print (Reports' Print button, or the browser's own) ---------- */
+@media print {
+  /* Paper is white: the light palette even when the screen is in dark mode. */
+  [data-theme] .fin {
+    --accent: #1F7A4D; --hub-danger: #B42318;
+    --fc-1: #2a78d6; --fc-2: #eb6834; --fc-3: #1baf7a; --fc-4: #eda100;
+    --fc-5: #e87ba4; --fc-6: #008300; --fc-7: #6250d6; --fc-8: #e34948;
+    --fin-warn: #d99000;
+    --band-1: #86b6ef; --band-2: #5598e7; --band-3: #2a78d6; --band-4: #1c5cab; --band-5: #104281;
+  }
+  .fin * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .fin-head-tools, .fin-sync, .fin-tabs, .fin-report-bar, .fin-drawer, .cal-backdrop, .fin-alerts,
+  .fin-view .btn, .fc-tip, .fc-hit, .fc-hair, .fc-hover-dot, .fc-table summary { display: none !important; }
+  .fin-head { margin-bottom: 0.5rem; }
+  .fin-head h1 { font-size: 18pt; }
+  .fin-print-head { display: block; margin: 0 0 6mm; }
+  .fin-print-head h2 { font-size: 15pt; margin: 0; }
+  .fin-print-head p { margin: 1mm 0 0; color: var(--text-muted); font-size: 9.5pt; }
+  .fin-card { border-color: #ddd; border-radius: 8px; padding: 5mm; box-shadow: none; }
+  .fc, .fin-row > .fin-card { break-inside: avoid; }
+  .fc-table { margin-top: 3mm; }
+  .fc-table-wrap, .fin-table-wrap { max-height: none !important; overflow: visible !important; }
+  .fin-table tr, .fc-table tr { break-inside: avoid; }
+  .fin-range { display: none; }
+}

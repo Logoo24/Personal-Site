@@ -69,7 +69,7 @@
     return '<div class="fin-upcoming">' + Object.keys(by).sort().map(function (d) {
       return '<div class="fin-up-day"><span class="fin-up-date">' + esc(relDay(d)) + '</span><ul>' + by[d].map(function (u) {
         return '<li><span class="fin-acct-main"><span class="fin-acct-name">' + esc(u.name) + (u.late ? '<span class="fin-tag">Expected ' + esc(day(u.expected, { month: 'short', day: 'numeric' })) + '</span>' : '') + '</span>' +
-          '<span class="fin-acct-sub">' + esc(KIND[u.kind] || '') + (u.kind === 'due' && u.min ? ' · minimum ' + Fin.money(u.min) : '') + '</span></span>' +
+          '<span class="fin-acct-sub">' + esc(KIND[u.kind] || '') + (u.kind === 'due' && u.min ? ' · minimum ' + Fin.amt(u.min) : '') + '</span></span>' +
           '<span class="fin-tx-amt' + (u.dir === 'in' ? ' is-in' : '') + '">' + (u.amount != null ? (u.variable ? '<small>about </small>' : '') + Fin.amt(u.dir === 'in' ? u.amount : -u.amount, { cents: true, sign: u.dir === 'in' }) : '') + '</span></li>';
       }).join('') + '</ul></div>';
     }).join('') + '</div>';
@@ -90,12 +90,12 @@
 
     view.innerHTML =
       '<div class="fin-acct-head"><div class="fin-split">' +
-        '<span>Bills &amp; subscriptions <b>' + Fin.amt(out) + '</b> a month <span class="fin-muted">(' + Fin.amt(out * 12) + ' a year)</span></span>' +
-        '<span>Regular income <b>' + Fin.amt(inn) + '</b> a month</span></div>' +
-        '<div class="hub-actions"><button class="btn btn-ghost btn-sm" type="button" data-rc-scan>' + Hub.icons.refresh + 'Look again</button>' +
+        (live.length ? '<span>Bills &amp; subscriptions <b>' + Fin.amt(out) + '</b> a month <span class="fin-muted">(' + Fin.amt(out * 12) + ' a year)</span></span>' +
+          '<span>Regular income <b>' + Fin.amt(inn) + '</b> a month</span>' : '') + '</div>' +
+        '<div class="hub-actions">' + (Fin.data.recent && Fin.data.recent.length ? '<button class="btn btn-ghost btn-sm" type="button" data-rc-scan>' + Hub.icons.refresh + 'Look again</button>' : '') +
         '<button class="btn btn-primary btn-sm" type="button" data-rc-add>' + Hub.icons.plus + 'Add a bill or income</button></div></div>' +
       (ups.length ? '<div class="fin-alerts">' + ups.map(function (r) {
-        return '<button class="fin-alert fin-alert--up" type="button" data-rc="' + esc(r.id) + '">' + Hub.icons.up + '<span>' + esc(r.name) + ' went up from ' + Fin.money(r.priceUp.from, { cents: true }) + ' to ' + Fin.money(r.priceUp.to, { cents: true }) + ' (' + Fin.money((r.priceUp.to - r.priceUp.from) * 12, { cents: true }) + ' more a year)</span>' + Hub.icons.right + '</button>';
+        return '<button class="fin-alert fin-alert--up" type="button" data-rc="' + esc(r.id) + '">' + Hub.icons.up + '<span>' + esc(r.name) + ' went up from ' + Fin.amt(r.priceUp.from, { cents: true }) + ' to ' + Fin.amt(r.priceUp.to, { cents: true }) + ' (' + Fin.amt((r.priceUp.to - r.priceUp.from) * 12, { cents: true }) + ' more a year)</span>' + Hub.icons.right + '</button>';
       }).join('') + '</div>' : '') +
       '<section class="fin-card"><div class="fin-card-head"><h2>Coming up</h2><span class="fin-muted">The next 30 days</span></div>' + upcomingHTML(items, 30) + '</section>' +
       (items.length ? '' : '<div class="fin-soon"><h2>Nothing found yet</h2><p>Recurring charges show up here once there are a few months of transactions. You can add rent, lessons or anything else by hand.</p></div>') +
@@ -152,10 +152,10 @@
       '</form>' +
       '<dl class="fin-facts">' +
         (r.nextDate && !r.ended ? '<div><dt>Next</dt><dd>' + esc(day(r.nextDate, { weekday: 'long', month: 'long', day: 'numeric' })) + '</dd></div>' : '') +
-        (r.lastDate ? '<div><dt>Last seen</dt><dd>' + esc(day(r.lastDate, { month: 'long', day: 'numeric', year: 'numeric' })) + (r.last ? ', ' + esc(Fin.money(r.last, { cents: true })) : '') + '</dd></div>' : '') +
+        (r.lastDate ? '<div><dt>Last seen</dt><dd>' + esc(day(r.lastDate, { month: 'long', day: 'numeric', year: 'numeric' })) + (r.last ? ', ' + Fin.amt(r.last, { cents: true }) : '') + '</dd></div>' : '') +
         (r.count ? '<div><dt>Seen</dt><dd>' + esc(Hub.plural(r.count, 'time')) + ' in the last 14 months</dd></div>' : '') +
         (a ? '<div><dt>Account</dt><dd>' + esc((a.nick || a.name) + (a.mask ? ' ••' + a.mask : '')) + '</dd></div>' : '') +
-        (r.priceUp ? '<div><dt>Price</dt><dd>Went up ' + esc(day(r.priceUp.date, { month: 'long', day: 'numeric' })) + ', from ' + esc(Fin.money(r.priceUp.from, { cents: true })) + ' to ' + esc(Fin.money(r.priceUp.to, { cents: true })) + '</dd></div>' : '') +
+        (r.priceUp ? '<div><dt>Price</dt><dd>Went up ' + esc(day(r.priceUp.date, { month: 'long', day: 'numeric' })) + ', from ' + Fin.amt(r.priceUp.from, { cents: true }) + ' to ' + Fin.amt(r.priceUp.to, { cents: true }) + '</dd></div>' : '') +
         (r.variable ? '<div><dt>Amount</dt><dd>Changes from month to month, so this is the average of the last three</dd></div>' : '') +
       '</dl>');
     var form = $('[data-rcform]', body), el = form.elements;

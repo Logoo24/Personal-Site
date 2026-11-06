@@ -341,10 +341,12 @@ export async function advice(state, viewer, { refresh = false } = {}) {
   const today = familyDay();
   const used = saved.day === today ? saved.count || 0 : 0;
   const claude = !!process.env.ANTHROPIC_API_KEY;
+  const ready = visibleAccounts(state, viewer).length > 0;
   let error = null;
 
   if (refresh) {
     if (!claude) throw fail(503, 'Written briefings need ANTHROPIC_API_KEY. The checks below work without it.');
+    if (!ready) throw fail(400, 'Add or link an account first, so the briefing has something to go on.');
     if (used >= REFRESHES_PER_DAY) throw fail(429, 'That’s ' + REFRESHES_PER_DAY + ' briefings today. Try again tomorrow.');
     let rates = null;
     try { rates = await currentRates(); } catch (e) { error = 'Today’s rates couldn’t be looked up, so the briefing goes without them.'; }
@@ -353,7 +355,7 @@ export async function advice(state, viewer, { refresh = false } = {}) {
     await writeSecure(advicePath(key), saved);
   }
   return {
-    facts, cards, claude, error,
+    facts, cards, claude, ready, error,
     briefing: saved.briefing,
     refreshesLeft: claude ? Math.max(0, REFRESHES_PER_DAY - (saved.day === today ? saved.count || 0 : 0)) : 0
   };

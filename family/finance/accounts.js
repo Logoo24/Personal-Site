@@ -245,7 +245,7 @@
         '<span class="fin-inline"><input class="input" name="balance" inputmode="decimal" value="' + esc(Fin.moneyInput(a.balance)) + '" aria-label="New balance" />' +
         '<button class="btn btn-primary btn-sm" type="submit">Save</button></span></label></form>' : '') +
       '<div><span class="fin-label">The last 12 months</span><div data-acct-chart></div></div>' +
-      '<dl class="fin-facts">' + facts.map(function (f) { return '<div><dt>' + esc(f[0]) + '</dt><dd>' + esc(f[1]) + '</dd></div>'; }).join('') + '</dl>' +
+      '<dl class="fin-facts">' + facts.map(function (f) { return '<div><dt>' + esc(f[0]) + '</dt><dd>' + Fin.amtText(f[1]) + '</dd></div>'; }).join('') + '</dl>' +
       (!manual && (a.type === 'investment' || a.type === 'retirement') ? '<div data-holdings><span class="fin-label">Holdings</span><p class="fin-muted">Loading…</p></div>' : '') +
       '<div class="fin-drawer-actions"><button class="btn btn-ghost btn-sm" type="button" data-edit>' + Hub.icons.edit + 'Edit details</button>' +
         (manual ? '<button class="btn btn-danger btn-sm" type="button" data-delete>' + Hub.icons.trash + 'Delete</button>' : '') + '</div>');

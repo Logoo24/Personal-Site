@@ -26,6 +26,7 @@
   function briefingHTML(d) {
     var b = d.briefing;
     if (!d.claude) return '<section class="fin-card fin-briefing"><h2>Monthly briefing</h2><p class="fin-muted">Written briefings need <code>ANTHROPIC_API_KEY</code> in Vercel. The checks below work without it.</p></section>';
+    if (!b && !d.ready) return '<section class="fin-card fin-briefing"><h2>Monthly briefing</h2><p class="fin-muted">Your first briefing is written once there are accounts to look at. Link a bank or add an account on the Accounts tab.</p></section>';
     if (!b) return '<section class="fin-card fin-briefing is-loading"><h2>Writing your briefing…</h2><p class="fin-muted">Looking up today’s savings and Treasury rates and reading your numbers. This takes a little while.</p></section>';
     var when = new Date(b.at).toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
     var list = function (title, items, render) {
@@ -33,16 +34,16 @@
     };
     return '<section class="fin-card fin-briefing">' +
       '<span class="fin-label">Your ' + esc(new Date(b.at).toLocaleDateString('en-US', { month: 'long' })) + ' briefing</span>' +
-      '<h2 class="fin-brief-head">' + esc(b.headline) + '</h2>' +
-      '<p class="fin-brief-summary">' + esc(b.summary) + '</p>' +
+      '<h2 class="fin-brief-head">' + Fin.amtText(b.headline) + '</h2>' +
+      '<p class="fin-brief-summary">' + Fin.amtText(b.summary) + '</p>' +
       list('Where to put money now', b.putMoney, function (xs) {
         return '<ol class="fin-brief-list">' + xs.map(function (x) {
-          return '<li><b>' + esc(x.title) + '</b>' + (x.amount ? ' <span class="fin-brief-amt fin-amt">' + esc(x.amount) + '</span>' : '') + '<p>' + esc(x.why) + '</p></li>';
+          return '<li><b>' + Fin.amtText(x.title) + '</b>' + (x.amount ? ' <span class="fin-brief-amt fin-amt">' + esc(x.amount) + '</span>' : '') + '<p>' + Fin.amtText(x.why) + '</p></li>';
         }).join('') + '</ol>';
       }) +
       '<div class="fin-row">' +
-        list('Spend less on', b.spendLess, function (xs) { return '<ul class="fin-brief-list">' + xs.map(function (x) { return '<li><b>' + esc(x.title) + '</b><p>' + esc(x.why) + '</p></li>'; }).join('') + '</ul>'; }) +
-        list('Worth spending on', b.spendMore, function (xs) { return '<ul class="fin-brief-list">' + xs.map(function (x) { return '<li><b>' + esc(x.title) + '</b><p>' + esc(x.why) + '</p></li>'; }).join('') + '</ul>'; }) +
+        list('Spend less on', b.spendLess, function (xs) { return '<ul class="fin-brief-list">' + xs.map(function (x) { return '<li><b>' + Fin.amtText(x.title) + '</b><p>' + Fin.amtText(x.why) + '</p></li>'; }).join('') + '</ul>'; }) +
+        list('Worth spending on', b.spendMore, function (xs) { return '<ul class="fin-brief-list">' + xs.map(function (x) { return '<li><b>' + Fin.amtText(x.title) + '</b><p>' + Fin.amtText(x.why) + '</p></li>'; }).join('') + '</ul>'; }) +
       '</div>' +
       '<div class="fin-row">' +
         list('Going well', b.doingWell, function (xs) { return '<ul class="fin-brief-bullets good">' + xs.map(function (x) { return '<li>' + Hub.icons.check + '<span>' + esc(x) + '</span></li>'; }).join('') + '</ul>'; }) +
@@ -63,7 +64,7 @@
       var mine = cards.filter(function (c) { return c.tone === t[0]; });
       if (!mine.length) return '';
       return '<section class="fin-card"><div class="fin-card-head"><h2>' + esc(t[1]) + '</h2></div><ul class="fin-checks-list">' + mine.map(function (c) {
-        return '<li class="fin-check-card ' + t[0] + '"><span class="fin-check-icon">' + ICON[t[0]] + '</span><div><b>' + esc(c.title) + '</b><p>' + esc(c.body) + '</p>' +
+        return '<li class="fin-check-card ' + t[0] + '"><span class="fin-check-icon">' + ICON[t[0]] + '</span><div><b>' + Fin.amtText(c.title) + '</b><p>' + Fin.amtText(c.body) + '</p>' +
           (c.numbers && c.numbers.length ? '<dl class="fin-check-nums">' + c.numbers.map(function (n) { return '<div><dt>' + esc(n[0]) + '</dt><dd class="fin-amt">' + esc(n[1]) + '</dd></div>'; }).join('') + '</dl>' : '') +
         '</div></li>';
       }).join('') + '</ul></section>';
@@ -94,7 +95,7 @@
       view.innerHTML = banner() + briefingHTML(d) + cardsHTML(d.cards) + factsHTML(d.facts);
       // A briefing a month: write one when there's none yet or it's from an earlier month.
       var stale = !d.briefing || d.briefing.month !== Fin.data.today.slice(0, 7);
-      if (d.claude && stale && d.refreshesLeft && !autoTried) { autoTried = true; refresh(null, true); }
+      if (d.claude && d.ready && stale && d.refreshesLeft && !autoTried) { autoTried = true; refresh(null, true); }
     }).catch(function (e) {
       view.innerHTML = banner() + '<p class="fin-muted">Couldn’t work out the advice: ' + esc(e.message) + '</p>';
     });

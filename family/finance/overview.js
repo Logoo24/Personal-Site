@@ -143,7 +143,7 @@
       return !a || F.matches(a);
     }).forEach(function (r) {
       out.push('<button class="fin-alert fin-alert--up" type="button" data-alert-rc="' + esc(r.id) + '">' + Hub.icons.up + '<span>' + esc(r.name) + ' went up from ' +
-        Fin.money(r.priceUp.from, { cents: true }) + ' to ' + Fin.money(r.priceUp.to, { cents: true }) + '</span>' + Hub.icons.right + '</button>');
+        Fin.amt(r.priceUp.from, { cents: true }) + ' to ' + Fin.amt(r.priceUp.to, { cents: true }) + '</span>' + Hub.icons.right + '</button>');
     });
     return out.length ? '<div class="fin-alerts">' + out.join('') + '</div>' : '';
   }
