@@ -104,9 +104,10 @@
       '<h2>Let’s set up your money dashboard</h2>' +
       '<p>Finance brings your bank accounts, cards, investments and loans into one view for the two of you. It only reads balances and transactions: nothing here can move money.</p>' +
       '<ol class="fin-steps">' +
-        '<li><strong>Link your banks</strong><span>Checking, savings, credit cards and investments, through Plaid. Joint accounts only need linking once. Coming in the next update.</span></li>' +
+        '<li><strong>Link your banks</strong><span>Checking, savings, credit cards and investments, through Plaid. Joint accounts only need linking once.' + (s.plaid ? '' : ' Needs the Plaid keys below first.') + '</span>' +
+          (s.plaid ? '<span class="fin-step-action"><button class="btn btn-primary btn-sm" type="button" data-setup="link">' + Hub.icons.bank + 'Link a bank</button></span>' : '') + '</li>' +
         '<li><strong>Add what Plaid can’t see</strong><span>A car, a home, a loan or cash, with balances you keep up to date.</span>' +
-          '<span class="fin-step-action"><button class="btn btn-primary btn-sm" type="button" data-setup="add">' + Hub.icons.plus + 'Add an asset or debt</button></span></li>' +
+          '<span class="fin-step-action"><button class="btn btn-ghost btn-sm" type="button" data-setup="add">' + Hub.icons.plus + 'Add an asset or debt</button></span></li>' +
         '<li><strong>Fill in past months</strong><span>So the net-worth graph covers the whole last year. Do this once your accounts are in.</span></li>' +
       '</ol>' +
       '<div class="fin-card" style="margin-top:1.5rem"><div class="fin-card-head"><h2>Setup status</h2></div><ul class="fin-checks">' +
@@ -117,6 +118,37 @@
       '</ul></div>' +
     '</section>';
     view.querySelector('[data-setup="add"]').addEventListener('click', function () { Fin.openAccountForm(); });
+    var link = view.querySelector('[data-setup="link"]');
+    if (link) link.addEventListener('click', function () { Fin.go('accounts'); Fin.linkBank(); });
+  }
+
+  // Only when something needs doing: a bank to sign in to again, transactions to look over.
+  function alertsHTML(F) {
+    var out = [];
+    var reconnect = (F.data.items || []).filter(function (i) { return i.status === 'reconnect'; });
+    if (reconnect.length) out.push('<button class="fin-alert fin-alert--bad" type="button" data-alert="accounts">' + Hub.icons.bank + '<span>' +
+      esc(reconnect.map(function (i) { return i.inst; }).join(', ')) + (reconnect.length === 1 ? ' needs' : ' need') + ' you to sign in again</span>' + Hub.icons.right + '</button>');
+    if (F.data.toReview) out.push('<button class="fin-alert" type="button" data-alert="review">' + Hub.icons.sparkle + '<span>' +
+      Hub.plural(F.data.toReview, 'transaction') + ' to look over</span>' + Hub.icons.right + '</button>');
+    return out.length ? '<div class="fin-alerts">' + out.join('') + '</div>' : '';
+  }
+
+  function recentHTML(F) {
+    var list = (F.data.recent || []).filter(function (t) {
+      var a = F.data.accounts.filter(function (x) { return x.id === t.acct; })[0];
+      return a && F.matches(a);
+    }).slice(0, 8);
+    if (!list.length) return '';
+    var cat = {};
+    (F.data.categories || []).forEach(function (c) { cat[c.id] = c; });
+    return '<section class="fin-card"><div class="fin-card-head"><h2>Recent transactions</h2><button class="fin-link" type="button" data-alert="transactions">See all</button></div>' +
+      '<ul class="fin-recent">' + list.map(function (t) {
+        var c = cat[t.cat], d = new Date(t.date + 'T12:00:00');
+        var muted = (c && c.kind === 'transfer') || t.hidden;
+        return '<li><span class="fin-acct-main"><span class="fin-acct-name">' + esc(t.name) + (t.pending ? '<span class="fin-tag">Pending</span>' : '') + '</span>' +
+          '<span class="fin-acct-sub">' + esc((c ? c.name : 'Uncategorized') + ' · ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + '</span></span>' +
+          '<span class="fin-tx-amt' + (t.amt > 0 ? ' is-in' : '') + (muted ? ' is-muted' : '') + '">' + Fin.amt(t.amt, { cents: true, sign: true }) + '</span></li>';
+      }).join('') + '</ul></section>';
   }
 
   Fin.tab('overview', function (view, F) {
@@ -163,7 +195,7 @@
     }
     var owned = breakdown('asset'), owed = breakdown('liability');
 
-    view.innerHTML = banner +
+    view.innerHTML = banner + alertsHTML(F) +
       '<section class="fin-card">' +
         '<div class="fin-hero"><div><span class="fin-label">Net worth' + (who ? ' · ' + esc(who) : '') + '</span>' +
           '<div class="fin-hero-value">' + Fin.amt(live.net) + '</div></div>' +
@@ -183,7 +215,13 @@
       '<div class="fin-row">' +
         '<section class="fin-card"><div class="fin-card-head"><h2>What you own</h2><span class="fin-muted">' + Fin.amt(live.assets) + '</span></div><div data-hbars="own"></div></section>' +
         '<section class="fin-card"><div class="fin-card-head"><h2>What you owe</h2><span class="fin-muted">' + Fin.amt(live.debts) + '</span></div><div data-hbars="owe"></div></section>' +
-      '</div>';
+      '</div>' + recentHTML(F);
+    Hub.$$('[data-alert]', view).forEach(function (b) {
+      b.addEventListener('click', function () {
+        var go = b.getAttribute('data-alert');
+        if (go === 'review') Fin.showReview(); else Fin.go(go);
+      });
+    });
 
     var series = monthlySeries(accts);
     var chartEl = view.querySelector('[data-chart="net"]');

@@ -56,6 +56,8 @@ export function saveAccount(input, viewer) {
     } else {
       a.nick = str(input.nick, 80) || null;
     }
+    // A linked account's kind, once changed by hand, sticks through syncs.
+    if (!editable(a) && a.type !== type) a.typeSet = true;
     a.type = type;
     a.side = kind.side;
 

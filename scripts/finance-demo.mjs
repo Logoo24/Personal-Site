@@ -90,7 +90,7 @@ function add(acctKey, d, cents, raw, name, cat, extra = {}) {
   // On a card or loan, a purchase raises what's owed; a payment lowers it.
   a.balance += a.side === 'liability' ? -cents : cents;
   const m = key(d).slice(0, 7);
-  (tx[m] = tx[m] || []).push({ id: id('demo_'), acct: a.id, date: key(d), amt: cents, name, raw, cat, catSrc: cat ? 'plaid' : null, pending: false, ...extra });
+  (tx[m] = tx[m] || []).push({ id: id('demo_'), acct: a.id, date: key(d), amt: cents, name, raw, cat, catSrc: cat ? 'plaid' : null, pending: false, ...(cat ? {} : { reviewed: false }), ...extra });
 }
 function transfer(from, to, d, cents, rawOut, rawIn, cat = 'transfer') {
   add(from, d, -cents, rawOut, rawOut.replace(/\s+\d+$/, ''), cat, { transfer: true });

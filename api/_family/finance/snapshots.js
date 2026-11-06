@@ -59,6 +59,24 @@ export function forgetAccount(id) {
   }, emptySnapshots);
 }
 
+// Rebuilt history (sync.js): fills only months an account has no value
+// for, and marks them estimated. Never overwrites a recorded or typed value.
+export function fillHistory(values) {
+  return updateSecure(SNAPSHOTS, snaps => {
+    const monthly = new Map((snaps.monthly || []).map(e => [e.m, { ...e, b: { ...e.b } }]));
+    for (const { id, m, v } of values) {
+      const e = monthly.get(m) || { m, b: {} };
+      if (e.b[id] != null) continue;
+      const est = e.est === true ? Object.keys(e.b) : Array.isArray(e.est) ? e.est.slice() : [];
+      e.b[id] = v;
+      if (!est.includes(id)) est.push(id);
+      e.est = est;
+      monthly.set(m, e);
+    }
+    snaps.monthly = [...monthly.values()].sort(byMonth);
+  }, emptySnapshots);
+}
+
 // rows: [{ id, m: 'YYYY-MM', v: cents | null }] for finished months in the
 // last three years. A value marks that account's month as typed in
 // (estimated); null clears it.

@@ -89,6 +89,8 @@ export async function updateSecure(p, fn, empty) {
     const before = JSON.stringify(data);
     const next = (await fn(data)) ?? data;
     if (cur && JSON.stringify(next) === before) return next;
+    // Nothing there and nothing to add: don't create an empty file.
+    if (!cur && JSON.stringify(next) === JSON.stringify(empty())) return next;
     try {
       await writeSecure(p, next, cur ? cur.etag : null);
       return next;

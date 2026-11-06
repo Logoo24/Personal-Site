@@ -162,6 +162,74 @@
 .fin-grid tfoot th, .fin-grid tfoot td { border-bottom: 0; padding-top: 0.7rem; font-weight: 600; text-align: right; font-size: 0.88rem; }
 .fin-grid tfoot th { text-align: left; }
 
+/* Bank connections */
+.fin-soon-actions { margin-top: 1.25rem; display: flex; gap: 0.6rem; justify-content: center; flex-wrap: wrap; }
+.fin-bank { display: grid; grid-template-columns: 2.4rem minmax(0, 1fr) auto; gap: 0.85rem; align-items: center; padding: 0.8rem 0; }
+.fin-bank .fin-acct-icon svg { width: 18px; height: 18px; }
+.fin-bank-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end; }
+.fin-status { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem; }
+.fin-status svg { width: 13px; height: 13px; }
+.fin-status--bad { color: var(--hub-danger); font-weight: 600; }
+.fin-status--warn { color: var(--text-soft); }
+.fin-banks-note { margin-top: 0.75rem; }
+.fin-link-note { display: flex; gap: 0.55rem; align-items: flex-start; padding: 0.7rem 0.85rem; border-radius: 10px; background: var(--hub-warn-bg); font-size: 0.86rem; color: var(--text-soft); }
+.fin-link-note svg { width: 16px; height: 16px; flex: none; margin-top: 0.15rem; }
+.fin-holdings { list-style: none; margin-top: 0.4rem; }
+.fin-holdings li { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.55rem 0; border-bottom: 1px solid var(--line); }
+.fin-banner code, .fin-checks code { font-family: var(--mono); font-size: 0.82rem; }
+
+/* Overview alerts and recent transactions */
+.fin-alerts { display: grid; gap: 0.5rem; }
+.fin-alert { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid var(--line); background: var(--hub-surface); font: 600 0.92rem var(--sans); color: var(--text); text-align: left; cursor: pointer; }
+.fin-alert:hover { border-color: var(--accent); }
+.fin-alert span { flex: 1; }
+.fin-alert svg { width: 18px; height: 18px; flex: none; color: var(--accent); }
+.fin-alert--bad { border-color: color-mix(in srgb, var(--hub-danger) 40%, var(--line)); }
+.fin-alert--bad svg:first-child { color: var(--hub-danger); }
+.fin-recent { list-style: none; }
+.fin-recent li { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.65rem 0; border-top: 1px solid var(--line); }
+.fin-recent li:first-child { border-top: 0; }
+
+/* Transactions tab */
+.fin-tx-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1rem; }
+.fin-month { display: flex; align-items: center; gap: 0.5rem; }
+.fin-month strong { font-family: var(--display); font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; min-width: 10.5rem; text-align: center; }
+.fin-month .fin-muted { margin-left: 0.25rem; }
+.fin-month .btn-icon svg { width: 18px; height: 18px; }
+.fin-tx-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+.fin-tx-actions .btn svg { width: 15px; height: 15px; }
+.fin-tx-filters { display: grid; grid-template-columns: minmax(12rem, 2fr) repeat(2, minmax(8rem, 1fr)) auto; gap: 0.6rem; align-items: center; }
+.fin-tx-filters select { padding: 0.55rem 0.7rem; }
+.fin-search { position: relative; display: block; }
+.fin-search svg { position: absolute; left: 0.8rem; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-muted); pointer-events: none; }
+.fin-search .input { width: 100%; padding-left: 2.4rem; }
+@media (max-width: 760px) { .fin-tx-filters { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .fin-search { grid-column: 1 / -1; } }
+.fin-tx-card { padding-top: 0.6rem; padding-bottom: 0.6rem; }
+.fin-tx-day h3 { display: flex; justify-content: space-between; gap: 1rem; font: 600 0.8rem var(--sans); letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); padding: 0.9rem 0 0.35rem; border-bottom: 1px solid var(--line); }
+.fin-tx-day h3 .fin-muted { text-transform: none; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.fin-tx-day ul { list-style: none; }
+.fin-tx-li { border-bottom: 1px solid var(--line); }
+.fin-tx-li:last-child { border-bottom: 0; }
+.fin-tx-li.is-done { opacity: 0.55; }
+.fin-tx { width: calc(100% + 1rem); margin: 0 -0.5rem; padding: 0.7rem 0.5rem; display: flex; align-items: center; justify-content: space-between; gap: 0.9rem; border: 0; background: none; border-radius: 10px; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.fin-tx:hover { background: var(--bg-alt); }
+.fin-tx:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.fin-tx-main { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.fin-tx-name { font-weight: 600; display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; overflow-wrap: anywhere; }
+.fin-tx-amt { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fin-tx-amt.is-in { color: var(--fin-good); }
+.fin-tx-amt.is-muted { color: var(--text-muted); font-weight: 500; }
+.fin-tag--review { border-color: color-mix(in srgb, var(--accent) 50%, transparent); color: var(--accent); }
+.fin-note-dot { display: inline-grid; color: var(--text-muted); }
+.fin-note-dot svg { width: 13px; height: 13px; }
+.fin-tx-quick { display: flex; gap: 0.5rem; padding: 0 0 0.75rem; flex-wrap: wrap; }
+.fin-tx-quick select { flex: 1; min-width: 10rem; padding: 0.45rem 0.6rem; }
+.fin-tx-quick .btn svg { width: 14px; height: 14px; }
+.fin-tx-empty { padding: 1.5rem 0; text-align: center; }
+.fin-tx-form { display: grid; gap: 0.9rem; }
+.fin-export-list { display: grid; gap: 0.5rem; margin-top: 1rem; }
+.fin-export-list .btn { justify-content: center; }
+
 /* ============================================================
    CHARTS (charts.js)
    ============================================================ */
@@ -226,6 +294,8 @@
   .fin-tab { min-height: 42px; }
   #hide { width: 42px; height: 42px; }
   .hub .fin-cell { font-size: 16px; width: 7.25rem; }
+  .fin-tx { padding-top: 0.85rem; padding-bottom: 0.85rem; }
+  .fin-month .btn-icon { width: 42px; height: 42px; }
   .fin-fillback { padding: 0.45rem 0; }
 }
 @media (max-width: 560px) {

@@ -112,6 +112,27 @@ A private area for the Randall family, separate from the public site. Every foot
   - Days are the family's, not the server's: `familyDay()`, using `FAMILY_TIMEZONE`, default `America/Boise`.
   - Routes that change something answer with a fresh summary (`Fin.save()` on the page), so there's one request per change.
 
+  Banks (Plaid):
+  - `plaid.js` is the REST client: plain `fetch`, the `PLAID-CLIENT-ID`/`PLAID-SECRET` headers, `PLAID_ENV` sandbox or production. It logs Plaid error codes only, never tokens or amounts.
+  - `sync.js` links a bank (`linkBank`), syncs (`syncAll`), handles `reconnected` (update mode) and removes a bank (`removeBank`, which turns its accounts into hand-kept ones).
+  - The Trial plan allows 10 Items ever. `state.itemsUsed` never goes down, and the UI pushes Reconnect over remove-and-relink.
+  - Access tokens and `/transactions/sync` cursors live in `finance/secrets.json`.
+  - A sync fetches every Item in parallel, then merges in one pass:
+    - accounts, plus card and loan APR, minimum payment and due date from `/liabilities/get`;
+    - transactions into their month files. Plaid's sign is flipped: money out is negative here. The family's edits survive "modified" updates, and they carry over when a pending charge posts (`pending_transaction_id`).
+    - transfer pairing, then holdings into `finance/holdings.json`, then cursors, then today's snapshot.
+  - Once an Item reports `HISTORICAL_UPDATE_COMPLETE`, `rebuildFromHistory` fills empty past month-ends for its cash and card accounts, and carries investment balances back 12 months. Both are marked estimated.
+  - Opening Finance after 6 hours without a sync triggers one; manual "Refresh now" is throttled to every 10 minutes.
+  - `oauth.html` finishes Link for banks that bounce phones out to their own app (`PLAID_REDIRECT_URI` must point at `/family/finance/oauth`).
+
+  Transactions:
+  - Stored as `finance/tx/YYYY-MM.json` (`transactions.js`).
+  - A category's `kind` decides whether a transaction is income, spending or a transfer. Transfers are left out of totals: `detectTransfers` pairs equal and opposite amounts between our own accounts within 3 days. Loan and mortgage payments stay as spending.
+  - `categorize.js` picks a category in this order: the family's rules, then known subscription brands, then Plaid's `personal_finance_category` (unless its confidence is LOW/UNKNOWN), then remembered payees, then keywords.
+  - Whatever's left goes to Claude in one batch: merchant text and in/out only. Answers are remembered in `state.payees` and land in the "Needs review" queue (`reviewed: false`).
+  - An "Always put X here" rule matches on `payeeKey()` of the merchant name, and is applied to the last 6 months when it's made.
+  - CSV export guards against spreadsheet formulas.
+
   The daily cron:
   - `vercel.json` `crons` hits `/api/finance-cron` at 11:00 UTC; Hobby fires it sometime in that hour.
   - A rewrite sends that path to `?r=fin-cron`, which `family.js` routes before the session check. It's guarded by `Authorization: Bearer $CRON_SECRET`.
@@ -123,7 +144,7 @@ A private area for the Randall family, separate from the public site. Every foot
   Local testing:
   - `node scripts/finance-demo.mjs` seeds `.family-data/finance/` with a simulated year. It refuses to run if a Blob store is configured.
   - `node scripts/dev-session.mjs <email> <name>` prints a local session cookie for a Google-only page.
-- **Env vars** (Vercel): `FAMILY_PASSWORD`, `FAMILY_SESSION_SECRET` (random, 32+ bytes), `GOOGLE_CLIENT_ID`, `FAMILY_GOOGLE_EMAILS`, `FAMILY_ADMIN_EMAILS` (who sees and can open the site manager), `FAMILY_FINANCE_EMAILS` (who can open Finance), `FINANCE_ENCRYPTION_KEY` (32 random bytes, base64; keep a copy in a password manager, since losing it loses the finance data and Plaid links), `CRON_SECRET` (Finance's daily job), `GITHUB_CMS_TOKEN` (the site manager's instant sign-in for admins), `ANTHROPIC_API_KEY` (recipe import; plus `ANTHROPIC_WORKSPACE_ID` if the key isn't scoped to a workspace), `GOOGLE_CALENDAR_SERVICE_ACCOUNT` (calendar editing), and the Blob store's `BLOB_READ_WRITE_TOKEN` (added when the store is connected). Locally they come from `.env.local` (gitignored). `.claude/serve.js` caches the API modules — restart it after editing `api/`.
+- **Env vars** (Vercel): `FAMILY_PASSWORD`, `FAMILY_SESSION_SECRET` (random, 32+ bytes), `GOOGLE_CLIENT_ID`, `FAMILY_GOOGLE_EMAILS`, `FAMILY_ADMIN_EMAILS` (who sees and can open the site manager), `FAMILY_FINANCE_EMAILS` (who can open Finance), `FINANCE_ENCRYPTION_KEY` (32 random bytes, base64; keep a copy in a password manager, since losing it loses the finance data and Plaid links), `CRON_SECRET` (Finance's daily job), `PLAID_CLIENT_ID` / `PLAID_SECRET` / `PLAID_ENV` (and optionally `PLAID_REDIRECT_URI`) for bank linking, `GITHUB_CMS_TOKEN` (the site manager's instant sign-in for admins), `ANTHROPIC_API_KEY` (recipe import; plus `ANTHROPIC_WORKSPACE_ID` if the key isn't scoped to a workspace), `GOOGLE_CALENDAR_SERVICE_ACCOUNT` (calendar editing), and the Blob store's `BLOB_READ_WRITE_TOKEN` (added when the store is connected). Locally they come from `.env.local` (gitignored). `.claude/serve.js` caches the API modules — restart it after editing `api/`.
 
 ## Frontend conventions
 

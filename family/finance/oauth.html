@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('lb-theme')||'light')}catch(e){}</script>
+  <title>Finishing up · Finance</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#FAFAFA" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/family/assets/hub.css" />
+</head>
+<body class="hub">
+  <header class="hub-bar" data-crumbs='[["Finance","/family/finance"]]'></header>
+  <!-- Some banks (Chase, Wells Fargo...) send phones to their own app or site
+       to sign in, then back here. This page reopens Plaid with the same Link
+       token, which finishes the sign-in, then returns to Finance. The URL
+       registered with Plaid (PLAID_REDIRECT_URI) must point at this page. -->
+  <main class="hub-main hub-main--narrow">
+    <div class="hub-empty" id="msg"><h3>Finishing your bank sign-in…</h3><p>This only takes a moment.</p></div>
+  </main>
+  <script src="/family/assets/hub.js"></script>
+  <script>
+  (function () {
+    var msg = document.getElementById('msg');
+    function stop(text) {
+      msg.innerHTML = '<h3>That didn’t finish</h3><p>' + Hub.esc(text) + '</p><a class="btn btn-ghost" href="/family/finance#accounts">Back to Finance</a>';
+    }
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem('fin-link') || 'null'); } catch (e) {}
+    Hub.ready(function () {
+      if (!saved || !saved.token || Date.now() - saved.at > 30 * 60 * 1000) return stop('The sign-in took too long or started on another device. Start it again from Finance.');
+      var s = document.createElement('script');
+      s.src = 'https://cdn.plaid.com/link/v2/stable/link-initialize.js';
+      s.onerror = function () { stop('Plaid’s window couldn’t load.'); };
+      s.onload = function () {
+        Plaid.create({
+          token: saved.token,
+          receivedRedirectUri: window.location.href,
+          onSuccess: function (publicToken, metadata) {
+            localStorage.removeItem('fin-link');
+            var inst = (metadata && metadata.institution) || {};
+            var req = saved.itemId
+              ? Hub.api('fin-reconnected', { body: { itemId: saved.itemId } })
+              : Hub.api('fin-link', { body: { publicToken: publicToken, institution: { name: inst.name, institution_id: inst.institution_id }, owner: saved.owner, private: saved.private } });
+            msg.innerHTML = '<h3>Bringing in your accounts…</h3><p>Almost there.</p>';
+            req.then(function () { location.replace('/family/finance#accounts'); }).catch(function (e) { stop(e.message); });
+          },
+          onExit: function (err) {
+            localStorage.removeItem('fin-link');
+            stop(err ? (err.display_message || 'The bank sign-in was cancelled.') : 'The bank sign-in was cancelled.');
+          }
+        }).open();
+      };
+      document.head.appendChild(s);
+    });
+  })();
+  </script>
+</body>
+</html>

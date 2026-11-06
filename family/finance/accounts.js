@@ -52,8 +52,9 @@
   function renderList(view) {
     var all = Fin.data.accounts;
     if (!all.length) {
-      view.innerHTML = '<div class="fin-soon"><h2>No accounts yet</h2><p>Add a car, a home, a loan or cash by hand now. Bank linking through Plaid comes in the next update.</p>' +
-        '<p style="margin-top:1.25rem"><button class="btn btn-primary" type="button" data-add>' + Hub.icons.plus + 'Add an asset or debt</button></p></div>';
+      view.innerHTML = '<div class="fin-soon"><h2>No accounts yet</h2><p>Link your banks, cards and investments through Plaid, or add a car, a home, a loan or cash by hand.</p>' +
+        '<p class="fin-soon-actions"><button class="btn btn-primary" type="button" data-link>' + Hub.icons.bank + 'Link a bank</button>' +
+        '<button class="btn btn-ghost" type="button" data-add>' + Hub.icons.plus + 'Add an asset or debt</button></p></div>' + banksCard();
       return;
     }
     var shown = all.filter(Fin.matches);
@@ -65,11 +66,11 @@
 
     var html = '<div class="fin-acct-head">' +
       '<div class="fin-split"><span>Own <b>' + Fin.amt(own) + '</b></span><span>Owe <b>' + Fin.amt(owe) + '</b></span><span>' + Hub.plural(active.length, 'account') + '</span></div>' +
-      '<div class="hub-actions"><button class="btn btn-ghost btn-sm" type="button" data-history>Edit past months</button>' +
-      '<button class="btn btn-primary btn-sm" type="button" data-add>' + Hub.icons.plus + 'Add an asset or debt</button></div></div>';
-    if (!all.some(function (a) { return a.src === 'plaid'; })) {
-      html += '<div class="fin-banner fin-banner--info">' + Hub.icons.bank + '<span>Bank linking through Plaid comes in the next update. Accounts you add by hand count everywhere in the meantime.</span></div>';
-    }
+      '<div class="hub-actions">' +
+      '<button class="btn btn-ghost btn-sm" type="button" data-history>Edit past months</button>' +
+      '<button class="btn btn-ghost btn-sm" type="button" data-add>' + Hub.icons.plus + 'Add an asset or debt</button>' +
+      '<button class="btn btn-primary btn-sm" type="button" data-link>' + Hub.icons.bank + 'Link a bank</button></div></div>' +
+      banksCard();
     if (!active.length) html += '<div class="fin-soon"><h2>No accounts for ' + esc(Fin.ownerName(Fin.person)) + '</h2><p>Pick Everyone to see them all.</p></div>';
     GROUPS.forEach(function (g) {
       var list = active.filter(function (a) { return groupOf(a) === g; });
@@ -82,6 +83,138 @@
       html += '<details class="fin-card fin-hidden-accts"><summary>' + Hub.plural(hidden.length, 'hidden account') + '</summary><ul class="fin-accts">' + hidden.map(row).join('') + '</ul></details>';
     }
     view.innerHTML = html;
+  }
+
+  /* ---------- bank connections (Plaid) ---------- */
+  function banksCard() {
+    var d = Fin.data, items = d.items || [];
+    if (!d.setup.plaid) {
+      return items.length ? '' : '<div class="fin-banner fin-banner--info">' + Hub.icons.bank + '<span>Bank linking needs Plaid keys: <code>PLAID_CLIENT_ID</code> and <code>PLAID_SECRET</code> in Vercel (and <code>.env.local</code> to try it locally).</span></div>';
+    }
+    if (!items.length) return '';
+    var left = d.itemsMax - d.itemsUsed;
+    return '<section class="fin-card fin-banks"><div class="fin-card-head"><h2>Bank connections</h2>' +
+      '<button class="btn btn-ghost btn-sm" type="button" data-refresh>' + Hub.icons.refresh + 'Refresh now</button></div>' +
+      '<ul class="fin-accts">' + items.map(function (it) {
+        var n = d.accounts.filter(function (a) { return a.itemId === it.id; }).length;
+        var state = it.status === 'reconnect' ? '<span class="fin-status fin-status--bad">' + Hub.icons.x + 'Needs you to sign in again</span>'
+          : it.status === 'error' ? '<span class="fin-status fin-status--warn">Couldn’t sync (' + esc(it.error || 'error') + ')</span>'
+          : '<span class="fin-status">' + Hub.icons.check + (it.lastSync ? 'Synced ' + Fin.ago(it.lastSync) : 'Waiting for first sync') + (it.historyComplete ? '' : ' · history still loading') + '</span>';
+        return '<li class="fin-bank"><span class="fin-acct-icon" aria-hidden="true">' + Hub.icons.bank + '</span>' +
+          '<span class="fin-acct-main"><span class="fin-acct-name">' + esc(it.inst) + (it.private ? '<span class="fin-tag">' + Hub.icons.lock + 'Only me</span>' : '') + '</span>' +
+          '<span class="fin-acct-sub">' + Hub.plural(n, 'account') + ' · ' + esc(Fin.ownerName(it.owner)) + '</span>' + state + '</span>' +
+          '<span class="fin-bank-actions">' +
+            (it.status === 'reconnect' ? '<button class="btn btn-primary btn-sm" type="button" data-reconnect="' + esc(it.id) + '">Reconnect</button>' : '') +
+            '<button class="btn btn-ghost btn-sm" type="button" data-unlink="' + esc(it.id) + '">Remove</button></span></li>';
+      }).join('') + '</ul>' +
+      '<p class="fin-muted fin-banks-note">' + d.itemsUsed + ' of ' + d.itemsMax + ' free Plaid connections used' + (left <= 3 ? ' (' + left + ' left, for good)' : '') +
+        '. If a bank needs you to sign in again, use Reconnect: removing and re-linking uses up another one.</p></section>';
+  }
+
+  var holdingsP = null;
+  function holdings() { return holdingsP || (holdingsP = Hub.api('fin-holdings').catch(function (e) { holdingsP = null; throw e; })); }
+
+  var plaidScript = null;
+  function loadPlaid() {
+    if (window.Plaid) return Promise.resolve();
+    return plaidScript || (plaidScript = new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = 'https://cdn.plaid.com/link/v2/stable/link-initialize.js';
+      s.onload = resolve;
+      s.onerror = function () { plaidScript = null; reject(new Error('Plaid’s sign-in window couldn’t load. Check the connection and try again.')); };
+      document.head.appendChild(s);
+    }));
+  }
+
+  // Plaid Link: a bank sign-in window. The token and choices are kept in
+  // localStorage too, for banks that send phones away and back (oauth.html).
+  function openLink(token, opts) {
+    try { localStorage.setItem('fin-link', JSON.stringify(Object.assign({ token: token, at: Date.now() }, opts))); } catch (e) {}
+    return loadPlaid().then(function () {
+      var handler = window.Plaid.create({
+        token: token,
+        onSuccess: function (publicToken, metadata) { finishLink(publicToken, metadata, opts); },
+        onExit: function (err) {
+          try { localStorage.removeItem('fin-link'); } catch (e) {}
+          if (err) Hub.toast(err.display_message || 'The bank sign-in didn’t finish. Try again.', true);
+        }
+      });
+      handler.open();
+    });
+  }
+  function finishLink(publicToken, metadata, opts) {
+    try { localStorage.removeItem('fin-link'); } catch (e) {}
+    var inst = (metadata && metadata.institution) || {};
+    Hub.toast(opts.itemId ? 'Reconnecting…' : 'Bringing in your ' + (inst.name || 'bank') + ' accounts…');
+    var req = opts.itemId
+      ? Fin.save('fin-reconnected', { body: { itemId: opts.itemId } })
+      : Fin.save('fin-link', { body: { publicToken: publicToken, institution: { name: inst.name, institution_id: inst.institution_id }, owner: opts.owner, private: opts.private } });
+    req.then(function () {
+      Fin.invalidateTx && Fin.invalidateTx();
+      Hub.toast(opts.itemId ? 'Reconnected' : (inst.name || 'Bank') + ' linked. Older transactions can take a few minutes to arrive.');
+    }).catch(function (e) { Hub.toast(e.message, true); });
+  }
+
+  function linkBank() {
+    var d = Fin.data;
+    if (!d.setup.plaid) { Hub.toast('Bank linking needs Plaid keys in Vercel first.', true); return; }
+    var left = d.itemsMax - d.itemsUsed;
+    if (left <= 0) { Hub.confirm({ title: 'No free connections left', body: '<p>All ' + d.itemsMax + ' of Plaid’s free bank connections have been used. You can still add accounts by hand.</p>', confirm: 'OK' }); return; }
+    var me = d.viewer.email, other = otherPerson();
+    var owners = [['joint', 'Joint']].concat((d.people || []).map(function (p) { return [p.email, p.name]; }));
+    var m = document.createElement('div');
+    m.className = 'hub-modal';
+    m.innerHTML = '<div class="hub-modal-box cal-form" role="dialog" aria-modal="true" aria-labelledby="lk-title"><h3 id="lk-title">Link a bank</h3>' +
+      '<p class="fin-muted">You’ll sign in to your bank in Plaid’s window. Finance only reads balances and transactions: it can’t move money.</p>' +
+      '<form novalidate><label class="field"><span>Whose accounts are these?</span><select name="owner">' + owners.map(function (o) { return '<option value="' + esc(o[0]) + '">' + esc(o[1]) + '</option>'; }).join('') + '</select>' +
+      '<small>You can change each account afterward.</small></label>' +
+      '<label class="cf-check"><input type="checkbox" name="private" /> Only me</label>' +
+      '<small class="fin-muted fin-private-note" hidden>Only you will see these accounts. ' + (other ? esc(other.name) + ' won’t.' : '') + '</small>' +
+      '<p class="fin-link-note">' + Hub.icons.lock + '<span>This uses 1 of your ' + d.itemsMax + ' free Plaid connections (' + left + ' left, and they don’t come back). Link a joint account from just one of your logins.</span></p>' +
+      '<div class="hub-modal-actions"><button class="btn btn-ghost" type="button" data-cancel>Cancel</button><button class="btn btn-primary" type="submit">Continue to Plaid</button></div></form></div>';
+    var form = $('form', m), el = form.elements;
+    el.private.addEventListener('change', function () {
+      el.owner.disabled = el.private.checked;
+      if (el.private.checked) el.owner.value = me;
+      $('.fin-private-note', m).hidden = !el.private.checked;
+    });
+    function close() { m.remove(); }
+    m.addEventListener('click', function (e) { if (e.target === m) close(); });
+    $('[data-cancel]', m).addEventListener('click', close);
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var btn = $('[type=submit]', m); btn.disabled = true;
+      var opts = { owner: el.owner.value, private: el.private.checked };
+      Hub.api('fin-link-token', { body: {} }).then(function (r) { close(); return openLink(r.linkToken, opts); })
+        .catch(function (err) { Hub.toast(err.message, true); btn.disabled = false; });
+    });
+    document.body.appendChild(m);
+    el.owner.focus();
+  }
+
+  function reconnect(itemId) {
+    Hub.api('fin-link-token', { body: { itemId: itemId } }).then(function (r) { return openLink(r.linkToken, { itemId: itemId }); })
+      .catch(function (e) { Hub.toast(e.message, true); });
+  }
+
+  function unlink(itemId) {
+    var it = (Fin.data.items || []).filter(function (i) { return i.id === itemId; })[0];
+    if (!it) return;
+    Hub.confirm({ title: 'Remove ' + it.inst + '?', danger: true, confirm: 'Remove',
+      body: '<p>Finance stops syncing it. Its accounts stay as accounts you keep by hand, with their history, so you can delete or update them yourself.</p>' +
+        '<p><strong>This doesn’t give the Plaid connection back.</strong> Linking this bank again uses another of your ' + Fin.data.itemsMax + '. If it just needs you to sign in again, cancel and use Reconnect.</p>' }).then(function (yes) {
+      if (!yes) return;
+      Fin.save('fin-item', { method: 'DELETE', query: { id: itemId } }).then(function () { Hub.toast(it.inst + ' removed'); })
+        .catch(function (e) { Hub.toast(e.message, true); });
+    });
+  }
+
+  function refresh(btn) {
+    btn.disabled = true;
+    Hub.api('fin-sync', { body: { live: true } }).then(function (data) {
+      Fin.invalidateTx && Fin.invalidateTx(); Fin.apply(data);
+      Hub.toast(data.synced ? 'Up to date' : 'Synced in the last few minutes. Try again shortly.');
+    }).catch(function (e) { Hub.toast(e.message, true); btn.disabled = false; });
   }
 
   /* ---------- one account, in the drawer ---------- */
@@ -97,6 +230,9 @@
       a.apr != null ? [owe ? 'Interest rate' : 'Interest rate (APY)', a.apr + '%'] : null,
       a.limit ? ['Credit limit', Fin.money(a.limit) + ' · ' + Math.round((a.balance || 0) / a.limit * 100) + '% used'] : null,
       a.minPayment ? ['Minimum payment', Fin.money(a.minPayment) + ' a month'] : null,
+      a.dueDate ? ['Payment due', new Date(a.dueDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' }) + (a.overdue ? ' (overdue)' : '')] : null,
+      a.statementBalance != null && a.type === 'credit' ? ['Last statement', Fin.money(a.statementBalance, { cents: true })] : null,
+      a.available != null && a.type === 'cash' && a.available !== a.balance ? ['Available now', Fin.money(a.available, { cents: true })] : null,
       a.inNetWorth === false ? ['Net worth', 'Not counted'] : null,
       a.notes ? ['Notes', a.notes] : null
     ].filter(Boolean);
@@ -109,6 +245,7 @@
         '<button class="btn btn-primary btn-sm" type="submit">Save</button></span></label></form>' : '') +
       '<div><span class="fin-label">The last 12 months</span><div data-acct-chart></div></div>' +
       '<dl class="fin-facts">' + facts.map(function (f) { return '<div><dt>' + esc(f[0]) + '</dt><dd>' + esc(f[1]) + '</dd></div>'; }).join('') + '</dl>' +
+      (!manual && (a.type === 'investment' || a.type === 'retirement') ? '<div data-holdings><span class="fin-label">Holdings</span><p class="fin-muted">Loading…</p></div>' : '') +
       '<div class="fin-drawer-actions"><button class="btn btn-ghost btn-sm" type="button" data-edit>' + Hub.icons.edit + 'Edit details</button>' +
         (manual ? '<button class="btn btn-danger btn-sm" type="button" data-delete>' + Hub.icons.trash + 'Delete</button>' : '') + '</div>');
 
@@ -130,6 +267,19 @@
       format: function (v) { return Fin.money(v); }, axisFormat: function (v) { return Fin.money(v, { compact: true }); },
       series: [{ name: owe ? 'Owed' : 'Balance', color: owe ? 'var(--fc-2)' : 'var(--accent)', values: vals }],
       ariaLabel: nameOf(a) + ', balance at the end of each of the last 12 months' });
+
+    var hold = $('[data-holdings]', body);
+    if (hold) holdings().then(function (h) {
+      var mine = h.holdings.filter(function (x) { return x.acct === a.id; }).sort(function (x, y) { return (y.value || 0) - (x.value || 0); });
+      if (!mine.length) { hold.innerHTML = '<span class="fin-label">Holdings</span><p class="fin-muted">Plaid hasn’t sent holdings for this account.</p>'; return; }
+      hold.innerHTML = '<span class="fin-label">Holdings</span><ul class="fin-holdings">' + mine.map(function (x) {
+        var s = h.securities[x.security] || {};
+        var gain = x.cost != null && x.value != null ? x.value - x.cost : null;
+        return '<li><span class="fin-acct-main"><span class="fin-acct-name">' + esc(s.ticker || s.name || 'Holding') + '</span><span class="fin-acct-sub">' + esc(s.ticker ? s.name || '' : s.type || '') + '</span></span>' +
+          '<span class="fin-acct-right"><span class="fin-acct-bal">' + Fin.amt(x.value) + '</span>' +
+          (gain != null ? '<span class="fin-acct-sub">' + (gain >= 0 ? 'Up ' : 'Down ') + Fin.amt(Math.abs(gain)) + '</span>' : '') + '</span></li>';
+      }).join('') + '</ul>';
+    }).catch(function () { hold.innerHTML = '<span class="fin-label">Holdings</span><p class="fin-muted">Couldn’t load holdings.</p>'; });
 
     var form = $('[data-balance]', body);
     if (form) form.addEventListener('submit', function (ev) {
@@ -380,9 +530,13 @@
   document.addEventListener('click', function (e) {
     var view = $('#view');
     if (!view || !view.contains(e.target) || location.hash.replace('#', '') !== 'accounts') return;
-    var t = e.target.closest('[data-add],[data-history],[data-acct],[data-back],[data-save],[data-fill]');
+    var t = e.target.closest('[data-add],[data-history],[data-acct],[data-back],[data-save],[data-fill],[data-link],[data-reconnect],[data-unlink],[data-refresh]');
     if (!t) return;
-    if (t.hasAttribute('data-add')) accountForm(null);
+    if (t.hasAttribute('data-link')) linkBank();
+    else if (t.hasAttribute('data-reconnect')) reconnect(t.getAttribute('data-reconnect'));
+    else if (t.hasAttribute('data-unlink')) unlink(t.getAttribute('data-unlink'));
+    else if (t.hasAttribute('data-refresh')) refresh(t);
+    else if (t.hasAttribute('data-add')) accountForm(null);
     else if (t.hasAttribute('data-history')) { mode = 'history'; Fin.rerender(); window.scrollTo({ top: 0 }); }
     else if (t.hasAttribute('data-acct')) openAccount(t.getAttribute('data-acct'));
     else if (t.hasAttribute('data-fill')) fillBack(view, t.getAttribute('data-fill'));
@@ -396,5 +550,6 @@
   window.addEventListener('beforeunload', function (e) { if (Object.keys(dirty).length) { e.preventDefault(); e.returnValue = ''; } });
 
   Fin.openAccountForm = function () { Fin.go('accounts'); accountForm(null); };
+  Fin.linkBank = linkBank;
   Fin.openHistory = function () { mode = 'history'; Fin.go('accounts'); };
 })();

@@ -1,0 +1,223 @@
+// Transactions: one encrypted file per month (finance/tx/YYYY-MM.json,
+// { month, transactions: [...] }, newest first). Amounts are cents, money
+// out negative. A transaction counts as a transfer (left out of income and
+// spending) when its category's kind is "transfer" (data.js).
+//
+// Fields: id, acct, date, auth, amt, name, merchant, raw, cat,
+// catSrc (plaid | auto | rule | ai | user), pfc, pending, pendingId, pair
+// (the other half of a transfer between our own accounts), note, hidden,
+// reviewed (false = in the "Needs review" queue).
+
+import { readSecure, updateSecure } from './vault.js';
+import { txPath, familyDay, addMonths, canSee, updateState, ACCOUNT_TYPES } from './data.js';
+import { payeeKey, ruleFor, applyRule } from './categorize.js';
+import { randomId } from '../recipes.js';
+
+const fail = (status, message) => Object.assign(new Error(message), { status });
+const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+const emptyMonth = m => () => ({ month: m, transactions: [] });
+const byNewest = (a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
+
+export function checkMonth(m) {
+  if (!MONTH.test(String(m || ''))) throw fail(400, 'Bad month.');
+  return m;
+}
+export async function readMonth(m) {
+  const f = await readSecure(txPath(m), { etag: false });
+  return f ? f.data.transactions || [] : [];
+}
+export const updateMonth = (m, fn) => updateSecure(txPath(m), d => { d.transactions = fn(d.transactions || []) || d.transactions; }, emptyMonth(m));
+
+export function isTransferCat(state, cat) {
+  const c = (state.categories || []).find(x => x.id === cat);
+  return !!(c && c.kind === 'transfer');
+}
+
+// What the browser gets: only transactions on accounts this viewer can see.
+export function visibleTx(list, state, viewer) {
+  const ok = new Set((state.accounts || []).filter(a => canSee(a, viewer)).map(a => a.id));
+  return list.filter(t => ok.has(t.acct));
+}
+
+/* ---------- transfers between our own accounts ---------- */
+// Pairs money leaving one of our accounts with the same amount arriving in
+// another within 3 days, and files both as a transfer (or a card payment,
+// or saving). Loan and mortgage payments stay as spending. Leaves alone
+// anything the family or a rule already categorized.
+export function detectTransfers(list, state) {
+  const acct = new Map((state.accounts || []).map(a => [a.id, a]));
+  const free = t => !t.pair && !t.pending && t.catSrc !== 'user' && t.catSrc !== 'rule' && acct.has(t.acct);
+  const day = d => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 864e5;
+  const outs = list.filter(t => t.amt < 0 && free(t));
+  for (const o of outs) {
+    if (o.pair) continue;
+    const match = list.find(i => i.amt === -o.amt && i.acct !== o.acct && free(i) && !i.pair && Math.abs(day(i.date) - day(o.date)) <= 3);
+    if (!match) continue;
+    const from = acct.get(o.acct), to = acct.get(match.acct);
+    if (['loan', 'mortgage'].includes(from.type) || ['loan', 'mortgage'].includes(to.type)) continue;
+    const cat = from.type === 'credit' || to.type === 'credit' ? 'card-payment'
+      : ['investment', 'retirement'].includes(to.type) || (to.type === 'cash' && /sav/i.test(to.name || '')) ? 'saving' : 'transfer';
+    for (const t of [o, match]) { t.cat = cat; t.catSrc = 'auto'; t.reviewed = true; }
+    o.pair = match.id; match.pair = o.id;
+  }
+  return list;
+}
+
+/* ---------- reading ---------- */
+export async function monthList(m, state, viewer) {
+  checkMonth(m);
+  return { month: m, transactions: visibleTx(await readMonth(m), state, viewer) };
+}
+
+// Everything waiting for a look, from the last three months.
+export async function reviewList(state, viewer) {
+  const cur = familyDay().slice(0, 7);
+  const months = [cur, addMonths(cur, -1), addMonths(cur, -2)];
+  const lists = await Promise.all(months.map(readMonth));
+  const out = [];
+  lists.forEach((list, i) => visibleTx(list, state, viewer).forEach(t => { if (t.reviewed === false && !t.hidden) out.push({ ...t, month: months[i] }); }));
+  return { transactions: out.sort(byNewest) };
+}
+
+/* ---------- editing ---------- */
+// edits: [{ id, month, cat?, note?, hidden?, reviewed? }]. rule: { id, month, cat }
+// means "always put this merchant in cat": it's saved for future
+// transactions and applied to the last six months now.
+export async function editTransactions({ edits, rule }, state, viewer) {
+  edits = Array.isArray(edits) ? edits.slice(0, 500) : [];
+  const cats = new Set((state.categories || []).map(c => c.id));
+  const visible = new Set((state.accounts || []).filter(a => canSee(a, viewer)).map(a => a.id));
+  const byMonth = {};
+  for (const e of edits) {
+    checkMonth(e.month);
+    if (e.cat !== undefined && e.cat !== null && !cats.has(e.cat)) throw fail(400, 'Unknown category.');
+    (byMonth[e.month] = byMonth[e.month] || []).push(e);
+  }
+  const learned = {}; // merchant key -> category, for the payee memory
+  for (const [m, list] of Object.entries(byMonth)) {
+    await updateMonth(m, txs => {
+      for (const e of list) {
+        const t = txs.find(x => x.id === e.id);
+        if (!t || !visible.has(t.acct)) throw fail(404, 'That transaction wasn’t found.');
+        if (e.cat !== undefined) { t.cat = e.cat; t.catSrc = 'user'; t.reviewed = true; learned[payeeKey(t.raw || t.name)] = e.cat; }
+        if (e.note !== undefined) t.note = String(e.note || '').slice(0, 500);
+        if (e.hidden !== undefined) t.hidden = !!e.hidden;
+        if (e.reviewed !== undefined) { t.reviewed = !!e.reviewed; if (t.cat) learned[payeeKey(t.raw || t.name)] = t.cat; }
+      }
+      return txs;
+    });
+  }
+
+  let ruleSaved = null;
+  if (rule && rule.id) {
+    checkMonth(rule.month);
+    if (!cats.has(rule.cat)) throw fail(400, 'Unknown category.');
+    const src = (await readMonth(rule.month)).find(t => t.id === rule.id);
+    if (!src || !visible.has(src.acct)) throw fail(404, 'That transaction wasn’t found.');
+    const text = payeeKey(src.name) || payeeKey(src.raw);
+    if (!text) throw fail(400, 'That merchant’s name is too short to make a rule from.');
+    ruleSaved = { id: 'r_' + randomId(8), text, label: src.name, cat: rule.cat, createdBy: viewer, createdAt: new Date().toISOString() };
+    const cur = familyDay().slice(0, 7);
+    for (let k = 0; k < 6; k++) {
+      await updateMonth(addMonths(cur, -k), txs => {
+        txs.forEach(t => { if (t.catSrc !== 'user' && ruleFor(t, [ruleSaved])) applyRule(t, ruleSaved); });
+        return txs;
+      });
+    }
+  }
+
+  return updateState(s => {
+    if (ruleSaved) s.rules = (s.rules || []).filter(r => r.text !== ruleSaved.text).concat(ruleSaved);
+    s.payees = s.payees || {};
+    for (const [k, cat] of Object.entries(learned)) if (k && s.payees[k]) s.payees[k] = { ...s.payees[k], cat, reviewed: true };
+  });
+}
+
+/* ---------- hand-added transactions (accounts kept by hand only) ---------- */
+export async function addManual(input, state, viewer) {
+  const a = (state.accounts || []).find(x => x.id === input.acct);
+  if (!a || !canSee(a, viewer)) throw fail(404, 'That account wasn’t found.');
+  if (a.src === 'plaid') throw fail(400, 'Linked accounts get their transactions from the bank.');
+  const date = String(input.date || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > familyDay()) throw fail(400, 'Pick a date, today or earlier.');
+  const amt = Math.round(Number(input.amt));
+  if (!Number.isFinite(amt) || amt === 0 || Math.abs(amt) > 1e12) throw fail(400, 'Enter an amount.');
+  const cats = new Set((state.categories || []).map(c => c.id));
+  const name = String(input.name || '').trim().slice(0, 80);
+  if (!name) throw fail(400, 'Say what it was for.');
+  const t = {
+    id: 'm_' + randomId(12), acct: a.id, date, amt, name, raw: name, merchant: null,
+    cat: cats.has(input.cat) ? input.cat : null, catSrc: 'user', pending: false, reviewed: true,
+    note: String(input.note || '').slice(0, 500), adjusted: input.adjust !== false, createdBy: viewer
+  };
+  await updateMonth(date.slice(0, 7), txs => txs.concat(t).sort(byNewest));
+  if (!t.adjusted) return state;
+  // Money in raises what you own and lowers what you owe.
+  return updateState(s => {
+    const acc = s.accounts.find(x => x.id === a.id);
+    if (acc) { acc.balance = (acc.balance || 0) + (ACCOUNT_TYPES[acc.type].side === 'liability' ? -amt : amt); acc.asOf = new Date().toISOString(); }
+  });
+}
+
+export async function deleteManual(id, month, state, viewer) {
+  checkMonth(month);
+  if (!String(id).startsWith('m_')) throw fail(400, 'Only transactions added by hand can be deleted.');
+  let removed = null;
+  await updateMonth(month, txs => {
+    const t = txs.find(x => x.id === id);
+    const a = t && (state.accounts || []).find(x => x.id === t.acct);
+    if (!t || !a || !canSee(a, viewer)) throw fail(404, 'That transaction wasn’t found.');
+    removed = t;
+    return txs.filter(x => x.id !== id);
+  });
+  if (!removed.adjusted) return state;
+  return updateState(s => {
+    const acc = s.accounts.find(x => x.id === removed.acct);
+    if (acc) { acc.balance = (acc.balance || 0) - (ACCOUNT_TYPES[acc.type].side === 'liability' ? -removed.amt : removed.amt); acc.asOf = new Date().toISOString(); }
+  });
+}
+
+/* ---------- export ---------- */
+export async function exportCsv(from, to, state, viewer) {
+  checkMonth(from); checkMonth(to);
+  if (from > to) [from, to] = [to, from];
+  const months = [];
+  for (let m = from; m <= to && months.length < 36; m = addMonths(m, 1)) months.push(m);
+  const lists = await Promise.all(months.map(readMonth));
+  const acct = new Map((state.accounts || []).map(a => [a.id, a]));
+  const cat = new Map((state.categories || []).map(c => [c.id, c.name]));
+  // Text that a spreadsheet would run as a formula (=, +, -, @) gets a
+  // leading apostrophe; amounts stay plain numbers.
+  const cell = v => {
+    let s = String(v == null ? '' : v);
+    if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = "'" + s;
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const rows = [['Date', 'Account', 'Merchant', 'Description', 'Category', 'Amount', 'Pending', 'Hidden', 'Note']];
+  lists.flatMap(l => visibleTx(l, state, viewer)).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)).forEach(t => {
+    const a = acct.get(t.acct);
+    rows.push([t.date, a ? (a.nick || a.name) + (a.mask ? ' ••' + a.mask : '') : '', t.name, t.raw, cat.get(t.cat) || '', (t.amt / 100).toFixed(2), t.pending ? 'yes' : '', t.hidden ? 'yes' : '', t.note || '']);
+  });
+  return new Response('﻿' + rows.map(r => r.map(cell).join(',')).join('\r\n') + '\r\n', {
+    headers: {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="transactions-${from}-to-${to}.csv"`,
+      'Cache-Control': 'no-store'
+    }
+  });
+}
+
+/* ---------- for the Overview ---------- */
+// The ten newest, and how many are waiting in the review queue (the same
+// three months reviewList looks at).
+export async function recentAndReview(state, viewer) {
+  if (!(state.accounts || []).length) return { recent: [], toReview: 0 };
+  const cur = familyDay().slice(0, 7);
+  const months = [cur, addMonths(cur, -1), addMonths(cur, -2)];
+  const lists = await Promise.all(months.map(readMonth));
+  const list = visibleTx(lists.flatMap((l, i) => l.map(t => ({ ...t, month: months[i] }))), state, viewer);
+  return {
+    recent: list.filter(t => !t.hidden).sort(byNewest).slice(0, 10),
+    toReview: list.filter(t => t.reviewed === false && !t.hidden).length
+  };
+}

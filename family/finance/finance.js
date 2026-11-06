@@ -196,6 +196,18 @@
       : d.accounts.length ? 'Balances you’ve entered' : 'Nothing linked yet';
   }
 
+  // Banks sync daily on their own (the cron); opening Finance after 6 hours
+  // without one syncs in the background, then redraws.
+  function autoSync() {
+    var d = Fin.data;
+    if (!d.setup.plaid || !(d.items || []).length) return;
+    if (d.lastSync && Date.now() - new Date(d.lastSync) < 6 * 3600 * 1000) return;
+    $('#sync').textContent = 'Syncing your banks…';
+    Hub.api('fin-sync', { body: {} }).then(function (data) {
+      if (data.synced) { if (Fin.invalidateTx) Fin.invalidateTx(); Fin.apply(data); } else drawSync();
+    }).catch(function () { drawSync(); });
+  }
+
   // The tab row sticks just under the hub bar, whose height depends on the screen.
   function measureBar() {
     var bar = $('.hub-bar');
@@ -217,6 +229,7 @@
         drawHide();
         drawSync();
         show(current());
+        autoSync();
       }).catch(function (e) {
         $('#view').innerHTML = '<div class="hub-empty"><h3>Couldn’t load Finance</h3><p>' + esc(e.message) + '</p><button class="btn btn-ghost" type="button" onclick="location.reload()">Try again</button></div>';
       });
