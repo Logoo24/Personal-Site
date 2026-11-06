@@ -22,6 +22,7 @@
 //   POST   fin-tx {...}                 -> add a transaction to a hand-kept account
 //   DELETE fin-tx&id=&month=            -> delete a hand-added transaction
 //   GET    fin-export&from=&to=         -> CSV download
+//   GET    fin-reports&months=          -> up to 24 months summed up for the Reports tab
 //   POST   fin-recurring {action, ...}  -> scan for recurring money, or confirm /
 //                                          dismiss / edit / add / delete one
 //   GET    fin-cron                     -> the daily job (Vercel Cron, CRON_SECRET)
@@ -32,7 +33,7 @@ import { snapshotNeeded, snapshotToday, applyBackfill } from './snapshots.js';
 import { saveAccount, setBalance, deleteAccount } from './accounts.js';
 import { plaidConfigured } from './plaid.js';
 import { newLinkToken, linkBank, reconnected, removeBank, syncAll, HOLDINGS } from './sync.js';
-import { monthList, reviewList, editTransactions, addManual, deleteManual, exportCsv, recentAndReview } from './transactions.js';
+import { monthList, reviewList, editTransactions, addManual, deleteManual, exportCsv, recentAndReview, reportData } from './transactions.js';
 import { scanRecurring, visibleRecurring, upcoming, changeRecurring } from './recurring.js';
 import { safeEqual } from '../session.js';
 
@@ -159,6 +160,7 @@ export async function financeRoute(request, url, user, r) {
     case 'POST fin-tx': return summary(user, viewer, await addManual(await body(request), await loadState(), viewer));
     case 'DELETE fin-tx': return summary(user, viewer, await deleteManual(q('id'), q('month'), await loadState(), viewer));
     case 'GET fin-export': return exportCsv(q('from'), q('to'), await loadState(), viewer);
+    case 'GET fin-reports': return reportData(await loadState(), viewer, q('months') || 24);
 
     case 'POST fin-recurring': {
       const input = await body(request);

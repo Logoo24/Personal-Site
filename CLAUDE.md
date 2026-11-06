@@ -141,13 +141,19 @@ A private area for the Randall family, separate from the public site. Every foot
   - `priceUp` flags a steady charge whose price rose in the last 75 days.
   - The summary's `monthTx` (this month and last, transfers left out) feeds the Overview's "This month" card, so the person filter works without another request.
 
+  Reports (`family/finance/reports.js`):
+  - Ten reports: cash flow (bars with a net line, plus a money-flow diagram), spending by category against the period before, category trend, income by source, merchants, net worth by kind (stacked bars, debts below the line), bills and subscriptions, debt payoff (avalanche vs. snowball with an extra-per-month slider, simulated in the browser), investments (holdings and allocation) and year/month in review.
+  - They all come from one request, `?r=fin-reports` (`reportData()` in `transactions.js`). It returns up to 24 months summed by month, account and category, plus each month's top merchants and biggest purchases. It's computed from the month files on each request (about 24 Blob reads), not kept as a rollup file, so it can never go stale. The page caches it for 5 minutes, or until a transaction edit.
+  - Net worth, bills, debt and investments use the summary (snapshots, recurring) and `fin-holdings` instead.
+  - Totals net out refunds and leave transfers out.
+
   The daily cron:
   - `vercel.json` `crons` hits `/api/finance-cron` at 11:00 UTC; Hobby fires it sometime in that hour.
   - A rewrite sends that path to `?r=fin-cron`, which `family.js` routes before the session check. It's guarded by `Authorization: Bearer $CRON_SECRET`.
 
   Pages and charts:
   - One page with hash tabs. `finance.js` is the shell (the `window.Fin` helpers, the person filter, hide-amounts) and each tab registers through `Fin.tab(id, render)`.
-  - `charts.js` (`window.FinCharts`: line, bars, ranked hbars, sparkline) is plain SVG following the dataviz skill. The palette in `finance.css` was validated against the hub's card surfaces (`#FFFFFF` / `#131318`); single-series charts use `--accent`.
+  - `charts.js` (`window.FinCharts`: line, bars (with an optional overlaid line), stackedBars, flow (a two-column sankey), ranked hbars, sparkline) is plain SVG following the dataviz skill. The palette in `finance.css` was validated against the hub's card surfaces (`#FFFFFF` / `#131318`); single-series charts use `--accent`.
 
   Local testing:
   - `node scripts/finance-demo.mjs` seeds `.family-data/finance/` with a simulated year. It refuses to run if a Blob store is configured.

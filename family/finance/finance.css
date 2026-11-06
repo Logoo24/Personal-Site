@@ -252,6 +252,30 @@
 .fin-tag--up { border-color: color-mix(in srgb, var(--fin-bad) 45%, transparent); color: var(--fin-bad); }
 .fin-tag--up svg { width: 11px; height: 11px; }
 
+/* Reports tab */
+.fin-row--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 960px) { .fin-row--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 420px) { .fin-row--4 { grid-template-columns: minmax(0, 1fr); } }
+.fin-report-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1rem; }
+.fin-report-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.fin-period { padding: 0.5rem 0.7rem; width: auto !important; min-width: 11rem; }
+.fin-report > * + * { margin-top: 1.25rem; }
+.fin-report-pick { max-width: 320px; }
+.fin-flow-note { margin: -0.4rem 0 0.9rem; }
+.fin-table-wrap { overflow-x: auto; }
+.fin-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.fin-table th, .fin-table td { padding: 0.55rem 0.6rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.fin-table th { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+.fin-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fin-table td:first-child { overflow-wrap: anywhere; }
+.fin-table .fin-acct-sub { display: block; white-space: normal; }
+.fin-table .fin-link { text-align: left; }
+.fin-range { width: 100%; accent-color: var(--accent); margin: 0.25rem 0 0.6rem; height: 28px; }
+.fin-review h2 { font-family: var(--display); font-size: clamp(1.4rem, 3vw, 1.9rem); margin-bottom: 0.6rem; }
+.fin-review-lede { font-size: 1.05rem; line-height: 1.65; color: var(--text-soft); max-width: 720px; }
+.fin-review-lede b { color: var(--text); font-weight: 600; }
+.fin-kpi-value.is-text { font-size: 1.35rem; overflow-wrap: anywhere; }
+
 /* ============================================================
    CHARTS (charts.js)
    ============================================================ */
@@ -308,6 +332,11 @@
 .fc-hrow-value { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
 .fc-hrow-track { height: 10px; }
 .fc-hrow-bar { height: 100%; border-radius: 0 4px 4px 0; }
+.fc-ribbon { opacity: 0.28; transition: opacity .15s; }
+.fc-ribbon.on { opacity: 0.55; }
+.fc-node { stroke: var(--fc-surface); stroke-width: 1; }
+.fc-flow-label { fill: var(--text); font: 600 12px var(--sans); }
+.fc-flow-value { fill: var(--text-muted); font: 500 11px var(--sans); font-variant-numeric: tabular-nums; }
 .fc-spark-line { fill: none; stroke: var(--text-muted); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; opacity: 0.7; }
 
 /* ---------- touch screens ---------- */

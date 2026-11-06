@@ -207,6 +207,47 @@ export async function exportCsv(from, to, state, viewer) {
   });
 }
 
+/* ---------- for the Reports tab ---------- */
+// Up to 24 months boiled down, so the page can draw every report (and
+// switch between them) from one request: per month, account and category
+// the money in and out; per month and merchant the totals; and each
+// month's biggest purchases. Hidden and pending transactions are left out;
+// transfers are kept (with their category) and the page leaves them out
+// where they'd double count. Computed from the month files each time
+// rather than kept as a separate file, so it's never out of date.
+export async function reportData(state, viewer, n = 24) {
+  n = Math.min(Math.max(Math.round(Number(n)) || 24, 1), 24);
+  const cur = familyDay().slice(0, 7);
+  const months = [];
+  for (let k = n - 1; k >= 0; k--) months.push(addMonths(cur, -k));
+  const lists = await Promise.all(months.map(readMonth));
+  const rows = [], merchants = [], big = [];
+  lists.forEach((list, i) => {
+    const m = months[i];
+    const byCat = new Map(), byMerch = new Map(), purchases = [];
+    for (const t of visibleTx(list, state, viewer)) {
+      if (t.hidden || t.pending) continue;
+      const k = t.acct + '|' + (t.cat || '');
+      const r = byCat.get(k) || { m, a: t.acct, c: t.cat || null, i: 0, o: 0, n: 0 };
+      if (t.amt > 0) r.i += t.amt; else r.o -= t.amt;
+      r.n++;
+      byCat.set(k, r);
+      if (isTransferCat(state, t.cat)) continue;
+      const mk = t.acct + '|' + t.name;
+      const mm = byMerch.get(mk) || { m, a: t.acct, name: t.name, c: t.cat || null, i: 0, o: 0, n: 0, last: t.date };
+      if (t.amt > 0) mm.i += t.amt; else mm.o -= t.amt;
+      mm.n++;
+      if (t.date > mm.last) mm.last = t.date;
+      byMerch.set(mk, mm);
+      if (t.amt < 0) purchases.push({ m, a: t.acct, name: t.name, c: t.cat || null, amt: -t.amt, date: t.date });
+    }
+    rows.push(...byCat.values());
+    merchants.push(...[...byMerch.values()].sort((x, y) => (y.o + y.i) - (x.o + x.i)).slice(0, 60));
+    big.push(...purchases.sort((x, y) => y.amt - x.amt).slice(0, 5));
+  });
+  return { months, rows, merchants, big };
+}
+
 /* ---------- for the Overview ---------- */
 // The ten newest, how many are waiting in the review queue (the same three
 // months reviewList looks at), and this month's and last month's counted

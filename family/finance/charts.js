@@ -10,8 +10,12 @@
 
    FinCharts.line(el, { labels, titles, series:[{name,color,values,area}],
                         est:[bool], format, axisFormat, height, ariaLabel })
-   FinCharts.bars(el, { labels, titles, series:[{name,color,values}],
+   FinCharts.bars(el, { labels, titles, series:[{name,color,values}], line?,
                         format, axisFormat, height, ariaLabel })
+   FinCharts.stackedBars(el, { labels, titles, series, line?, format, ... })
+                        (positive values stack up, negative ones down)
+   FinCharts.flow(el, { left:[{name,value,color}], right:[...],
+                        links:[{from,to,value}], format, ariaLabel })
    FinCharts.hbars(el, { rows:[{label,value,sub}], color, format, ariaLabel })
    FinCharts.sparkline(el, { values, est, color, height })
    ============================================================ */
@@ -68,7 +72,7 @@
     var lg = htmlEl('div', 'fc-legend', parent);
     series.forEach(function (s) {
       var item = htmlEl('span', 'fc-legend-item', lg);
-      var key = htmlEl('span', 'fc-key fc-key--' + kind, item);
+      var key = htmlEl('span', 'fc-key fc-key--' + (s.kind || kind), item);
       key.style.background = s.color;
       htmlEl('span', null, item, s.name);
     });
@@ -114,7 +118,8 @@
   }
   function frame(el, opts) {
     var fig = htmlEl('div', 'fc', el);
-    if (opts.series && opts.series.length > 1) legend(fig, opts.series, opts.kind);
+    var keys = (opts.series || []).concat(opts.line ? [Object.assign({ kind: 'line' }, opts.line)] : []);
+    if (keys.length > 1) legend(fig, keys, opts.kind);
     var plot = htmlEl('div', 'fc-plot', fig);
     return { fig: fig, plot: plot };
   }
@@ -237,13 +242,15 @@
     if (y1 < y0) return 'M' + x + ',' + y0 + 'V' + (y1 + r) + 'Q' + x + ',' + y1 + ' ' + (x + r) + ',' + y1 + 'H' + (x + w - r) + 'Q' + (x + w) + ',' + y1 + ' ' + (x + w) + ',' + (y1 + r) + 'V' + y0 + 'Z';
     return 'M' + x + ',' + y0 + 'V' + (y1 - r) + 'Q' + x + ',' + y1 + ' ' + (x + r) + ',' + y1 + 'H' + (x + w - r) + 'Q' + (x + w) + ',' + y1 + ' ' + (x + w) + ',' + (y1 - r) + 'V' + y0 + 'Z';
   }
+  // opts.line: { name, color, values } - one line drawn over the bars on
+  // the same axis (the same unit), e.g. the net under money in and out.
   function bars(el, opts) {
     mount(el, function (width) {
       var series = opts.series, labels = opts.labels, n = labels.length, k = series.length;
       var fmt = opts.format || String, axisFmt = opts.axisFormat || fmt;
-      var f = frame(el, { series: series, kind: 'bar' });
+      var f = frame(el, { series: series, kind: 'bar', line: opts.line });
       var all = [];
-      series.forEach(function (s) { s.values.forEach(function (v) { if (v != null) all.push(v); }); });
+      series.concat(opts.line ? [opts.line] : []).forEach(function (s) { s.values.forEach(function (v) { if (v != null) all.push(v); }); });
       var nt = niceTicks(Math.min.apply(null, all.concat(0)), Math.max.apply(null, all.concat(0)), 4, true);
       var g = {
         width: width, height: opts.height || 240, top: 12, bottom: 26, right: 8,
@@ -266,17 +273,164 @@
           var d = barPath(x0 + j * (barW + 2), barW, y(0), y(v));
           if (d) svgEl('path', { d: d, fill: s.color, class: 'fc-bar' }, svg);
         });
+      });
+      if (opts.line) {
+        var d = '';
+        opts.line.values.forEach(function (v, i) { if (v != null) d += (d && opts.line.values[i - 1] != null ? 'L' : 'M') + xAt(i) + ',' + y(v); });
+        svgEl('path', { d: d, stroke: opts.line.color, class: 'fc-line' }, svg);
+        opts.line.values.forEach(function (v, i) { if (v != null) svgEl('circle', { cx: xAt(i), cy: y(v), r: 4, fill: opts.line.color, class: 'fc-dot' }, svg); });
+      }
+      var everything = series.concat(opts.line ? [opts.line] : []);
+      labels.forEach(function (l, i) {
         var hit = svgEl('rect', { x: g.left + band * i, y: g.top, width: band, height: ph, class: 'fc-hit' }, svg);
         function show() {
           hover.setAttribute('x', g.left + band * i); hover.classList.add('show');
-          tip.show((opts.titles || labels)[i], series.filter(function (s) { return s.values[i] != null; }).map(function (s) {
+          tip.show((opts.titles || labels)[i], everything.filter(function (s) { return s.values[i] != null; }).map(function (s) {
             return { color: s.color, value: fmt(s.values[i]), name: s.name };
           }), xAt(i) + groupW / 2, g.top, width);
         }
         hit.addEventListener('pointerenter', show);
         hit.addEventListener('pointerleave', function () { hover.classList.remove('show'); tip.hide(); });
       });
-      if (opts.table !== false) table(f.fig, opts.titles || labels, series, fmt);
+      if (opts.table !== false) table(f.fig, opts.titles || labels, everything, fmt);
+    });
+  }
+
+  /* ---------- stacked bars (positive values stack up, negative down) ---------- */
+  // Segments are separated by a 2px surface gap; only the outermost
+  // segment of each stack gets the rounded data end.
+  function stackedBars(el, opts) {
+    mount(el, function (width) {
+      var series = opts.series, labels = opts.labels, n = labels.length;
+      var fmt = opts.format || String, axisFmt = opts.axisFormat || fmt;
+      var f = frame(el, { series: series, kind: 'bar', line: opts.line });
+      var hi = 0, lo = 0;
+      for (var i = 0; i < n; i++) {
+        var up = 0, down = 0;
+        series.forEach(function (s) { var v = s.values[i] || 0; if (v > 0) up += v; else down += v; });
+        hi = Math.max(hi, up); lo = Math.min(lo, down);
+      }
+      if (opts.line) opts.line.values.forEach(function (v) { if (v != null) { hi = Math.max(hi, v); lo = Math.min(lo, v); } });
+      var nt = niceTicks(lo, hi, 4, true);
+      var g = {
+        width: width, height: opts.height || 260, top: 12, bottom: 26, right: 8,
+        left: Math.max.apply(null, nt.ticks.map(function (v) { return textWidth(axisFmt(v)); })) + 14
+      };
+      var pw = g.width - g.left - g.right, ph = g.height - g.top - g.bottom, band = pw / n;
+      var barW = Math.max(4, Math.min(24, band * 0.6));
+      var xAt = function (i) { return g.left + band * i + band / 2; };
+      var y = function (v) { return g.top + ph - (v - nt.lo) / (nt.hi - nt.lo) * ph; };
+      var svg = svgEl('svg', { width: width, height: g.height, viewBox: '0 0 ' + width + ' ' + g.height, role: 'img', 'aria-label': opts.ariaLabel || '' }, f.plot);
+      var hover = svgEl('rect', { y: g.top, width: band, height: ph, class: 'fc-band' }, svg);
+      axes(svg, g, nt.ticks, y, labels, xAt, axisFmt);
+      var tip = tooltip(f.plot);
+      labels.forEach(function (l, i) {
+        var x0 = xAt(i) - barW / 2;
+        [1, -1].forEach(function (sign) {
+          var segs = series.map(function (s) { return { s: s, v: s.values[i] || 0 }; }).filter(function (p) { return p.v * sign > 0; });
+          var base = 0;
+          segs.forEach(function (p, j) {
+            var outer = j === segs.length - 1;
+            var y0 = y(base), y1 = y(base + p.v);
+            // the 2px gap: pull each segment's inner edge away from the one below
+            var gapped = j > 0 ? (sign > 0 ? y0 - 2 : y0 + 2) : y0;
+            if (Math.abs(y1 - gapped) >= 1) {
+              var d = outer ? barPath(x0, barW, gapped, y1)
+                : 'M' + x0 + ',' + gapped + 'V' + y1 + 'H' + (x0 + barW) + 'V' + gapped + 'Z';
+              if (d) svgEl('path', { d: d, fill: p.s.color, class: 'fc-bar' }, svg);
+            }
+            base += p.v;
+          });
+        });
+      });
+      if (opts.line) {
+        var d = '';
+        opts.line.values.forEach(function (v, i) { if (v != null) d += (d && opts.line.values[i - 1] != null ? 'L' : 'M') + xAt(i) + ',' + y(v); });
+        svgEl('path', { d: d, stroke: opts.line.color, class: 'fc-line' }, svg);
+        opts.line.values.forEach(function (v, i) { if (v != null) svgEl('circle', { cx: xAt(i), cy: y(v), r: 4, fill: opts.line.color, class: 'fc-dot' }, svg); });
+      }
+      var everything = series.concat(opts.line ? [opts.line] : []);
+      labels.forEach(function (l, i) {
+        var hit = svgEl('rect', { x: g.left + band * i, y: g.top, width: band, height: ph, class: 'fc-hit' }, svg);
+        hit.addEventListener('pointerenter', function () {
+          hover.setAttribute('x', g.left + band * i); hover.classList.add('show');
+          tip.show((opts.titles || labels)[i], everything.filter(function (s) { return s.values[i]; }).map(function (s) {
+            return { color: s.color, value: fmt(s.values[i]), name: s.name };
+          }), xAt(i) + barW / 2, g.top, width);
+        });
+        hit.addEventListener('pointerleave', function () { hover.classList.remove('show'); tip.hide(); });
+      });
+      if (opts.table !== false) table(f.fig, opts.titles || labels, everything, fmt);
+    });
+  }
+
+  /* ---------- flow (a two-column sankey) ---------- */
+  // opts: { left: [{ name, value, color }], right: [{ name, value, color }],
+  //         links: [{ from, to, value }] (indexes), format, ariaLabel }
+  // Left nodes carry their color into their ribbons; right nodes are neutral
+  // unless given one. Labels sit outside the nodes in text colors.
+  function flow(el, opts) {
+    mount(el, function (width) {
+      var fmt = opts.format || String;
+      var fig = htmlEl('div', 'fc', el), plot = htmlEl('div', 'fc-plot', fig);
+      var L = opts.left, R = opts.right;
+      var narrow = width < 520;
+      var labelW = function (list) { return Math.min(narrow ? 110 : 190, Math.max.apply(null, list.map(function (x) { return textWidth(x.name, 12); })) + 12); };
+      var lw = labelW(L), rw = labelW(R) + (narrow ? 0 : 0);
+      var nodeW = 12, gap = 8;
+      var count = Math.max(L.length, R.length);
+      var h = opts.height || Math.max(220, count * 34);
+      var svg = svgEl('svg', { width: width, height: h, viewBox: '0 0 ' + width + ' ' + h, role: 'img', 'aria-label': opts.ariaLabel || '' }, plot);
+      var xL = lw, xR = width - rw - nodeW;
+      function place(list) {
+        var total = list.reduce(function (m, x) { return m + x.value; }, 0) || 1;
+        var avail = h - gap * (list.length - 1);
+        var yy = 0;
+        return list.map(function (x) { var hh = Math.max(2, x.value / total * avail); var o = { y: yy, h: hh, used: 0 }; yy += hh + gap; return o; });
+      }
+      var pl = place(L), pr = place(R);
+      var tip = tooltip(plot);
+      opts.links.forEach(function (lk) {
+        var a = pl[lk.from], b = pr[lk.to];
+        var ha = lk.value / L[lk.from].value * a.h, hb = lk.value / R[lk.to].value * b.h;
+        if (!isFinite(ha) || !isFinite(hb) || ha <= 0) return;
+        var ya = a.y + a.used, yb = b.y + b.used;
+        a.used += ha; b.used += hb;
+        var x1 = xL + nodeW, x2 = xR, mx = (x1 + x2) / 2;
+        var d = 'M' + x1 + ',' + ya + 'C' + mx + ',' + ya + ' ' + mx + ',' + yb + ' ' + x2 + ',' + yb +
+          'L' + x2 + ',' + (yb + hb) + 'C' + mx + ',' + (yb + hb) + ' ' + mx + ',' + (ya + ha) + ' ' + x1 + ',' + (ya + ha) + 'Z';
+        var p = svgEl('path', { d: d, fill: L[lk.from].color, class: 'fc-ribbon' }, svg);
+        p.addEventListener('pointerenter', function (e) {
+          p.classList.add('on');
+          var r = svg.getBoundingClientRect();
+          tip.show(L[lk.from].name + ' → ' + R[lk.to].name, [{ color: L[lk.from].color, value: fmt(lk.value), name: '' }], e.clientX - r.left, Math.max(0, e.clientY - r.top - 60), width);
+        });
+        p.addEventListener('pointerleave', function () { p.classList.remove('on'); tip.hide(); });
+      });
+      function nodes(list, pos, x, side) {
+        list.forEach(function (n, i) {
+          svgEl('rect', { x: x, y: pos[i].y, width: nodeW, height: pos[i].h, rx: 3, fill: n.color || 'var(--text-muted)', class: 'fc-node' }, svg);
+          var cy = pos[i].y + pos[i].h / 2;
+          var t = svgEl('text', { x: side === 'left' ? x - 8 : x + nodeW + 8, y: cy - (narrow ? 0 : 1), 'text-anchor': side === 'left' ? 'end' : 'start', class: 'fc-flow-label' }, svg);
+          t.textContent = n.name;
+          if (!narrow && pos[i].h >= 26) {
+            var v = svgEl('text', { x: side === 'left' ? x - 8 : x + nodeW + 8, y: cy + 13, 'text-anchor': side === 'left' ? 'end' : 'start', class: 'fc-flow-value fc-val' }, svg);
+            v.textContent = fmt(n.value);
+          }
+        });
+      }
+      nodes(L, pl, xL, 'left');
+      nodes(R, pr, xR, 'right');
+      if (opts.table !== false) {
+        var d = htmlEl('details', 'fc-table', fig);
+        htmlEl('summary', null, d, 'Show as table');
+        var t = htmlEl('table', null, htmlEl('div', 'fc-table-wrap', d));
+        var hr = htmlEl('tr', null, htmlEl('thead', null, t));
+        ['From', 'To', 'Amount'].forEach(function (x) { htmlEl('th', null, hr, x); });
+        var tb = htmlEl('tbody', null, t);
+        L.forEach(function (x) { var tr = htmlEl('tr', null, tb); htmlEl('th', null, tr, x.name); htmlEl('td', null, tr, '(in)'); htmlEl('td', 'fc-val', tr, fmt(x.value)); });
+        R.forEach(function (x) { var tr = htmlEl('tr', null, tb); htmlEl('th', null, tr, '(out)'); htmlEl('td', null, tr, x.name); htmlEl('td', 'fc-val', tr, fmt(x.value)); });
+      }
     });
   }
 
@@ -328,5 +482,5 @@
     });
   }
 
-  window.FinCharts = { line: line, bars: bars, hbars: hbars, sparkline: sparkline, niceTicks: niceTicks };
+  window.FinCharts = { line: line, bars: bars, stackedBars: stackedBars, flow: flow, hbars: hbars, sparkline: sparkline, niceTicks: niceTicks };
 })();
