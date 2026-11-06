@@ -29,7 +29,36 @@
 .fin-seg button + button { border-left: 1px solid var(--line); }
 .fin-seg button:hover { color: var(--text); }
 .fin-seg button.on { background: var(--text); color: var(--bg); }
-#hide[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+/* "Showing: Everyone" drop-down (whose accounts), and the hide-amounts button */
+.fin-person { position: relative; }
+.fin-person-btn {
+  display: inline-flex; align-items: center; gap: 0.4rem; min-height: 38px; padding: 0.45rem 0.65rem 0.45rem 0.85rem;
+  border: 1px solid var(--line-strong); border-radius: var(--radius); background: transparent; color: var(--text);
+  font: 600 0.86rem var(--sans); cursor: pointer; white-space: nowrap; transition: border-color .2s;
+}
+.fin-person-btn:hover, .fin-person.open .fin-person-btn { border-color: var(--accent); }
+.fin-person-k { color: var(--text-muted); font-weight: 500; }
+.fin-person-btn svg { width: 16px; height: 16px; flex: none; color: var(--text-muted); transition: transform .2s; }
+.fin-person.open .fin-person-btn svg { transform: rotate(180deg); }
+.fin-person-menu {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 40; display: none;
+  width: 19rem; max-width: calc(100vw - 2 * var(--gutter)); padding: 0.4rem;
+  background: var(--hub-surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+}
+.fin-person.open .fin-person-menu { display: block; }
+.fin-person-menu button {
+  display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 0.65rem; align-items: start; width: 100%;
+  padding: 0.6rem 0.7rem; border: 0; border-radius: 8px; background: none; color: var(--text); text-align: left; cursor: pointer; font: inherit;
+}
+.fin-person-menu button:hover, .fin-person-menu button:focus-visible { background: var(--bg-alt); outline: none; }
+.fin-person-menu strong { display: block; font: 600 0.92rem var(--sans); }
+.fin-person-menu small { display: block; margin-top: 0.15rem; color: var(--text-muted); font-size: 0.82rem; line-height: 1.35; }
+.fin-person-check { padding-top: 0.15rem; color: var(--accent); visibility: hidden; }
+.fin-person-check svg { width: 16px; height: 16px; display: block; }
+.fin-person-menu [aria-checked="true"] .fin-person-check { visibility: visible; }
+.hub .fin-hide { min-height: 38px; padding: 0.45rem 0.85rem; font-size: 0.86rem; white-space: nowrap; }
+.hub .fin-hide.on { background: var(--text); color: var(--bg); border-color: var(--text); }
 
 .fin-tabs {
   position: sticky; top: calc(var(--fin-bar, 62px) - 1px); z-index: 20; /* tucked under the hub bar (finance.js measures it) */
@@ -460,7 +489,8 @@
 @media (pointer: coarse) {
   .fin-seg button { min-height: 40px; }
   .fin-tab { min-height: 42px; }
-  #hide { width: 42px; height: 42px; }
+  .fin-person-btn, .hub .fin-hide { min-height: 42px; }
+  .fin-person-menu button { padding-top: 0.75rem; padding-bottom: 0.75rem; }
   .hub .fin-cell { font-size: 16px; width: 7.25rem; }
   .fin-tx { padding-top: 0.85rem; padding-bottom: 0.85rem; }
   .fin-month .btn-icon { width: 42px; height: 42px; }
@@ -472,10 +502,17 @@
   .fin-range { height: 40px; }
 }
 @media (max-width: 560px) {
-  .fin-head-tools { width: 100%; }
-  .fin-head-tools .fin-seg { flex: 1; overflow-x: auto; scrollbar-width: none; }
-  .fin-head-tools .fin-seg::-webkit-scrollbar { display: none; }
-  .fin-head-tools .fin-seg button { flex: 1; padding-left: 0.35rem; padding-right: 0.35rem; font-size: 0.8rem; }
+  .fin-head-tools { width: 100%; flex-wrap: nowrap; }
+  .fin-person { flex: 1; min-width: 0; }
+  .fin-person-btn { width: 100%; }
+  .fin-person-v { overflow: hidden; text-overflow: ellipsis; }
+  .fin-person-btn svg { margin-left: auto; }
+  .fin-person-menu { left: 0; right: auto; }
+}
+/* Phone-width: "Everyone" plus "Hide amounts" don't fit beside "Showing" too.
+   The button's aria-label still says "Showing ...". */
+@media (max-width: 440px) {
+  .fin-person-k { display: none; }
   .fin-card { padding: 1.15rem 1.1rem; border-radius: 14px; }
   .fin-grid-wrap { margin: 0 -1.1rem; padding: 0 1.1rem 0.25rem; }
   .fin-grid tbody th, .fin-grid tfoot th, .fin-grid thead th:first-child { min-width: 8.5rem; }

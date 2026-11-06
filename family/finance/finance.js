@@ -156,34 +156,93 @@
     window.addEventListener('hashchange', function () { show(current()); window.scrollTo({ top: 0 }); });
   }
 
+  // The "Showing" drop-down: whose accounts every tab counts. Each choice
+  // has a line saying what it includes.
+  function personOptions() {
+    var me = (Fin.data.viewer || {}).email;
+    return [['all', 'Everyone', 'Both of you and your joint accounts, added together']]
+      .concat((Fin.data.people || []).map(function (p) {
+        return [p.email, p.name, p.email === me ? 'Only the accounts in your name' : 'Only the accounts in ' + p.name + '’s name'];
+      }), [['joint', 'Joint', 'Only the accounts you share']]);
+  }
+
   function drawPeople() {
-    var people = Fin.data.people || [];
-    var opts = [['all', 'Everyone']].concat(people.map(function (p) { return [p.email, p.name]; }), [['joint', 'Joint']]);
+    var opts = personOptions();
     try { Fin.person = localStorage.getItem('fin-person') || 'all'; } catch (e) {}
     if (!opts.some(function (o) { return o[0] === Fin.person; })) Fin.person = 'all';
-    var seg = $('#person');
-    seg.innerHTML = opts.map(function (o) {
-      return '<button type="button" data-person="' + esc(o[0]) + '" aria-pressed="' + (o[0] === Fin.person) + '"' + (o[0] === Fin.person ? ' class="on"' : '') + '>' + esc(o[1]) + '</button>';
-    }).join('');
-    seg.addEventListener('click', function (e) {
-      var b = e.target.closest('[data-person]');
-      if (!b) return;
-      Fin.person = b.getAttribute('data-person');
-      try { localStorage.setItem('fin-person', Fin.person); } catch (err) {}
-      $$('[data-person]', seg).forEach(function (x) { var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); });
-      Fin.rerender();
+    var wrap = $('#person');
+    wrap.innerHTML =
+      '<button class="fin-person-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="person-menu">' +
+        '<span class="fin-person-k">Showing</span><span class="fin-person-v"></span>' + Hub.icons.down +
+      '</button>' +
+      '<div class="fin-person-menu" id="person-menu" role="menu" aria-label="Whose accounts to show">' +
+        opts.map(function (o) {
+          return '<button type="button" role="menuitemradio" aria-checked="false" data-person="' + esc(o[0]) + '">' +
+            '<span class="fin-person-check">' + Hub.icons.check + '</span>' +
+            '<span><strong>' + esc(o[1]) + '</strong><small>' + esc(o[2]) + '</small></span>' +
+          '</button>';
+        }).join('') +
+      '</div>';
+    var btn = $('.fin-person-btn', wrap), items = $$('[data-person]', wrap);
+
+    function mark() {
+      var cur = opts.filter(function (o) { return o[0] === Fin.person; })[0];
+      $('.fin-person-v', wrap).textContent = cur[1];
+      btn.setAttribute('aria-label', 'Showing ' + cur[1] + '. Change whose accounts are shown');
+      items.forEach(function (x) { x.setAttribute('aria-checked', String(x.getAttribute('data-person') === Fin.person)); });
+    }
+    function open() {
+      wrap.classList.add('open');
+      btn.setAttribute('aria-expanded', 'true');
+      (items.filter(function (x) { return x.getAttribute('aria-checked') === 'true'; })[0] || items[0]).focus();
+    }
+    function close(refocus) {
+      if (!wrap.classList.contains('open')) return;
+      wrap.classList.remove('open');
+      btn.setAttribute('aria-expanded', 'false');
+      if (refocus) btn.focus();
+    }
+
+    btn.addEventListener('click', function () { if (wrap.classList.contains('open')) close(); else open(); });
+    wrap.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && wrap.classList.contains('open')) { e.stopPropagation(); close(true); return; }
+      if (e.target === btn) {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); open(); }
+        return;
+      }
+      var i = items.indexOf(document.activeElement);
+      if (i < 0) return;
+      var to = e.key === 'ArrowDown' ? (i + 1) % items.length
+        : e.key === 'ArrowUp' ? (i - 1 + items.length) % items.length
+        : e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1 : -1;
+      if (to >= 0) { e.preventDefault(); items[to].focus(); }
+      else if (e.key === 'Tab') close();
     });
+    items.forEach(function (x) {
+      x.addEventListener('click', function () {
+        Fin.person = x.getAttribute('data-person');
+        try { localStorage.setItem('fin-person', Fin.person); } catch (err) {}
+        mark();
+        close(true);
+        Fin.rerender();
+      });
+    });
+    // Capture phase, so a click on the hub's user menu (which stops the
+    // click from bubbling) still closes this one.
+    document.addEventListener('click', function (e) { if (!wrap.contains(e.target)) close(); }, true);
+    mark();
   }
 
   function drawHide() {
     var btn = $('#hide'), hidden = false;
     try { hidden = localStorage.getItem('fin-hide') === '1'; } catch (e) {}
+    // The label says what a tap does: "Hide amounts", or "Show amounts"
+    // while they're blurred.
     function apply() {
       document.body.classList.toggle('fin-hidden', hidden);
-      btn.setAttribute('aria-pressed', String(hidden));
-      btn.setAttribute('aria-label', hidden ? 'Show amounts' : 'Hide amounts');
-      btn.title = hidden ? 'Show amounts' : 'Hide amounts';
-      btn.innerHTML = hidden ? Hub.icons.eyeOff : Hub.icons.eye;
+      btn.classList.toggle('on', hidden);
+      btn.title = hidden ? 'Dollar amounts are blurred. Tap to show them.' : 'Blur every dollar amount, for when someone can see your screen';
+      btn.innerHTML = (hidden ? Hub.icons.eyeOff : Hub.icons.eye) + '<span>' + (hidden ? 'Show amounts' : 'Hide amounts') + '</span>';
     }
     btn.addEventListener('click', function () {
       hidden = !hidden;

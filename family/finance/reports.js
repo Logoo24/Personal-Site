@@ -450,7 +450,7 @@
   function printHead() {
     var name = REPORTS.filter(function (r) { return r[0] === ui.report; })[0][1];
     var period = TIMELESS[ui.report] ? '' : PERIODS.filter(function (p) { return p[0] === ui.period; })[0][1];
-    var who = ($('#person .on') || {}).textContent || '';
+    var who = ($('#person .fin-person-v') || {}).textContent || '';
     var printed = 'Printed ' + new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     return '<div class="fin-print-head"><h2>' + esc(name) + '</h2><p>' + esc([period, who, printed].filter(Boolean).join(' · ')) + '</p></div>';
   }

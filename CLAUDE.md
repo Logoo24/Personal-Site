@@ -181,8 +181,9 @@ A private area for the Randall family, separate from the public site. Every foot
 
   Pages and charts:
   - One page with hash tabs. `finance.js` is the shell (the `window.Fin` helpers, the person filter, hide-amounts) and each tab registers through `Fin.tab(id, render)`.
+  - The person filter is a "Showing" drop-down (`#person`, `personOptions()`): Everyone, each person, Joint, each with a one-line description. It's a `role="menu"` of `menuitemradio`s with arrow-key navigation. The chosen key is `Fin.person`, kept in localStorage as `fin-person`. Under 440px wide the "Showing" word is dropped so the name fits beside the hide button.
   - `charts.js` (`window.FinCharts`: line, bars (with an optional overlaid line), stackedBars, flow (a two-column sankey), ranked hbars, sparkline) is plain SVG following the dataviz skill. The palette in `finance.css` was validated against the hub's card surfaces (`#FFFFFF` / `#131318`); single-series charts use `--accent`.
-  - Hide amounts (the eye button, `fin-hide` in localStorage, `body.fin-hidden`) blurs rather than removes, so every dollar figure on the page has to be marked:
+  - Hide amounts (the eye button, labeled "Hide amounts" / "Show amounts"; `fin-hide` in localStorage, `body.fin-hidden`) blurs rather than removes, so every dollar figure on the page has to be marked:
     - a lone amount: `Fin.amt()` (a `.fin-amt` span);
     - a sentence with figures in it ("Move about $1,209 out of checking", Advice text, alerts, drawer facts): `Fin.amtText()`, which escapes it and wraps each figure;
     - chart values: `.fc-val`. SVG text blurs through the page's own `#fin-blur` filter in `index.html`, because older Safari ignores CSS `blur()` on SVG elements;
