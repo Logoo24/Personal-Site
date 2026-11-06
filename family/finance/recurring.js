@@ -105,10 +105,15 @@
       (stopped.length ? '<details class="fin-card fin-hidden-accts"><summary>' + stopped.length + (stopped.length === 1 ? ' seems' : ' seem') + ' to have stopped</summary><ul class="fin-accts">' + stopped.map(row).join('') + '</ul></details>' : '') +
       (ignored.length ? '<details class="fin-card fin-hidden-accts"><summary>' + ignored.length + ' marked not recurring</summary><ul class="fin-accts">' + ignored.map(row).join('') + '</ul></details>' : '');
 
-    // A fresh look at the transactions once a day (the daily job also does this).
+    Fin.ensureRecurring();
+  }
+
+  // A fresh look at the transactions once a day (the daily job also does
+  // this). Budgets use it too: recurring bills mark their fixed categories.
+  Fin.ensureRecurring = function () {
     var stale = !Fin.data.recurringAt || Date.now() - new Date(Fin.data.recurringAt) > 24 * 3600 * 1000;
     if (stale && !scanned && Fin.data.accounts.length) { scanned = true; scan(); }
-  }
+  };
 
   function scan(btn) {
     if (btn) btn.disabled = true;

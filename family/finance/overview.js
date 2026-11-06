@@ -170,8 +170,36 @@
     return '<section class="fin-card"><div class="fin-card-head"><h2>This month</h2><span class="fin-muted">' +
       esc(start.toLocaleDateString('en-US', { month: 'long' }) + ' 1–' + dom) + '</span></div>' +
       '<div class="fin-split fin-split--big"><span>In <b>' + Fin.amt(inn) + '</b></span><span>Spent <b>' + Fin.amt(out) + '</b></span><span>Left <b>' + Fin.amt(inn - out, { sign: true }) + '</b></span></div>' +
-      pace + (rows.length ? '<div class="fin-tm-cats" data-hbars="cats"></div>' : '<p class="fin-muted">No spending yet this month.</p>') +
+      pace + budgetLine(F) + (rows.length ? '<div class="fin-tm-cats" data-hbars="cats"></div>' : '<p class="fin-muted">No spending yet this month.</p>') +
       '<button class="fin-link" type="button" data-alert="transactions">See transactions</button></section>';
+  }
+
+  // Budgets are household-wide: this month's spending in budgeted
+  // categories for everyone, against the total budget and the month's pace.
+  function budgetLine(F) {
+    var budgeted = (F.data.categories || []).filter(function (c) { return c.kind === 'expense' && c.budget; });
+    if (!budgeted.length) return '';
+    if (!Fin.budgetOverall) return '';
+    var cur = F.data.today.slice(0, 7), byCat = {};
+    (F.data.monthTx || []).forEach(function (t) { if (t.date.slice(0, 7) === cur && t.cat) byCat[t.cat] = (byCat[t.cat] || 0) - t.amt; });
+    var d = new Date(cur + '-01T12:00:00'), pace = +F.data.today.slice(8, 10) / new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    var b = Fin.budgetOverall(byCat, pace);
+    return '<div class="fin-tm-budget"><div class="fin-budget-head"><span class="fin-label">Budgets</span><span><b class="fin-amt">' + esc(Fin.money(b.spent)) + '</b> <span class="fin-muted">of <span class="fin-amt">' + esc(Fin.money(b.total)) + '</span>' + (b.over ? ' · ' + b.over + ' over' : '') + '</span></span></div>' +
+      '<span class="fin-meter ' + b.cls + '"><span class="fin-meter-fill" style="width:' + Math.min(100, b.total ? b.spent / b.total * 100 : 0) + '%"></span><span class="fin-meter-pace" style="left:' + b.marker * 100 + '%"></span></span>' +
+      '<button class="fin-link" type="button" data-alert="plan">Budgets</button></div>';
+  }
+
+  // The goals still in progress, nearest date first.
+  function goalsHTML(F) {
+    if (!Fin.goalStatus) return '';
+    var list = (F.data.goals || []).map(function (g) { return { g: g, st: Fin.goalStatus(g) }; }).filter(function (x) { return !x.st.done; })
+      .sort(function (a, b) { return (a.g.date || '9999') < (b.g.date || '9999') ? -1 : 1; }).slice(0, 4);
+    if (!list.length) return '';
+    return '<section class="fin-card"><div class="fin-card-head"><h2>Goals</h2><button class="fin-link" type="button" data-alert="goals">All goals</button></div>' +
+      '<ul class="fin-mini-goals">' + list.map(function (x) {
+        return '<li><button type="button" data-alert-goal="' + esc(x.g.id) + '"><span class="fin-budget-head"><span class="fin-budget-name">' + esc(x.g.name) + '</span><span><span class="fin-amt">' + esc(Fin.money(x.st.progress)) + '</span> of <span class="fin-amt">' + esc(Fin.money(x.g.target)) + '</span></span></span>' +
+          '<span class="fin-meter ' + (x.st.behind || x.st.late ? 'warn' : 'ok') + '"><span class="fin-meter-fill" style="width:' + x.st.pct * 100 + '%"></span></span></button></li>';
+      }).join('') + '</ul></section>';
   }
 
   function comingUpHTML(F) {
@@ -264,12 +292,15 @@
       '<div class="fin-row">' +
         '<section class="fin-card"><div class="fin-card-head"><h2>What you own</h2><span class="fin-muted">' + Fin.amt(live.assets) + '</span></div><div data-hbars="own"></div></section>' +
         '<section class="fin-card"><div class="fin-card-head"><h2>What you owe</h2><span class="fin-muted">' + Fin.amt(live.debts) + '</span></div><div data-hbars="owe"></div></section>' +
-      '</div>' + recentHTML(F);
+      '</div>' + (function () { var r = recentHTML(F), g = goalsHTML(F); return r && g ? '<div class="fin-row">' + r + g + '</div>' : r + g; })();
     Hub.$$('[data-alert]', view).forEach(function (b) {
       b.addEventListener('click', function () {
         var go = b.getAttribute('data-alert');
-        if (go === 'review') Fin.showReview(); else Fin.go(go);
+        if (go === 'review') Fin.showReview(); else if (go === 'goals') Fin.openGoals(); else Fin.go(go);
       });
+    });
+    Hub.$$('[data-alert-goal]', view).forEach(function (b) {
+      b.addEventListener('click', function () { Fin.openGoals(b.getAttribute('data-alert-goal')); });
     });
     Hub.$$('[data-alert-rc]', view).forEach(function (b) {
       b.addEventListener('click', function () { Fin.openRecurring(b.getAttribute('data-alert-rc')); });

@@ -147,6 +147,18 @@ A private area for the Randall family, separate from the public site. Every foot
   - Net worth, bills, debt and investments use the summary (snapshots, recurring) and `fin-holdings` instead.
   - Totals net out refunds and leave transfers out.
 
+  Budgets & goals (`api/_family/finance/plan.js`, `family/finance/plan.js`):
+  - Budgets are `state.categories[].budget` (cents a month, spending categories only) and are household-wide: they ignore the person filter. They can start from the last three months' averages, rounded to $10.
+  - A category counts as fixed bills when recurring bills make up 60% or more of its budget. It gets "Paid for the month" instead of pace warnings.
+  - The overall pace marker counts fixed categories as spent so far (capped at their budget) and flexible ones by the share of the month gone (`Fin.budgetOverall`, also used by the Overview).
+  - Goals (`state.goals`) come in three shapes:
+    - save, following asset accounts' balances;
+    - save, kept by hand (`saved`, with `{ id, add }` to add or take out);
+    - payoff: one debt, where `target` is its balance when the goal was made.
+  - `startDate`/`startValue` give the on-pace check. The recent pace comes from month-end snapshots about 3 months back, divided by the real time elapsed. For payoff goals it's from the balance change itself.
+  - A goal tied to an account the viewer can't see is hidden from them (`visibleGoals`).
+  - The emergency-fund suggestion is 3 to 6 × the last three months' spending in `essential` categories. A goal made from it carries `template: 'emergency'`.
+
   The daily cron:
   - `vercel.json` `crons` hits `/api/finance-cron` at 11:00 UTC; Hobby fires it sometime in that hour.
   - A rewrite sends that path to `?r=fin-cron`, which `family.js` routes before the session check. It's guarded by `Authorization: Bearer $CRON_SECRET`.

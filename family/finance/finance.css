@@ -12,10 +12,12 @@
   --fc-5: #e87ba4; --fc-6: #008300; --fc-7: #6250d6; --fc-8: #e34948;
   --fin-good: var(--accent);
   --fin-bad: var(--hub-danger);
+  --fin-warn: #d99000; /* status "warning": always paired with an icon and words */
 }
 [data-theme="dark"] .fin {
   --fc-1: #3987e5; --fc-2: #d95926; --fc-3: #199e70; --fc-4: #c98500;
   --fc-5: #d55181; --fc-6: #008300; --fc-7: #9085e9; --fc-8: #e66767;
+  --fin-warn: #fab219;
 }
 
 /* ---------- page head, tabs ---------- */
@@ -239,6 +241,8 @@
 .fin-pace.good { color: var(--fin-good); }
 .fin-pace.bad { color: var(--fin-bad); }
 .fin-tm-cats { margin-top: 1.1rem; }
+.fin-tm-budget { margin-top: 1rem; padding-top: 0.9rem; border-top: 1px solid var(--line); }
+.fin-tm-budget .fin-link { font-size: 0.84rem; }
 .fin-upcoming { display: grid; gap: 0.15rem; }
 .fin-up-day { display: grid; grid-template-columns: 6rem minmax(0, 1fr); gap: 0.75rem; padding: 0.55rem 0; border-top: 1px solid var(--line); }
 .fin-up-day:first-child { border-top: 0; padding-top: 0; }
@@ -275,6 +279,41 @@
 .fin-review-lede { font-size: 1.05rem; line-height: 1.65; color: var(--text-soft); max-width: 720px; }
 .fin-review-lede b { color: var(--text); font-weight: 600; }
 .fin-kpi-value.is-text { font-size: 1.35rem; overflow-wrap: anywhere; }
+
+/* Budgets & goals */
+.fin-plan-seg { margin-bottom: 1.25rem; }
+/* Meter: the fill carries the state; the track is a lighter step of the same color. */
+.fin-meter { --m: var(--fin-good); position: relative; display: block; height: 10px; border-radius: 999px; background: color-mix(in srgb, var(--m) 16%, var(--hub-surface)); margin: 0.6rem 0 0.45rem; overflow: visible; }
+.fin-meter.warn { --m: var(--fin-warn); }
+.fin-meter.over { --m: var(--fin-bad); }
+.fin-meter-fill { display: block; height: 100%; border-radius: 999px; background: var(--m); max-width: 100%; }
+.fin-meter-pace { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--text); border-radius: 2px; opacity: 0.55; }
+.fin-budgets { list-style: none; display: grid; gap: 1.1rem; }
+.fin-budget-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; }
+.fin-budget-name { font-weight: 600; }
+.fin-budget-nums b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.fin-budget-status, .fin-goal-status { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.82rem; font-weight: 600; }
+.fin-budget-status svg, .fin-goal-status svg { width: 13px; height: 13px; flex: none; }
+.fin-budget-status.ok, .fin-goal-status.ok { color: var(--text-muted); }
+.fin-budget-status.ok svg, .fin-goal-status.ok svg { color: var(--fin-good); }
+.fin-budget-status.warn, .fin-goal-status.warn { color: var(--text-soft); }
+.fin-budget-status.warn svg, .fin-goal-status.warn svg { color: var(--fin-warn); }
+.fin-budget-status.over, .fin-goal-status.over { color: var(--fin-bad); }
+.fin-budget-note { margin-top: 0.4rem; }
+.fin-goals { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 1.25rem; }
+.fin-goal { display: flex; flex-direction: column; gap: 0.2rem; text-align: left; font: inherit; color: inherit; cursor: pointer; transition: border-color .2s; }
+.fin-goal:hover { border-color: var(--accent); }
+.fin-goal-name { font-family: var(--display); font-size: 1.2rem; font-weight: 600; margin: 0.15rem 0 0.25rem; overflow-wrap: anywhere; }
+.fin-goal-nums b { font-size: 1.05rem; font-weight: 600; }
+.fin-goal-foot { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.84rem; }
+.fin-hint { display: flex; gap: 1rem 1.5rem; align-items: center; justify-content: space-between; flex-wrap: wrap; background: color-mix(in srgb, var(--accent) 6%, var(--hub-surface)); border-color: color-mix(in srgb, var(--accent) 30%, var(--line)); }
+.fin-hint h2 { font-family: var(--sans); font-size: 1rem; font-weight: 600; margin-bottom: 0.3rem; }
+.fin-hint p { color: var(--text-soft); font-size: 0.92rem; max-width: 640px; }
+.fin-checklist { display: grid; gap: 0.35rem; margin: 0.4rem 0 0.3rem; }
+.fin-mini-goals { list-style: none; display: grid; gap: 0.9rem; }
+.fin-mini-goals button { width: 100%; border: 0; background: none; padding: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.fin-mini-goals .fin-budget-head span:last-child { font-size: 0.84rem; color: var(--text-muted); }
+.fin-mini-goals .fin-meter { margin: 0.4rem 0 0; height: 8px; }
 
 /* ============================================================
    CHARTS (charts.js)

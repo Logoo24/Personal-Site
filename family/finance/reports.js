@@ -26,6 +26,8 @@
       data = d; loadedAt = Date.now(); loading = null; return d;
     }, function (e) { loading = null; throw e; }));
   }
+  // The Budgets & goals tab uses the same numbers (averages, past months).
+  Fin.reportData = load;
   // Edits elsewhere (Transactions) make the numbers stale.
   var oldInvalidate = Fin.invalidateTx;
   Fin.invalidateTx = function () { data = null; if (oldInvalidate) oldInvalidate(); };
