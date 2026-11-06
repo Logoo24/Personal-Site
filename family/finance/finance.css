@@ -349,6 +349,43 @@
 .fin-mini-scores li { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; }
 .fin-mini-scores b { font-size: 1.25rem; font-weight: 600; }
 
+/* Advice tab */
+.fin-advice-note { align-items: flex-start; }
+.fin-advice-note svg { margin-top: 0.15rem; }
+.fin-briefing h2 { font-family: var(--sans); }
+.fin-brief-head { font-family: var(--display) !important; font-size: clamp(1.35rem, 2.6vw, 1.75rem) !important; line-height: 1.25; margin: 0.35rem 0 0.6rem; }
+.fin-brief-summary { color: var(--text-soft); font-size: 1rem; line-height: 1.6; max-width: 760px; }
+.fin-brief-sec { margin-top: 1.4rem; }
+.fin-brief-sec h3 { font-family: var(--sans); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 0.6rem; }
+.fin-brief-list { padding-left: 1.2rem; display: grid; gap: 0.75rem; }
+.fin-brief-list li::marker { color: var(--accent); font-weight: 700; }
+.fin-brief-list p { color: var(--text-soft); font-size: 0.92rem; margin-top: 0.15rem; }
+.fin-brief-amt { display: inline-block; margin-left: 0.35rem; padding: 0.05rem 0.5rem; border-radius: 999px; background: var(--hub-finance-bg); color: var(--hub-finance); font-size: 0.8rem; font-weight: 700; }
+.fin-brief-bullets { list-style: none; display: grid; gap: 0.5rem; font-size: 0.92rem; }
+.fin-brief-bullets li { display: flex; gap: 0.5rem; align-items: flex-start; }
+.fin-brief-bullets svg { width: 15px; height: 15px; flex: none; margin-top: 0.2rem; color: var(--fin-warn); }
+.fin-brief-bullets.good svg { color: var(--fin-good); }
+.fin-brief-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--line); font-size: 0.84rem; }
+.fin-brief-foot .btn { margin-left: auto; }
+.fin-brief-sources { color: var(--text-muted); }
+.fin-brief-sources a { color: var(--accent); }
+.fin-briefing.is-loading h2 { font-family: var(--display); font-size: 1.3rem; margin-bottom: 0.4rem; }
+.fin-briefing.is-loading { background: linear-gradient(100deg, var(--hub-surface) 30%, color-mix(in srgb, var(--accent) 7%, var(--hub-surface)) 50%, var(--hub-surface) 70%) 0 0 / 300% 100%; animation: fin-shimmer 1.8s linear infinite; }
+@keyframes fin-shimmer { to { background-position: -150% 0; } }
+@media (prefers-reduced-motion: reduce) { .fin-briefing.is-loading { animation: none; } }
+.fin-checks-list { list-style: none; display: grid; gap: 1rem; }
+.fin-check-card { display: grid; grid-template-columns: 2rem minmax(0, 1fr); gap: 0.75rem; }
+.fin-check-card p { color: var(--text-soft); font-size: 0.92rem; margin-top: 0.2rem; }
+.fin-check-icon { width: 2rem; height: 2rem; border-radius: 9px; display: grid; place-items: center; background: var(--bg-alt); color: var(--text-soft); }
+.fin-check-icon svg { width: 16px; height: 16px; }
+.fin-check-card.do .fin-check-icon { background: var(--hub-finance-bg); color: var(--hub-finance); }
+.fin-check-card.watch .fin-check-icon { color: var(--fin-warn); background: color-mix(in srgb, var(--fin-warn) 14%, var(--hub-surface)); }
+.fin-check-card.good .fin-check-icon { color: var(--fin-good); background: color-mix(in srgb, var(--fin-good) 12%, var(--hub-surface)); }
+.fin-check-nums { display: flex; flex-wrap: wrap; gap: 0.35rem 1.25rem; margin-top: 0.45rem; font-size: 0.84rem; }
+.fin-check-nums div { display: flex; gap: 0.35rem; }
+.fin-check-nums dt { color: var(--text-muted); }
+.fin-check-nums dd { font-weight: 600; font-variant-numeric: tabular-nums; }
+
 /* ============================================================
    CHARTS (charts.js)
    ============================================================ */

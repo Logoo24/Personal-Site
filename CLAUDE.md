@@ -166,6 +166,15 @@ A private area for the Randall family, separate from the public site. Every foot
   - Bands follow the model (FICO vs. VantageScore). Card utilization comes from linked or hand-kept cards' balances and limits.
   - The Overview nudges the viewer once their own latest score is more than 30 days old.
 
+  Advice (`api/_family/finance/advice.js`, `family/finance/advice.js`):
+  - `computeFacts()` works out per-viewer totals in code: income and spending averages, savings rate, emergency months, idle checking cash, debts with rates, interest actually paid, card use, subscriptions and price rises, budgets over, goals, net-worth trend, investment mix.
+  - `ruleCards()` turns them into checks ordered by the usual money order of operations. A credit card only counts as high-rate debt when interest has actually been charged lately.
+  - With `ANTHROPIC_API_KEY`, `POST ?r=fin-advice {refresh:true}` makes two Claude calls:
+    1. a `web_search_20260209` call (`max_uses` 4, `pause_turn` resumed) that looks up today's savings, T-bill, CD and I-bond rates. Its citations become the sources, cached 3 days in `finance/advice-rates.json`, shared by both people.
+    2. a JSON-schema call that writes the briefing from the facts and those rates. It's separate because structured output can't be combined with citations.
+  - Briefings are cached per viewer in `finance/advice/<hash>.json`, at most 5 a day. The page writes one automatically when there's none for the current month.
+  - Only totals and category names go to Claude, never account numbers or transactions. A standing banner says it's educational guidance, not personalized financial advice. The system prompt rules out naming specific securities.
+
   The daily cron:
   - `vercel.json` `crons` hits `/api/finance-cron` at 11:00 UTC; Hobby fires it sometime in that hour.
   - A rewrite sends that path to `?r=fin-cron`, which `family.js` routes before the session check. It's guarded by `Authorization: Bearer $CRON_SECRET`.

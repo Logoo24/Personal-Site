@@ -26,6 +26,8 @@
 //   POST   fin-budgets {budgets}        -> set monthly budgets ({ categoryId: cents | null })
 //   POST   fin-goal {...}               -> add / edit a goal, or { id, add } to a hand-kept one
 //   DELETE fin-goal&id=                 -> delete a goal
+//   GET    fin-advice                   -> facts, rule cards and the cached briefing
+//   POST   fin-advice {refresh:true}    -> write a new briefing with Claude (5 a day)
 //   POST   fin-credit {...}             -> add / edit a credit score
 //   DELETE fin-credit&id=               -> delete one
 //   POST   fin-credit-read (image body) -> a score read from a screenshot (nothing saved)
@@ -43,6 +45,7 @@ import { monthList, reviewList, editTransactions, addManual, deleteManual, expor
 import { scanRecurring, visibleRecurring, upcoming, changeRecurring } from './recurring.js';
 import { setBudgets, saveGoal, deleteGoal, visibleGoals } from './plan.js';
 import { visibleCredit, saveCredit, deleteCredit, readScreenshot, MODELS, BUREAUS } from './credit.js';
+import { advice } from './advice.js';
 import { safeEqual } from '../session.js';
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
@@ -177,6 +180,9 @@ export async function financeRoute(request, url, user, r) {
     case 'POST fin-budgets': return summary(user, viewer, await setBudgets(await body(request), viewer));
     case 'POST fin-goal': return summary(user, viewer, await saveGoal(await body(request), viewer));
     case 'DELETE fin-goal': return summary(user, viewer, await deleteGoal(q('id'), viewer));
+
+    case 'GET fin-advice': return advice(await loadState(), viewer);
+    case 'POST fin-advice': return advice(await loadState(), viewer, { refresh: !!(await body(request)).refresh });
 
     case 'POST fin-credit': return summary(user, viewer, await saveCredit(await body(request), viewer));
     case 'DELETE fin-credit': return summary(user, viewer, await deleteCredit(q('id'), viewer));
