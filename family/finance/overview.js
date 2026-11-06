@@ -45,8 +45,16 @@
     return '<span class="fin-delta ' + dir + '">' + icon + Fin.amt(change, { sign: true }) + ' <small>in 30 days</small></span>';
   }
 
+  // A month is estimated (dashed) when any of these accounts' values in it
+  // was typed in or rebuilt rather than recorded.
+  function isEst(e, accts) {
+    if (!e || !e.est) return false;
+    if (e.est === true) return true;
+    return accts.some(function (a) { return e.est.indexOf(a.id) > -1; });
+  }
+
   function monthlySeries(accts) {
-    var now = new Date(), byMonth = {};
+    var now = Fin.monthDate(Fin.data.today.slice(0, 7)), byMonth = {};
     (Fin.data.snapshots.monthly || []).forEach(function (e) { byMonth[e.m] = e; });
     var labels = [], titles = [], net = [], assets = [], debts = [], est = [];
     for (var k = 12; k >= 1; k--) {
@@ -55,7 +63,7 @@
       labels.push(d.toLocaleDateString('en-US', { month: 'short' }) + (d.getMonth() === 0 ? ' ’' + String(d.getFullYear()).slice(2) : ''));
       titles.push('End of ' + d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
       net.push(t ? t.net : null); assets.push(t ? t.assets : null); debts.push(t ? t.debts : null);
-      est.push(!!(e && e.est));
+      est.push(isEst(e, accts));
     }
     var live = liveTotals(accts);
     labels.push('Now'); titles.push('Today');
@@ -72,7 +80,8 @@
   function drawNetChart(el, s) {
     var fmt = function (v) { return Fin.money(v); }, axis = function (v) { return Fin.money(v, { compact: true }); };
     if (s.net.filter(function (v) { return v != null; }).length < 2) {
-      el.innerHTML = '<p class="fin-muted">The graph fills in month by month. Past months can be added from the Accounts tab.</p>';
+      el.innerHTML = '<p class="fin-muted">The graph fills in month by month. <button class="fin-link" type="button">Type in past months</button> to see the whole year now.</p>';
+      el.querySelector('.fin-link').addEventListener('click', function () { Fin.openHistory(); });
       return;
     }
     if (chartMode === 'net') {
@@ -95,17 +104,19 @@
       '<h2>Let’s set up your money dashboard</h2>' +
       '<p>Finance brings your bank accounts, cards, investments and loans into one view for the two of you. It only reads balances and transactions: nothing here can move money.</p>' +
       '<ol class="fin-steps">' +
-        '<li><strong>Link your banks</strong><span>Checking, savings, credit cards and investments, through Plaid. Joint accounts only need linking once.</span></li>' +
-        '<li><strong>Add what Plaid can’t see</strong><span>A car, a home, a loan or cash, with balances you keep up to date.</span></li>' +
-        '<li><strong>Fill in past months</strong><span>So the net-worth graph covers the whole last year.</span></li>' +
+        '<li><strong>Link your banks</strong><span>Checking, savings, credit cards and investments, through Plaid. Joint accounts only need linking once. Coming in the next update.</span></li>' +
+        '<li><strong>Add what Plaid can’t see</strong><span>A car, a home, a loan or cash, with balances you keep up to date.</span>' +
+          '<span class="fin-step-action"><button class="btn btn-primary btn-sm" type="button" data-setup="add">' + Hub.icons.plus + 'Add an asset or debt</button></span></li>' +
+        '<li><strong>Fill in past months</strong><span>So the net-worth graph covers the whole last year. Do this once your accounts are in.</span></li>' +
       '</ol>' +
       '<div class="fin-card" style="margin-top:1.5rem"><div class="fin-card-head"><h2>Setup status</h2></div><ul class="fin-checks">' +
         check(s.encryption, 'Encryption key', 'set <code>FINANCE_ENCRYPTION_KEY</code>') +
         check(s.plaid, 'Plaid keys' + (s.plaid ? ' (' + esc(s.plaidEnv) + ')' : ''), 'set <code>PLAID_CLIENT_ID</code> and <code>PLAID_SECRET</code>') +
         check(s.claude, 'Claude, for categories and advice', 'set <code>ANTHROPIC_API_KEY</code>') +
         check(s.cron, 'Daily refresh', 'set <code>CRON_SECRET</code>') +
-      '</ul><p class="fin-muted" style="margin-top:1rem">Linking banks and adding accounts arrive in the next updates.</p></div>' +
+      '</ul></div>' +
     '</section>';
+    view.querySelector('[data-setup="add"]').addEventListener('click', function () { Fin.openAccountForm(); });
   }
 
   Fin.tab('overview', function (view, F) {

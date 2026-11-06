@@ -35,9 +35,16 @@
     <div id="view" class="fin-view"><p class="hub-loading">Loading your accounts…</p></div>
   </main>
 
+  <div class="cal-backdrop" id="backdrop"></div>
+  <aside class="cal-drawer fin-drawer" id="drawer" aria-hidden="true" aria-labelledby="drawer-title" role="dialog">
+    <div class="cal-drawer-head"><h2 id="drawer-title"></h2><button class="btn btn-ghost btn-icon" type="button" id="drawer-close" aria-label="Close"></button></div>
+    <div class="cal-drawer-body" id="drawer-body"></div>
+  </aside>
+
   <script src="/family/assets/hub.js"></script>
   <script src="/family/finance/charts.js" defer></script>
   <script src="/family/finance/finance.js" defer></script>
   <script src="/family/finance/overview.js" defer></script>
+  <script src="/family/finance/accounts.js" defer></script>
 </body>
 </html>

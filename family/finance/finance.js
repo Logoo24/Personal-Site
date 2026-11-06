@@ -47,6 +47,19 @@
     return (v < 0 && !zero ? '−' : opts.sign && v > 0 && !zero ? '+' : '') + s;
   }
   function amt(c, opts) { return '<span class="fin-amt">' + esc(money(c, opts)) + '</span>'; }
+  // What goes in a money text box: "12,500" or "12,500.50", no dollar sign.
+  function moneyInput(c) {
+    if (c == null || c === '') return '';
+    var v = Math.round(c) / 100;
+    return v.toLocaleString('en-US', { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 });
+  }
+  // "$12,500.50" / "12500.5" / " 12,500 " -> 1250050 cents; '' -> null; anything else -> NaN.
+  function parseMoney(s) {
+    s = String(s == null ? '' : s).replace(/[$,\s]/g, '');
+    if (!s) return null;
+    if (!/^\d*\.?\d{0,2}$/.test(s) || s === '.') return NaN;
+    return Math.round(parseFloat(s) * 100);
+  }
   // An account's contribution to net worth: what you owe counts against it.
   function signed(a) { return (TYPES[a.type] || {}).side === 'liability' || a.side === 'liability' ? -(a.balance || 0) : (a.balance || 0); }
   function sideOf(a) { return a.side || (TYPES[a.type] || {}).side || 'asset'; }
@@ -68,9 +81,16 @@
   var Fin = window.Fin = {
     data: null,
     person: 'all',
-    TYPES: TYPES, money: money, amt: amt, signed: signed, sideOf: sideOf,
+    TYPES: TYPES, money: money, amt: amt, moneyInput: moneyInput, parseMoney: parseMoney, signed: signed, sideOf: sideOf,
     dayKey: dayKey, monthKey: monthKey, monthDate: monthDate, ago: ago,
     tab: function (id, render) { renderers[id] = render; },
+    // Calls a route that answers with a fresh summary, then redraws.
+    save: function (r, opts) {
+      return Hub.api(r, opts).then(function (data) { Fin.apply(data); return data; });
+    },
+    apply: function (data) { Fin.data = data; drawSync(); Fin.rerender(); },
+    go: function (id) { if (location.hash === '#' + id) show(id); else location.hash = id; },
+    openDrawer: openDrawer, closeDrawer: closeDrawer,
     // Accounts that match the person filter and count toward totals.
     accounts: function () {
       return (Fin.data.accounts || []).filter(function (a) { return !a.hidden && a.inNetWorth !== false && Fin.matches(a); });
@@ -85,6 +105,24 @@
     },
     rerender: function () { show(current()); }
   };
+
+  /* ---------- side drawer (the calendar's, bottom sheet on phones) ---------- */
+  var lastFocus = null;
+  function openDrawer(title, html) {
+    if (!$('#drawer').classList.contains('open')) lastFocus = document.activeElement;
+    $('#drawer-title').textContent = title;
+    $('#drawer-body').innerHTML = html;
+    $('#drawer').classList.add('open'); $('#backdrop').classList.add('open');
+    $('#drawer').setAttribute('aria-hidden', 'false');
+    $('#drawer-close').focus();
+    return $('#drawer-body');
+  }
+  function closeDrawer() {
+    if (!$('#drawer').classList.contains('open')) return;
+    $('#drawer').classList.remove('open'); $('#backdrop').classList.remove('open');
+    $('#drawer').setAttribute('aria-hidden', 'true');
+    if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
+  }
 
   function current() {
     var id = location.hash.replace('#', '');
@@ -165,6 +203,10 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    $('#drawer-close').innerHTML = Hub.icons.x;
+    $('#drawer-close').addEventListener('click', closeDrawer);
+    $('#backdrop').addEventListener('click', closeDrawer);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !document.querySelector('.hub-modal')) closeDrawer(); });
     Hub.ready(function () {
       measureBar();
       window.addEventListener('resize', measureBar);

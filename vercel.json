@@ -7,7 +7,11 @@
   "functions": {
     "api/family.js": { "maxDuration": 60 }
   },
+  "crons": [
+    { "path": "/api/finance-cron", "schedule": "0 11 * * *" }
+  ],
   "rewrites": [
+    { "source": "/api/finance-cron", "destination": "/api/family?r=fin-cron" },
     { "source": "/recipes/:slug/photos/:file", "destination": "/api/recipe?slug=:slug&f=:file" },
     { "source": "/recipes/:slug", "destination": "/api/recipe?slug=:slug" }
   ],

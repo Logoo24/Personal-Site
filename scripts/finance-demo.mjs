@@ -78,7 +78,8 @@ for (const [key, a] of Object.entries(accounts)) {
 /* ---------- simulate each day ---------- */
 const today = new Date(); today.setHours(12, 0, 0, 0);
 const start = new Date(today.getFullYear(), today.getMonth() - 13, 1, 12);
-const key = d => d.toISOString().slice(0, 10);
+const pad = n => String(n).padStart(2, '0');
+const key = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; // local days, like the app's
 const tx = {}; // month -> []
 const daily = [], monthly = [];
 const trackingFrom = new Date(today); trackingFrom.setDate(trackingFrom.getDate() - 120);

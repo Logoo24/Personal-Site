@@ -8,7 +8,11 @@
 //                            goals, credit scores, settings
 //   finance/secrets.json     { itemId: { accessToken, cursor } }  (sync only)
 //   finance/snapshots.json   per-account balances: daily (last 400 days) and
-//                            monthly (month-end, kept forever)
+//                            monthly (month-end, kept forever):
+//                            { daily: [{ d, b: { id: cents } }],
+//                              monthly: [{ m, b, est }] }  est: true (all
+//                            estimated) or the ids whose values were typed
+//                            in or rebuilt rather than recorded
 //   finance/tx/YYYY-MM.json  one month of transactions
 //
 // "Only me" accounts (private: true) belong to one spouse, and every route
@@ -66,6 +70,17 @@ export const ACCOUNT_TYPES = {
   'other-debt': { side: 'liability', group: 'Other debts' }
 };
 
+// Days and months are the family's, not the server's (Vercel runs on UTC,
+// so an evening visit would otherwise land on tomorrow).
+export const FAMILY_TZ = process.env.FAMILY_TIMEZONE || 'America/Boise';
+export function familyDay(d = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: FAMILY_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+}
+export function addMonths(m, n) {
+  const d = new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1 + n, 1));
+  return d.toISOString().slice(0, 7);
+}
+
 export function emptyState() {
   return {
     version: 1,
@@ -122,7 +137,12 @@ export function visibleSnapshots(snaps, ids) {
   const cut = e => {
     const b = {};
     for (const [id, v] of Object.entries(e.b || {})) if (keep.has(id)) b[id] = v;
-    return { ...e, b };
+    const out = { ...e, b };
+    if (Array.isArray(e.est)) {
+      const est = e.est.filter(id => keep.has(id));
+      if (est.length) out.est = est; else delete out.est;
+    }
+    return out;
   };
   return { monthly: (snaps.monthly || []).map(cut), daily: (snaps.daily || []).slice(-120).map(cut) };
 }

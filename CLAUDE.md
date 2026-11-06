@@ -104,7 +104,17 @@ A private area for the Randall family, separate from the public site. Every foot
   - Every Blob file under `finance/` is AES-256-GCM-encrypted with `FINANCE_ENCRYPTION_KEY` (`vault.js`, with the path as authenticated data). Use `readSecure`/`writeSecure`/`updateSecure`, never `readJSON` directly. `updateSecure` skips the write when nothing changed.
   - Read-only paths pass `{ etag: false }` (store.js `readJSON` option) to skip the extra `head()` call. Blob's Hobby limits (2,000 puts and 10,000 reads a month, shared with the cookbook) are the constraint to design around.
   - Amounts are integer cents. Account balances are positive, and `side` (asset/liability) gives the sign.
-  - An account with `private: true` belongs to `owner` (an email), and `visibleAccounts()` hides it, and its snapshot balances, from the other spouse.
+  - An account with `private: true` belongs to `owner` (an email), and `visibleAccounts()` hides it, and its snapshot balances, from the other spouse. Ticking "Only me" always makes the account the ticker's own.
+
+  Accounts and history:
+  - `accounts.js` adds, edits and deletes accounts. Hand-kept accounts can change everything; linked (`src: 'plaid'`) ones only their settings. Deleting an account also removes it from the snapshots.
+  - `snapshots.js` keeps per-account balances: daily for 400 days, plus month-ends. Today's snapshot comes from the daily cron and from any visit where balances changed. Past month-ends typed into the Accounts tab's "Edit past months" grid (`applyBackfill`) are listed in that month's `est` array, so the graph dashes them.
+  - Days are the family's, not the server's: `familyDay()`, using `FAMILY_TIMEZONE`, default `America/Boise`.
+  - Routes that change something answer with a fresh summary (`Fin.save()` on the page), so there's one request per change.
+
+  The daily cron:
+  - `vercel.json` `crons` hits `/api/finance-cron` at 11:00 UTC; Hobby fires it sometime in that hour.
+  - A rewrite sends that path to `?r=fin-cron`, which `family.js` routes before the session check. It's guarded by `Authorization: Bearer $CRON_SECRET`.
 
   Pages and charts:
   - One page with hash tabs. `finance.js` is the shell (the `window.Fin` helpers, the person filter, hide-amounts) and each tab registers through `Fin.tab(id, render)`.
@@ -113,7 +123,7 @@ A private area for the Randall family, separate from the public site. Every foot
   Local testing:
   - `node scripts/finance-demo.mjs` seeds `.family-data/finance/` with a simulated year. It refuses to run if a Blob store is configured.
   - `node scripts/dev-session.mjs <email> <name>` prints a local session cookie for a Google-only page.
-- **Env vars** (Vercel): `FAMILY_PASSWORD`, `FAMILY_SESSION_SECRET` (random, 32+ bytes), `GOOGLE_CLIENT_ID`, `FAMILY_GOOGLE_EMAILS`, `FAMILY_ADMIN_EMAILS` (who sees and can open the site manager), `FAMILY_FINANCE_EMAILS` (who can open Finance), `FINANCE_ENCRYPTION_KEY` (32 random bytes, base64; keep a copy in a password manager, since losing it loses the finance data and Plaid links), `GITHUB_CMS_TOKEN` (the site manager's instant sign-in for admins), `ANTHROPIC_API_KEY` (recipe import; plus `ANTHROPIC_WORKSPACE_ID` if the key isn't scoped to a workspace), `GOOGLE_CALENDAR_SERVICE_ACCOUNT` (calendar editing), and the Blob store's `BLOB_READ_WRITE_TOKEN` (added when the store is connected). Locally they come from `.env.local` (gitignored). `.claude/serve.js` caches the API modules — restart it after editing `api/`.
+- **Env vars** (Vercel): `FAMILY_PASSWORD`, `FAMILY_SESSION_SECRET` (random, 32+ bytes), `GOOGLE_CLIENT_ID`, `FAMILY_GOOGLE_EMAILS`, `FAMILY_ADMIN_EMAILS` (who sees and can open the site manager), `FAMILY_FINANCE_EMAILS` (who can open Finance), `FINANCE_ENCRYPTION_KEY` (32 random bytes, base64; keep a copy in a password manager, since losing it loses the finance data and Plaid links), `CRON_SECRET` (Finance's daily job), `GITHUB_CMS_TOKEN` (the site manager's instant sign-in for admins), `ANTHROPIC_API_KEY` (recipe import; plus `ANTHROPIC_WORKSPACE_ID` if the key isn't scoped to a workspace), `GOOGLE_CALENDAR_SERVICE_ACCOUNT` (calendar editing), and the Blob store's `BLOB_READ_WRITE_TOKEN` (added when the store is connected). Locally they come from `.env.local` (gitignored). `.claude/serve.js` caches the API modules — restart it after editing `api/`.
 
 ## Frontend conventions
 
