@@ -43,6 +43,16 @@ export function isAdmin(user) {
   return !!(user && user.via === 'google' && user.email && allowed.includes(String(user.email).toLowerCase()));
 }
 
+// Who can open Finance (/family/finance): Google sign-ins whose email is in
+// FAMILY_FINANCE_EMAILS (comma-separated). Same rules as isAdmin, its own
+// list, so the site's admins and the money dashboard's two owners can differ.
+export function financeEmails() {
+  return String(process.env.FAMILY_FINANCE_EMAILS || '').toLowerCase().split(/[\s,]+/).filter(Boolean);
+}
+export function canSeeFinance(user) {
+  return !!(user && user.via === 'google' && user.email && financeEmails().includes(String(user.email).toLowerCase()));
+}
+
 export function sessionSecret() {
   return process.env.FAMILY_SESSION_SECRET || '';
 }

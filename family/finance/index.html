@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('lb-theme')||'light')}catch(e){}</script>
+  <title>Finance · Randall Family</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#FAFAFA" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231F7A4D'/%3E%3Cpath d='M8 15 16 8l8 7v9h-5.5v-6h-5v6H8z' fill='%23FAFAFA'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/family/assets/hub.css" />
+  <link rel="stylesheet" href="/family/finance/finance.css" />
+</head>
+<body class="hub fin">
+  <header class="hub-bar" data-crumbs='[["Finance","/family/finance"]]'></header>
+
+  <main class="hub-main">
+    <div class="fin-head">
+      <div>
+        <h1>Finance</h1>
+        <p class="fin-sync" id="sync">&nbsp;</p>
+      </div>
+      <div class="fin-head-tools">
+        <div class="fin-seg" id="person" role="group" aria-label="Whose accounts"></div>
+        <button class="btn btn-ghost btn-icon" type="button" id="hide" aria-pressed="false" aria-label="Hide amounts" title="Hide amounts"></button>
+      </div>
+    </div>
+
+    <nav class="fin-tabs" id="tabs" role="tablist" aria-label="Finance sections"></nav>
+
+    <div id="view" class="fin-view"><p class="hub-loading">Loading your accounts…</p></div>
+  </main>
+
+  <script src="/family/assets/hub.js"></script>
+  <script src="/family/finance/charts.js" defer></script>
+  <script src="/family/finance/finance.js" defer></script>
+  <script src="/family/finance/overview.js" defer></script>
+</body>
+</html>

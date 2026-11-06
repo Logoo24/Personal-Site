@@ -40,6 +40,15 @@
         <p>What’s coming up for the family.</p>
         <span class="hub-app-meta" id="meta-calendar">&nbsp;</span>
       </a>
+      <!-- Shown only to FAMILY_FINANCE_EMAILS (see canSeeFinance in api/_family/session.js).
+           Its status line never shows dollar amounts. -->
+      <a class="hub-app hub-app--finance" href="/family/finance" id="finance" hidden>
+        <span class="hub-app-icon" data-icon="wallet"></span>
+        <span class="hub-app-go" data-icon="arrow"></span>
+        <h3>Finance</h3>
+        <p>Accounts, spending, net worth and goals.</p>
+        <span class="hub-app-meta" id="meta-finance">&nbsp;</span>
+      </a>
       <!-- Shown only to FAMILY_ADMIN_EMAILS (see isAdmin in api/_family/session.js). -->
       <a class="hub-app hub-app--manage" href="/family/manage" id="manage" hidden>
         <span class="hub-app-icon" data-icon="pen"></span>
@@ -80,6 +89,18 @@
 
     Hub.ready(function (user, s) {
       $('#manage').hidden = !s.admin;
+      $('#finance').hidden = !s.finance;
+      if (s.finance) {
+        Hub.api('fin-status').then(function (f) {
+          var ago = function (iso) {
+            var m = Math.round((Date.now() - new Date(iso)) / 60000);
+            return m < 60 ? (m <= 1 ? 'just now' : m + ' min ago') : m < 1440 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago';
+          };
+          $('#meta-finance').textContent = f.reconnect ? Hub.plural(f.reconnect, 'bank') + ' to reconnect'
+            : f.lastSync ? 'Synced ' + ago(f.lastSync)
+            : f.accounts ? Hub.plural(f.accounts, 'account') : 'Set up your money dashboard';
+        }).catch(function () { $('#meta-finance').textContent = 'Open Finance'; });
+      }
       var h = now.getHours();
       var part = h < 5 ? 'Good evening' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
       $('#hello').textContent = part + ', ' + user.name.split(' ')[0];

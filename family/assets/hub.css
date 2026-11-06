@@ -10,6 +10,8 @@
   --hub-calendar-bg: #DBEAFE;
   --hub-manage: #1F7A4D;
   --hub-manage-bg: #D7EFE2;
+  --hub-finance: #0F766E;
+  --hub-finance-bg: #CCFBF1;
   --hub-danger: #B42318;
   --hub-surface: #FFFFFF;
   --hub-warn-bg: #FEF3C7;
@@ -21,6 +23,8 @@
   --hub-calendar-bg: rgba(96, 165, 250, 0.14);
   --hub-manage: #34D399;
   --hub-manage-bg: rgba(52, 211, 153, 0.14);
+  --hub-finance: #2DD4BF;
+  --hub-finance-bg: rgba(45, 212, 191, 0.14);
   --hub-danger: #F87171;
   --hub-surface: #131318;
   --hub-warn-bg: rgba(251, 191, 36, 0.12);
@@ -120,6 +124,7 @@ body.hub { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction:
 .hub-app--cookbook { --tint: var(--hub-cookbook); --tint-bg: var(--hub-cookbook-bg); }
 .hub-app--calendar { --tint: var(--hub-calendar); --tint-bg: var(--hub-calendar-bg); }
 .hub-app--manage { --tint: var(--hub-manage); --tint-bg: var(--hub-manage-bg); }
+.hub-app--finance { --tint: var(--hub-finance); --tint-bg: var(--hub-finance-bg); }
 .hub-app-icon { width: 56px; height: 56px; border-radius: 15px; background: var(--tint-bg); color: var(--tint); display: grid; place-items: center; }
 .hub-app-icon svg { width: 28px; height: 28px; }
 .hub-app h3 { font-size: 1.3rem; }

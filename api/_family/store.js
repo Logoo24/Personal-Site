@@ -25,12 +25,23 @@ async function streamToBuffer(stream) {
 }
 
 // Returns { data, etag } or null when the file doesn't exist.
-export async function readJSON(p) {
+// opts.etag = false: a read-only look that skips the head() call (one Blob
+// operation instead of two); the result's etag is then null, so don't use
+// it for a conditional write.
+export async function readJSON(p, opts = {}) {
   if (!useBlob) {
     const f = localPath(p);
     if (!fs.existsSync(f)) return null;
     const text = fs.readFileSync(f, 'utf8');
     return { data: JSON.parse(text), etag: String(fs.statSync(f).mtimeMs) };
+  }
+  if (opts.etag === false) {
+    const r = await get(p, { access: 'private', useCache: false, ...STORE }).catch(e => {
+      if (e instanceof BlobNotFoundError) return null;
+      throw e;
+    });
+    if (!r || r.statusCode !== 200) return null;
+    return { data: JSON.parse((await streamToBuffer(r.stream)).toString('utf8')), etag: null };
   }
   // The etag comes from head(), not get(): get() downloads through the CDN,
   // whose etag doesn't match what put()'s ifMatch is checked against, so

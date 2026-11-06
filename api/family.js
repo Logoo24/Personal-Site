@@ -16,13 +16,17 @@
 //   GET  calendar&from=&to=         -> calendar events (YYYY-MM-DD range)
 //   GET  calendar-series&id=        -> a repeating event's repeat setting
 //   POST calendar-event {action, id?, scope?, event?} -> add / edit / delete an event
+//   *    fin-*                          -> Finance (api/_family/finance/index.js),
+//                                          only for FAMILY_FINANCE_EMAILS
 //
 // Env: FAMILY_PASSWORD, FAMILY_SESSION_SECRET, GOOGLE_CLIENT_ID,
-// FAMILY_GOOGLE_EMAILS and FAMILY_ADMIN_EMAILS (comma-separated), the Blob
-// store's BLOB_READ_WRITE_TOKEN, ANTHROPIC_API_KEY (recipe import), and
-// GOOGLE_CALENDAR_SERVICE_ACCOUNT (calendar editing).
+// FAMILY_GOOGLE_EMAILS, FAMILY_ADMIN_EMAILS and FAMILY_FINANCE_EMAILS
+// (comma-separated), the Blob store's BLOB_READ_WRITE_TOKEN,
+// ANTHROPIC_API_KEY (recipe import), GOOGLE_CALENDAR_SERVICE_ACCOUNT
+// (calendar editing), and FINANCE_ENCRYPTION_KEY (Finance).
 
-import { createToken, readSession, sessionCookie, clearedCookie, sessionSecret, safeEqual, isAdmin } from './_family/session.js';
+import { createToken, readSession, sessionCookie, clearedCookie, sessionSecret, safeEqual, isAdmin, canSeeFinance } from './_family/session.js';
+import { financeRoute } from './_family/finance/index.js';
 import { listRecipes, allRecipes, getRecipe, saveRecipe, deleteRecipe, saveMedia, mediaIn, MEDIA_URL } from './_family/recipes.js';
 import { shareRecipe, unshareRecipe } from './_family/share.js';
 import { eventsBetween, CALENDAR_LINKS, canEditCalendar, seriesInfo, changeEvent } from './_family/calendar.js';
@@ -89,8 +93,14 @@ async function route(request) {
   if (r === 'logout') return json({ ok: true }, 200, { 'Set-Cookie': clearedCookie() });
 
   const user = await readSession(request);
-  if (r === 'session') return json({ user, admin: isAdmin(user), googleClientId: process.env.GOOGLE_CLIENT_ID || null, calendar: CALENDAR_LINKS });
+  if (r === 'session') return json({ user, admin: isAdmin(user), finance: canSeeFinance(user), googleClientId: process.env.GOOGLE_CLIENT_ID || null, calendar: CALENDAR_LINKS });
   if (!user) return fail(401, 'Please sign in.');
+
+  if (r && r.startsWith('fin-')) {
+    if (!canSeeFinance(user)) return fail(403, 'Finance is only open to the people it’s set up for.');
+    const out = await financeRoute(request, url, user, r);
+    return out instanceof Response ? out : json(out);
+  }
 
   switch (`${method} ${r}`) {
     case 'GET recipes':
