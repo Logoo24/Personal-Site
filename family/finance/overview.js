@@ -130,7 +130,55 @@
       esc(reconnect.map(function (i) { return i.inst; }).join(', ')) + (reconnect.length === 1 ? ' needs' : ' need') + ' you to sign in again</span>' + Hub.icons.right + '</button>');
     if (F.data.toReview) out.push('<button class="fin-alert" type="button" data-alert="review">' + Hub.icons.sparkle + '<span>' +
       Hub.plural(F.data.toReview, 'transaction') + ' to look over</span>' + Hub.icons.right + '</button>');
+    (F.data.recurring || []).filter(function (r) {
+      if (!r.priceUp || r.status === 'ignored' || r.ended) return false;
+      var a = r.acct && F.data.accounts.filter(function (x) { return x.id === r.acct; })[0];
+      return !a || F.matches(a);
+    }).forEach(function (r) {
+      out.push('<button class="fin-alert fin-alert--up" type="button" data-alert-rc="' + esc(r.id) + '">' + Hub.icons.up + '<span>' + esc(r.name) + ' went up from ' +
+        Fin.money(r.priceUp.from, { cents: true }) + ' to ' + Fin.money(r.priceUp.to, { cents: true }) + '</span>' + Hub.icons.right + '</button>');
+    });
     return out.length ? '<div class="fin-alerts">' + out.join('') + '</div>' : '';
+  }
+
+  // This month so far: money in, spent, what's left, the pace against the
+  // same point last month, and where it went. Transfers aren't counted.
+  function thisMonthHTML(F) {
+    var tx = (F.data.monthTx || []).filter(function (t) {
+      var a = F.data.accounts.filter(function (x) { return x.id === t.acct; })[0];
+      return a && F.matches(a);
+    });
+    if (!tx.length && !(F.data.recent || []).length) return '';
+    var cur = F.data.today.slice(0, 7), dom = +F.data.today.slice(8, 10);
+    var mine = tx.filter(function (t) { return t.date.slice(0, 7) === cur; });
+    var prev = tx.filter(function (t) { return t.date.slice(0, 7) !== cur; });
+    var inn = mine.filter(function (t) { return t.amt > 0; }).reduce(function (m, t) { return m + t.amt; }, 0);
+    var out = mine.filter(function (t) { return t.amt < 0; }).reduce(function (m, t) { return m - t.amt; }, 0);
+    var prevToDate = prev.filter(function (t) { return t.amt < 0 && +t.date.slice(8, 10) <= dom; }).reduce(function (m, t) { return m - t.amt; }, 0);
+    var diff = out - prevToDate, pace;
+    if (!prev.length) pace = '';
+    else if (Math.abs(diff) < Math.max(2000, prevToDate * 0.05)) pace = '<p class="fin-pace">About the same as this time last month.</p>';
+    else pace = '<p class="fin-pace ' + (diff < 0 ? 'good' : 'bad') + '">' + (diff < 0 ? Hub.icons.down : Hub.icons.up) +
+      '<span>' + Fin.amt(Math.abs(diff)) + (diff < 0 ? ' less' : ' more') + ' spent than by this time last month</span></p>';
+    var byCat = {};
+    mine.filter(function (t) { return t.amt < 0; }).forEach(function (t) { byCat[t.cat || ''] = (byCat[t.cat || ''] || 0) - t.amt; });
+    var names = {};
+    (F.data.categories || []).forEach(function (c) { names[c.id] = c.name; });
+    var rows = Object.keys(byCat).map(function (k) { return { label: names[k] || 'Uncategorized', value: byCat[k] }; })
+      .sort(function (a, b) { return b.value - a.value; }).slice(0, 5);
+    var start = new Date(cur + '-01T12:00:00');
+    return '<section class="fin-card"><div class="fin-card-head"><h2>This month</h2><span class="fin-muted">' +
+      esc(start.toLocaleDateString('en-US', { month: 'long' }) + ' 1–' + dom) + '</span></div>' +
+      '<div class="fin-split fin-split--big"><span>In <b>' + Fin.amt(inn) + '</b></span><span>Spent <b>' + Fin.amt(out) + '</b></span><span>Left <b>' + Fin.amt(inn - out, { sign: true }) + '</b></span></div>' +
+      pace + (rows.length ? '<div class="fin-tm-cats" data-hbars="cats"></div>' : '<p class="fin-muted">No spending yet this month.</p>') +
+      '<button class="fin-link" type="button" data-alert="transactions">See transactions</button></section>';
+  }
+
+  function comingUpHTML(F) {
+    if (!(F.data.upcoming || []).length && !(F.data.recurring || []).length) return '';
+    return '<section class="fin-card"><div class="fin-card-head"><h2>Coming up</h2><span class="fin-muted">The next 14 days</span></div>' +
+      (Fin.upcomingHTML ? Fin.upcomingHTML(F.data.recurring || [], 14) : '') +
+      '<button class="fin-link" type="button" data-alert="recurring">All bills and subscriptions</button></section>';
   }
 
   function recentHTML(F) {
@@ -212,6 +260,7 @@
         tile('credit', 'Credit cards', groups.credit, 'liability') +
         tile('invest', 'Investments', groups.invest, 'asset') +
       '</div>' +
+      (function () { var a = thisMonthHTML(F), b = comingUpHTML(F); return a || b ? '<div class="fin-row">' + a + b + '</div>' : ''; })() +
       '<div class="fin-row">' +
         '<section class="fin-card"><div class="fin-card-head"><h2>What you own</h2><span class="fin-muted">' + Fin.amt(live.assets) + '</span></div><div data-hbars="own"></div></section>' +
         '<section class="fin-card"><div class="fin-card-head"><h2>What you owe</h2><span class="fin-muted">' + Fin.amt(live.debts) + '</span></div><div data-hbars="owe"></div></section>' +
@@ -222,6 +271,21 @@
         if (go === 'review') Fin.showReview(); else Fin.go(go);
       });
     });
+    Hub.$$('[data-alert-rc]', view).forEach(function (b) {
+      b.addEventListener('click', function () { Fin.openRecurring(b.getAttribute('data-alert-rc')); });
+    });
+    var catsEl = view.querySelector('[data-hbars="cats"]');
+    if (catsEl) {
+      var cur = F.data.today.slice(0, 7), byCat = {}, names = {};
+      (F.data.categories || []).forEach(function (c) { names[c.id] = c.name; });
+      (F.data.monthTx || []).forEach(function (t) {
+        var a = F.data.accounts.filter(function (x) { return x.id === t.acct; })[0];
+        if (!a || !F.matches(a) || t.amt >= 0 || t.date.slice(0, 7) !== cur) return;
+        byCat[t.cat || ''] = (byCat[t.cat || ''] || 0) - t.amt;
+      });
+      FinCharts.hbars(catsEl, { rows: Object.keys(byCat).map(function (k) { return { label: names[k] || 'Uncategorized', value: byCat[k] }; })
+        .sort(function (a, b) { return b.value - a.value; }).slice(0, 5), format: function (v) { return Fin.money(v); }, color: 'var(--fc-1)', ariaLabel: 'This month’s spending by category, largest first' });
+    }
 
     var series = monthlySeries(accts);
     var chartEl = view.querySelector('[data-chart="net"]');

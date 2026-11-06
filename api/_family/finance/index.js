@@ -22,6 +22,8 @@
 //   POST   fin-tx {...}                 -> add a transaction to a hand-kept account
 //   DELETE fin-tx&id=&month=            -> delete a hand-added transaction
 //   GET    fin-export&from=&to=         -> CSV download
+//   POST   fin-recurring {action, ...}  -> scan for recurring money, or confirm /
+//                                          dismiss / edit / add / delete one
 //   GET    fin-cron                     -> the daily job (Vercel Cron, CRON_SECRET)
 
 import { vaultReady, readSecure } from './vault.js';
@@ -31,6 +33,7 @@ import { saveAccount, setBalance, deleteAccount } from './accounts.js';
 import { plaidConfigured } from './plaid.js';
 import { newLinkToken, linkBank, reconnected, removeBank, syncAll, HOLDINGS } from './sync.js';
 import { monthList, reviewList, editTransactions, addManual, deleteManual, exportCsv, recentAndReview } from './transactions.js';
+import { scanRecurring, visibleRecurring, upcoming, changeRecurring } from './recurring.js';
 import { safeEqual } from '../session.js';
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
@@ -75,6 +78,10 @@ async function summary(user, viewer, state, snaps) {
     rules: (state.rules || []).map(({ id, label, text, cat }) => ({ id, label, text, cat })),
     recent: tx.recent,
     toReview: tx.toReview,
+    monthTx: tx.monthTx,
+    recurring: visibleRecurring(state, viewer),
+    upcoming: upcoming(state, viewer, 30),
+    recurringAt: (state.settings && state.settings.recurringAt) || null,
     items: items.map(({ id, inst, status, error, lastSync, owner, private: p, historyComplete, createdAt }) => ({ id, inst, status, error, lastSync, owner, private: !!p, historyComplete: !!historyComplete, createdAt })),
     itemsUsed: state.itemsUsed || 0,
     itemsMax: 10,
@@ -152,6 +159,12 @@ export async function financeRoute(request, url, user, r) {
     case 'POST fin-tx': return summary(user, viewer, await addManual(await body(request), await loadState(), viewer));
     case 'DELETE fin-tx': return summary(user, viewer, await deleteManual(q('id'), q('month'), await loadState(), viewer));
     case 'GET fin-export': return exportCsv(q('from'), q('to'), await loadState(), viewer);
+
+    case 'POST fin-recurring': {
+      const input = await body(request);
+      if (input.action === 'scan') return summary(user, viewer, await scanRecurring());
+      return summary(user, viewer, await changeRecurring(input, await loadState(), viewer));
+    }
   }
   throw fail(404, 'Unknown request');
 }
@@ -166,7 +179,7 @@ export async function financeCron(request) {
   if (!vaultReady()) return { ok: true, skipped: 'Finance isn’t set up (FINANCE_ENCRYPTION_KEY is missing).' };
   let state = await loadState();
   if ((state.items || []).length && plaidConfigured()) state = await syncAll({ budgetMs: 40000 });
-  else if ((state.accounts || []).length) await snapshotToday(state);
+  else if ((state.accounts || []).length) { await snapshotToday(state); state = await scanRecurring(); }
   const items = state.items || [];
   return { ok: true, day: familyDay(), accounts: (state.accounts || []).length, banks: items.length, reconnect: items.filter(i => i.status === 'reconnect').length };
 }

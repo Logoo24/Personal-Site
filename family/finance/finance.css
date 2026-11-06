@@ -185,7 +185,7 @@
 .fin-alert span { flex: 1; }
 .fin-alert svg { width: 18px; height: 18px; flex: none; color: var(--accent); }
 .fin-alert--bad { border-color: color-mix(in srgb, var(--hub-danger) 40%, var(--line)); }
-.fin-alert--bad svg:first-child { color: var(--hub-danger); }
+.fin-alert--bad svg:first-child, .fin-alert--up svg:first-child { color: var(--hub-danger); }
 .fin-recent { list-style: none; }
 .fin-recent li { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.65rem 0; border-top: 1px solid var(--line); }
 .fin-recent li:first-child { border-top: 0; }
@@ -229,6 +229,28 @@
 .fin-tx-form { display: grid; gap: 0.9rem; }
 .fin-export-list { display: grid; gap: 0.5rem; margin-top: 1rem; }
 .fin-export-list .btn { justify-content: center; }
+
+/* This month / Coming up (Overview) and the Recurring tab */
+.fin-card > .fin-link { display: inline-block; margin-top: 1rem; font-size: 0.88rem; }
+.fin-split--big { font-size: 1rem; }
+.fin-split--big b { font-size: 1.15rem; }
+.fin-pace { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.6rem; font-size: 0.88rem; font-weight: 600; color: var(--text-muted); }
+.fin-pace svg { width: 15px; height: 15px; flex: none; }
+.fin-pace.good { color: var(--fin-good); }
+.fin-pace.bad { color: var(--fin-bad); }
+.fin-tm-cats { margin-top: 1.1rem; }
+.fin-upcoming { display: grid; gap: 0.15rem; }
+.fin-up-day { display: grid; grid-template-columns: 6rem minmax(0, 1fr); gap: 0.75rem; padding: 0.55rem 0; border-top: 1px solid var(--line); }
+.fin-up-day:first-child { border-top: 0; padding-top: 0; }
+.fin-up-date { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); padding-top: 0.15rem; }
+.fin-up-day ul { list-style: none; display: grid; gap: 0.5rem; }
+.fin-up-day li { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.fin-up-day small, .fin-acct-bal small { font-weight: 500; color: var(--text-muted); font-size: 0.75rem; }
+@media (max-width: 520px) { .fin-up-day { grid-template-columns: minmax(0, 1fr); gap: 0.35rem; } }
+.fin-rc-ask { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; padding: 0 0 0.8rem 3.25rem; font-size: 0.86rem; }
+.fin-rc-ask .btn svg { width: 14px; height: 14px; }
+.fin-tag--up { border-color: color-mix(in srgb, var(--fin-bad) 45%, transparent); color: var(--fin-bad); }
+.fin-tag--up svg { width: 11px; height: 11px; }
 
 /* ============================================================
    CHARTS (charts.js)

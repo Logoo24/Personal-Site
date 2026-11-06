@@ -133,6 +133,14 @@ A private area for the Randall family, separate from the public site. Every foot
   - An "Always put X here" rule matches on `payeeKey()` of the merchant name, and is applied to the last 6 months when it's made.
   - CSV export guards against spreadsheet formulas.
 
+  Recurring (`recurring.js`):
+  - `scanRecurring()` reads the last 14 months, groups transactions by merchant (`payeeKey`) and direction, and keeps groups with a steady rhythm (weekly, biweekly, twice monthly, monthly, quarterly or yearly) and a steady amount (within 15%). Utilities and paychecks may vary.
+  - It then merges the results into `state.recurring`. The family's choices survive rescans: `status` (`detected` | `confirmed` | `ignored` | `manual`), plus `customName`, `customAmount`, `customCadence` and `person`.
+  - A scan runs after every sync, from the daily cron, and when the Recurring tab opens with a scan more than a day old.
+  - `upcoming()` lists the next 30 days: each item's next dates, plus card and loan due dates (Plaid's `dueDate`, or a hand-kept debt's `dueDay`). A loan's due date is skipped when its payment already shows up as a recurring bill.
+  - `priceUp` flags a steady charge whose price rose in the last 75 days.
+  - The summary's `monthTx` (this month and last, transfers left out) feeds the Overview's "This month" card, so the person filter works without another request.
+
   The daily cron:
   - `vercel.json` `crons` hits `/api/finance-cron` at 11:00 UTC; Hobby fires it sometime in that hour.
   - A rewrite sends that path to `?r=fin-cron`, which `family.js` routes before the session check. It's guarded by `Authorization: Bearer $CRON_SECRET`.

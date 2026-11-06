@@ -1,7 +1,7 @@
 // Local testing only: fills .family-data/finance/ with a believable year of
 // made-up money for two people, so Finance can be built and checked without
 // real bank data. It simulates every day: paychecks, rent, bills,
-// subscriptions (one with a price rise), groceries and the rest on two cards
+// subscriptions (Spotify went up last month), groceries and the rest on two cards
 // that get paid off each month, savings and investing transfers, market
 // swings, a car losing value and two loans paying down. One savings account
 // is "Only me" for the second person. The oldest months are marked estimated,
@@ -142,7 +142,7 @@ for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
   const monthsIn = (d.getFullYear() - start.getFullYear()) * 12 + month - start.getMonth();
   if (day === 3) add('card1', d, -299, 'APPLE.COM/BILL', 'iCloud+', 'subscriptions');
   if (day === 8) add('card1', d, -1549, 'NETFLIX.COM', 'Netflix', 'subscriptions');
-  if (day === 14) add('card1', d, monthsIn >= 7 ? -1199 : -1099, 'SPOTIFY USA', 'Spotify', 'subscriptions');
+  if (day === 14) add('card1', d, monthsIn >= 12 ? -1199 : -1099, 'SPOTIFY USA', 'Spotify', 'subscriptions');
   if (day === 22) add('card2', d, -799, 'DISNEYPLUS', 'Disney+', 'subscriptions');
   if (day === 20) add('card1', d, -between(84, 92), 'VERIZON WIRELESS', 'Verizon', 'utilities');
   if (day === 9 && month === 2) add('card1', d, -13900, 'AMAZON PRIME*MEMBERSHIP', 'Amazon Prime', 'subscriptions');
@@ -192,6 +192,13 @@ state.accounts = Object.values(accounts).map(a => ({
   minPayment: a.minPayment || null, asOf: nowIso, hidden: false, inNetWorth: true,
   ...(a.src === 'manual' ? { history: carHistory } : {})
 }));
+// Card due dates and statements (as Plaid's liabilities would give them),
+// and due days for the loans.
+const inDays = n => { const x = new Date(today); x.setDate(x.getDate() + n); return key(x); };
+Object.assign(state.accounts.find(a => a.id === accounts.card1.id), { dueDate: inDays(9), statementBalance: card1Statement, minPayment: 3500 });
+Object.assign(state.accounts.find(a => a.id === accounts.card2.id), { dueDate: inDays(17), statementBalance: card2Statement, minPayment: 2500 });
+state.accounts.find(a => a.id === accounts.auto.id).dueDay = 10;
+state.accounts.find(a => a.id === accounts.stud.id).dueDay = 28;
 state.credit = [];
 for (let k = 11; k >= 0; k--) {
   const d = new Date(today.getFullYear(), today.getMonth() - k, 4);

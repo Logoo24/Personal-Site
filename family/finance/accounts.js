@@ -231,6 +231,7 @@
       a.limit ? ['Credit limit', Fin.money(a.limit) + ' · ' + Math.round((a.balance || 0) / a.limit * 100) + '% used'] : null,
       a.minPayment ? ['Minimum payment', Fin.money(a.minPayment) + ' a month'] : null,
       a.dueDate ? ['Payment due', new Date(a.dueDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' }) + (a.overdue ? ' (overdue)' : '')] : null,
+      !a.dueDate && a.dueDay ? ['Payment due', 'The ' + a.dueDay + (a.dueDay % 10 === 1 && a.dueDay !== 11 ? 'st' : a.dueDay % 10 === 2 && a.dueDay !== 12 ? 'nd' : a.dueDay % 10 === 3 && a.dueDay !== 13 ? 'rd' : 'th') + ' of each month'] : null,
       a.statementBalance != null && a.type === 'credit' ? ['Last statement', Fin.money(a.statementBalance, { cents: true })] : null,
       a.available != null && a.type === 'cash' && a.available !== a.balance ? ['Available now', Fin.money(a.available, { cents: true })] : null,
       a.inNetWorth === false ? ['Net worth', 'Not counted'] : null,
@@ -330,6 +331,7 @@
           '<label class="field" data-show="rate"><span data-rate-label>Interest rate (%)</span><input class="input" name="apr" inputmode="decimal" placeholder="Optional" /></label>' +
           '<label class="field" data-show="credit"><span>Credit limit</span><input class="input" name="limit" inputmode="decimal" placeholder="Optional" /></label>' +
           '<label class="field" data-show="owe"><span>Minimum payment</span><input class="input" name="minPayment" inputmode="decimal" placeholder="Optional" /></label>' +
+          (linked ? '' : '<label class="field" data-show="owe"><span>Due day of the month</span><input class="input" name="dueDay" inputmode="numeric" placeholder="Optional, like 15" /></label>') +
         '</div>' +
         '<label class="field"><span>Notes</span><textarea name="notes" rows="2" maxlength="500" placeholder="Optional"></textarea></label>' +
         '<label class="cf-check"><input type="checkbox" name="inNetWorth" /> Count toward net worth</label>' +
@@ -346,6 +348,7 @@
     el.apr.value = a && a.apr != null ? a.apr : '';
     el.limit.value = a ? Fin.moneyInput(a.limit) : '';
     el.minPayment.value = a ? Fin.moneyInput(a.minPayment) : '';
+    if (el.dueDay) el.dueDay.value = a && a.dueDay ? a.dueDay : '';
     el.notes.value = a ? a.notes || '' : '';
     el.inNetWorth.checked = !a || a.inNetWorth !== false;
     if (el.hidden) el.hidden.checked = !!(a && a.hidden);
@@ -389,9 +392,11 @@
       if (!linked && (balance == null || isNaN(balance))) return bad('Enter the ' + (owe ? 'amount owed' : 'balance') + ' as a number, like 12,500. Use 0 if it’s empty.');
       if ([limit, minPayment].some(function (v) { return v != null && isNaN(v); })) return bad('The credit limit and minimum payment should be amounts, like 250.');
       if (apr != null && (isNaN(apr) || apr < 0 || apr > 100)) return bad('The interest rate should be a percent, like 5.9.');
+      var dueDay = el.dueDay && owe && el.dueDay.value.trim() ? Number(el.dueDay.value) : null;
+      if (dueDay != null && (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31)) return bad('The due day should be a day of the month, 1 to 31.');
       var payload = {
         id: a ? a.id : undefined, type: t, owner: el.owner.value, private: el.private.checked,
-        apr: apr, limit: limit, minPayment: minPayment, notes: el.notes.value, inNetWorth: el.inNetWorth.checked, hidden: el.hidden ? el.hidden.checked : false
+        apr: apr, limit: limit, minPayment: minPayment, dueDay: dueDay, notes: el.notes.value, inNetWorth: el.inNetWorth.checked, hidden: el.hidden ? el.hidden.checked : false
       };
       if (linked) payload.nick = el.nick.value;
       else { payload.name = el.name.value; payload.inst = el.inst.value; payload.balance = balance; }

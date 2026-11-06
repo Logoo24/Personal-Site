@@ -73,6 +73,13 @@ export function saveAccount(input, viewer) {
     a.apr = apr;
     a.limit = type === 'credit' ? limit : null;
     a.minPayment = kind.side === 'liability' ? minPayment : null;
+    // Hand-kept debts can say which day of the month the payment is due
+    // (linked ones get an exact date from Plaid).
+    if (editable(a)) {
+      const dd = input.dueDay == null || input.dueDay === '' ? null : Math.round(Number(input.dueDay));
+      if (dd != null && (!Number.isFinite(dd) || dd < 1 || dd > 31)) throw fail(400, 'The due day should be a day of the month, 1 to 31.');
+      a.dueDay = kind.side === 'liability' ? dd : null;
+    }
     a.notes = str(input.notes, 500);
     a.hidden = !!input.hidden;
     a.inNetWorth = input.inNetWorth !== false;

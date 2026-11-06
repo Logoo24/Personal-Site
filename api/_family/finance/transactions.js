@@ -208,16 +208,20 @@ export async function exportCsv(from, to, state, viewer) {
 }
 
 /* ---------- for the Overview ---------- */
-// The ten newest, and how many are waiting in the review queue (the same
-// three months reviewList looks at).
+// The ten newest, how many are waiting in the review queue (the same three
+// months reviewList looks at), and this month's and last month's counted
+// transactions in short form ({ acct, date, amt, cat }), so the Overview's
+// "This month" card can total them for whichever person is picked.
 export async function recentAndReview(state, viewer) {
-  if (!(state.accounts || []).length) return { recent: [], toReview: 0 };
+  if (!(state.accounts || []).length) return { recent: [], toReview: 0, monthTx: [] };
   const cur = familyDay().slice(0, 7);
   const months = [cur, addMonths(cur, -1), addMonths(cur, -2)];
   const lists = await Promise.all(months.map(readMonth));
   const list = visibleTx(lists.flatMap((l, i) => l.map(t => ({ ...t, month: months[i] }))), state, viewer);
   return {
     recent: list.filter(t => !t.hidden).sort(byNewest).slice(0, 10),
-    toReview: list.filter(t => t.reviewed === false && !t.hidden).length
+    toReview: list.filter(t => t.reviewed === false && !t.hidden).length,
+    monthTx: list.filter(t => t.month !== months[2] && !t.hidden && !t.pending && !isTransferCat(state, t.cat))
+      .map(t => ({ acct: t.acct, date: t.date, amt: t.amt, cat: t.cat }))
   };
 }

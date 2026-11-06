@@ -15,6 +15,7 @@ import * as P from './plaid.js';
 import { categorize, categorizeWithClaude, payeeKey } from './categorize.js';
 import { readMonth, updateMonth, detectTransfers } from './transactions.js';
 import { snapshotToday, fillHistory } from './snapshots.js';
+import { scanRecurring } from './recurring.js';
 import { randomId } from '../recipes.js';
 import { financeEmails } from '../session.js';
 
@@ -266,6 +267,10 @@ export async function syncAll(opts = {}) {
   if (ready.length && Date.now() < started + 50000) {
     await rebuildFromHistory(state, ready.map(i => i.id));
     state = await updateState(s => { (s.items || []).forEach(i => { if (ready.some(r => r.id === i.id)) i.rebuilt = true; }); });
+  }
+  // 7. Recurring bills, subscriptions and paychecks, with the new transactions.
+  if (Date.now() < started + 50000) {
+    try { await scanRecurring(); } catch (e) { console.error('Finance: recurring scan failed', e && e.message); }
   }
   return updateState(s => { s.settings = { ...(s.settings || {}), lastSyncAt: now }; });
 }
