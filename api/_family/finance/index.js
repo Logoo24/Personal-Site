@@ -26,6 +26,9 @@
 //   POST   fin-budgets {budgets}        -> set monthly budgets ({ categoryId: cents | null })
 //   POST   fin-goal {...}               -> add / edit a goal, or { id, add } to a hand-kept one
 //   DELETE fin-goal&id=                 -> delete a goal
+//   POST   fin-credit {...}             -> add / edit a credit score
+//   DELETE fin-credit&id=               -> delete one
+//   POST   fin-credit-read (image body) -> a score read from a screenshot (nothing saved)
 //   POST   fin-recurring {action, ...}  -> scan for recurring money, or confirm /
 //                                          dismiss / edit / add / delete one
 //   GET    fin-cron                     -> the daily job (Vercel Cron, CRON_SECRET)
@@ -39,6 +42,7 @@ import { newLinkToken, linkBank, reconnected, removeBank, syncAll, HOLDINGS } fr
 import { monthList, reviewList, editTransactions, addManual, deleteManual, exportCsv, recentAndReview, reportData } from './transactions.js';
 import { scanRecurring, visibleRecurring, upcoming, changeRecurring } from './recurring.js';
 import { setBudgets, saveGoal, deleteGoal, visibleGoals } from './plan.js';
+import { visibleCredit, saveCredit, deleteCredit, readScreenshot, MODELS, BUREAUS } from './credit.js';
 import { safeEqual } from '../session.js';
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
@@ -88,6 +92,9 @@ async function summary(user, viewer, state, snaps) {
     upcoming: upcoming(state, viewer, 30),
     recurringAt: (state.settings && state.settings.recurringAt) || null,
     goals: visibleGoals(state, viewer),
+    credit: visibleCredit(state, viewer),
+    creditModels: MODELS,
+    creditBureaus: BUREAUS,
     items: items.map(({ id, inst, status, error, lastSync, owner, private: p, historyComplete, createdAt }) => ({ id, inst, status, error, lastSync, owner, private: !!p, historyComplete: !!historyComplete, createdAt })),
     itemsUsed: state.itemsUsed || 0,
     itemsMax: 10,
@@ -170,6 +177,11 @@ export async function financeRoute(request, url, user, r) {
     case 'POST fin-budgets': return summary(user, viewer, await setBudgets(await body(request), viewer));
     case 'POST fin-goal': return summary(user, viewer, await saveGoal(await body(request), viewer));
     case 'DELETE fin-goal': return summary(user, viewer, await deleteGoal(q('id'), viewer));
+
+    case 'POST fin-credit': return summary(user, viewer, await saveCredit(await body(request), viewer));
+    case 'DELETE fin-credit': return summary(user, viewer, await deleteCredit(q('id'), viewer));
+    case 'POST fin-credit-read':
+      return readScreenshot(Buffer.from(await request.arrayBuffer()), (request.headers.get('content-type') || '').split(';')[0]);
 
     case 'POST fin-recurring': {
       const input = await body(request);

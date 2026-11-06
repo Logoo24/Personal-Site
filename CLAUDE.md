@@ -159,6 +159,13 @@ A private area for the Randall family, separate from the public site. Every foot
   - A goal tied to an account the viewer can't see is hidden from them (`visibleGoals`).
   - The emergency-fund suggestion is 3 to 6 × the last three months' spending in `essential` categories. A goal made from it carries `template: 'emergency'`.
 
+  Credit (`api/_family/finance/credit.js`, `family/finance/credit.js`):
+  - `state.credit` holds `{ person, score, model, bureau, date, source, private }`. No API gives a person their own score, so scores are typed in or read from a screenshot.
+  - The screenshot route, `?r=fin-credit-read` (raw image body, downscaled in the browser with `Hub.downscale`), asks Claude with JSON-schema output and returns the fields to fill the form. The image is never stored.
+  - A private score is seen only by its person, and "Only me" makes it the viewer's own.
+  - Bands follow the model (FICO vs. VantageScore). Card utilization comes from linked or hand-kept cards' balances and limits.
+  - The Overview nudges the viewer once their own latest score is more than 30 days old.
+
   The daily cron:
   - `vercel.json` `crons` hits `/api/finance-cron` at 11:00 UTC; Hobby fires it sometime in that hour.
   - A rewrite sends that path to `?r=fin-cron`, which `family.js` routes before the session check. It's guarded by `Authorization: Bearer $CRON_SECRET`.

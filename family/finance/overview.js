@@ -130,6 +130,13 @@
       esc(reconnect.map(function (i) { return i.inst; }).join(', ')) + (reconnect.length === 1 ? ' needs' : ' need') + ' you to sign in again</span>' + Hub.icons.right + '</button>');
     if (F.data.toReview) out.push('<button class="fin-alert" type="button" data-alert="review">' + Hub.icons.sparkle + '<span>' +
       Hub.plural(F.data.toReview, 'transaction') + ' to look over</span>' + Hub.icons.right + '</button>');
+    // A monthly nudge for the viewer's own credit score, once they've started tracking it.
+    var mine = (F.data.credit || []).filter(function (c) { return c.person === F.data.viewer.email; });
+    var last = mine[mine.length - 1];
+    if (last && (new Date(F.data.today + 'T12:00:00') - new Date(last.date + 'T12:00:00')) / 864e5 > 30) {
+      out.push('<button class="fin-alert" type="button" data-alert-score>' + Hub.icons.plus + '<span>Time for this month’s credit score (last one: ' +
+        esc(new Date(last.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })) + ')</span>' + Hub.icons.right + '</button>');
+    }
     (F.data.recurring || []).filter(function (r) {
       if (!r.priceUp || r.status === 'ignored' || r.ended) return false;
       var a = r.acct && F.data.accounts.filter(function (x) { return x.id === r.acct; })[0];
@@ -187,6 +194,21 @@
     return '<div class="fin-tm-budget"><div class="fin-budget-head"><span class="fin-label">Budgets</span><span><b class="fin-amt">' + esc(Fin.money(b.spent)) + '</b> <span class="fin-muted">of <span class="fin-amt">' + esc(Fin.money(b.total)) + '</span>' + (b.over ? ' · ' + b.over + ' over' : '') + '</span></span></div>' +
       '<span class="fin-meter ' + b.cls + '"><span class="fin-meter-fill" style="width:' + Math.min(100, b.total ? b.spent / b.total * 100 : 0) + '%"></span><span class="fin-meter-pace" style="left:' + b.marker * 100 + '%"></span></span>' +
       '<button class="fin-link" type="button" data-alert="plan">Budgets</button></div>';
+  }
+
+  // Each person's latest credit score.
+  function creditHTML(F) {
+    var rows = (F.data.people || []).map(function (p) {
+      var list = (F.data.credit || []).filter(function (c) { return c.person === p.email; });
+      return list.length ? { p: p, c: list[list.length - 1] } : null;
+    }).filter(Boolean);
+    if (!rows.length) return '';
+    return '<section class="fin-card"><div class="fin-card-head"><h2>Credit scores</h2><button class="fin-link" type="button" data-alert="credit">Credit</button></div>' +
+      '<ul class="fin-mini-scores">' + rows.map(function (x) {
+        var band = Fin.creditBandOf ? Fin.creditBandOf(x.c.score, x.c.model).name : '';
+        return '<li><span><span class="fin-budget-name">' + esc(x.p.name) + '</span> <span class="fin-muted">' + esc(band) + '</span></span>' +
+          '<span><b class="fin-amt">' + x.c.score + '</b> <span class="fin-muted">' + esc(new Date(x.c.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + '</span></span></li>';
+      }).join('') + '</ul></section>';
   }
 
   // The goals still in progress, nearest date first.
@@ -292,12 +314,18 @@
       '<div class="fin-row">' +
         '<section class="fin-card"><div class="fin-card-head"><h2>What you own</h2><span class="fin-muted">' + Fin.amt(live.assets) + '</span></div><div data-hbars="own"></div></section>' +
         '<section class="fin-card"><div class="fin-card-head"><h2>What you owe</h2><span class="fin-muted">' + Fin.amt(live.debts) + '</span></div><div data-hbars="owe"></div></section>' +
-      '</div>' + (function () { var r = recentHTML(F), g = goalsHTML(F); return r && g ? '<div class="fin-row">' + r + g + '</div>' : r + g; })();
+      '</div>' + (function () {
+        var r = recentHTML(F), side = goalsHTML(F) + creditHTML(F);
+        return r && side ? '<div class="fin-row">' + r + '<div class="fin-side-col">' + side + '</div></div>' : r + side;
+      })();
     Hub.$$('[data-alert]', view).forEach(function (b) {
       b.addEventListener('click', function () {
         var go = b.getAttribute('data-alert');
         if (go === 'review') Fin.showReview(); else if (go === 'goals') Fin.openGoals(); else Fin.go(go);
       });
+    });
+    Hub.$$('[data-alert-score]', view).forEach(function (b) {
+      b.addEventListener('click', function () { Fin.go('credit'); if (Fin.addScore) Fin.addScore(F.data.viewer.email); });
     });
     Hub.$$('[data-alert-goal]', view).forEach(function (b) {
       b.addEventListener('click', function () { Fin.openGoals(b.getAttribute('data-alert-goal')); });

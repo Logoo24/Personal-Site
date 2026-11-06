@@ -345,7 +345,7 @@
   window.Hub = {
     icons: ICONS, esc: esc, $: $, $$: $$, api: api, session: session, ready: ready, toast: toast,
     confirm: confirmBox, minutes: minutes, hue: hue, placeholderBg: placeholderBg, mediaUrl: mediaUrl,
-    plural: plural, md: md, recipeHTML: recipeHTML, ingredientsHTML: ingredientsHTML, shoppingItems: shoppingItems, upload: upload,
+    plural: plural, md: md, recipeHTML: recipeHTML, ingredientsHTML: ingredientsHTML, shoppingItems: shoppingItems, upload: upload, downscale: downscale,
     initials: initials, applyTheme: applyTheme, toggleTheme: toggleTheme,
     WANT_TAG: WANT_TAG, isWantTag: isWantTag, isWant: isWant
   };
