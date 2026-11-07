@@ -55,6 +55,26 @@
     return String(text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
+  // marked renderer overrides that keep recipe text from carrying a script:
+  // raw HTML shows as text, and links go only to web pages, email or this
+  // site (marked itself lets "javascript:" links through).
+  var esc = function (s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  };
+  var unesc = function (s) {
+    return String(s || '').replace(/&(amp|lt|gt|quot|#39);/g, function (a, e) { return { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" }[e]; });
+  };
+  var safeRenderer = {
+    html: function (html) { return esc(typeof html === 'object' ? html.text : html); },
+    link: function (href, title, text) {
+      var url = unesc(href).trim();
+      // Browsers skip spaces and control characters inside a scheme.
+      var probe = url.replace(/[\u0000- ]/g, '').toLowerCase();
+      if (/^[a-z][a-z0-9+.\-]*:/.test(probe) && !/^(https?|mailto):/.test(probe)) return text;
+      return '<a href="' + esc(url) + '"' + (title ? ' title="' + esc(unesc(title)) + '"' : '') + ' rel="noopener noreferrer">' + text + '</a>';
+    }
+  };
+
   // The words without their formatting marks (search, schema.org data,
   // shopping lists).
   function plain(text) {
@@ -64,5 +84,5 @@
       .replace(/(\*|_)(?=\S)([^*_\n]*?\S)\1/g, '$2');
   }
 
-  return { COLORS: COLORS, colorExtension: colorExtension, notesSource: notesSource, stepSource: stepSource, plain: plain };
+  return { COLORS: COLORS, colorExtension: colorExtension, safeRenderer: safeRenderer, notesSource: notesSource, stepSource: stepSource, plain: plain };
 });

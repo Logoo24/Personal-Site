@@ -5,7 +5,7 @@
 // that recipe uses. No sign-in needed (see api/_family/share.js).
 
 import { recipeForSlug } from './_family/share.js';
-import { renderSharedRecipe, renderNotShared } from './_family/share-page.js';
+import { renderSharedRecipe, renderNotShared, SHARE_CSP } from './_family/share-page.js';
 import { mediaIn } from './_family/recipes.js';
 import { getFile } from './_family/store.js';
 import { readSession } from './_family/session.js';
@@ -34,7 +34,7 @@ async function route(request) {
   const origin = `${request.headers.get('x-forwarded-proto') || url.protocol.replace(':', '')}://${request.headers.get('x-forwarded-host') || url.host}`;
   const familyView = !!(await readSession(request));
   return new Response(renderSharedRecipe(recipe, { origin, slug, familyView }), {
-    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': SHARE_CSP }
   });
 }
 

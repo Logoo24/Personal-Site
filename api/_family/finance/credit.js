@@ -31,6 +31,8 @@ export function saveCredit(input, viewer) {
     const date = String(input.date || familyDay());
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > familyDay()) throw fail(400, 'Pick the date of the score, today or earlier.');
     const priv = !!input.private;
+    // "Only me" makes the score the ticker's own: not for someone else's.
+    if (priv && c && c.person !== viewer) throw fail(403, 'Only the person whose score it is can make it “Only me”.');
     const person = priv ? viewer : String(input.person || viewer).toLowerCase();
     if (!financeEmails().includes(person)) throw fail(400, 'Pick whose score this is.');
     const fields = {

@@ -51,9 +51,11 @@ function progressOf(goal, accounts) {
   return goal.saved || 0;
 }
 
+// A goal tied to an account the viewer can't see, or to a deleted one (it
+// may have been someone's "Only me"), stays hidden.
 export function visibleGoals(state, viewer) {
   const accts = new Map((state.accounts || []).map(a => [a.id, a]));
-  return (state.goals || []).filter(g => (g.accounts || []).every(id => !accts.has(id) || canSee(accts.get(id), viewer)));
+  return (state.goals || []).filter(g => (g.accounts || []).every(id => accts.has(id) && canSee(accts.get(id), viewer)));
 }
 
 // input: { id?, name, kind, target, date, accounts, saved } to add or edit;

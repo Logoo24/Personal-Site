@@ -28,6 +28,7 @@
 //   DELETE fin-goal&id=                 -> delete a goal
 //   GET    fin-advice                   -> facts, rule cards and the cached briefing
 //   POST   fin-advice {refresh:true}    -> write a new briefing with Claude (5 a day)
+//   POST   fin-advice-ask {question, history} -> Claude answers a question about it (30 a day)
 //   POST   fin-credit {...}             -> add / edit a credit score
 //   DELETE fin-credit&id=               -> delete one
 //   POST   fin-credit-read (image body) -> a score read from a screenshot (nothing saved)
@@ -45,7 +46,7 @@ import { monthList, reviewList, editTransactions, addManual, deleteManual, expor
 import { scanRecurring, visibleRecurring, upcoming, changeRecurring } from './recurring.js';
 import { setBudgets, saveGoal, deleteGoal, visibleGoals } from './plan.js';
 import { visibleCredit, saveCredit, deleteCredit, readScreenshot, MODELS, BUREAUS } from './credit.js';
-import { advice } from './advice.js';
+import { advice, askAdvice } from './advice.js';
 import { safeEqual } from '../session.js';
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
@@ -87,7 +88,6 @@ async function summary(user, viewer, state, snaps) {
     accounts: accounts.map(publicAccount),
     snapshots: visibleSnapshots(snaps, accounts.map(a => a.id)),
     categories: state.categories,
-    rules: (state.rules || []).map(({ id, label, text, cat }) => ({ id, label, text, cat })),
     recent: tx.recent,
     toReview: tx.toReview,
     monthTx: tx.monthTx,
@@ -124,8 +124,11 @@ async function holdings(state, viewer) {
   const ok = new Set(visibleAccounts(state, viewer).map(a => a.id));
   const out = { holdings: [], securities: {} };
   for (const it of Object.values((f && f.data.items) || {})) {
-    for (const h of it.holdings || []) if (ok.has(h.acct)) out.holdings.push(h);
-    for (const s of it.securities || []) out.securities[s.id] = s;
+    const held = new Set();
+    for (const h of it.holdings || []) if (ok.has(h.acct)) { out.holdings.push(h); held.add(h.security); }
+    // Only what the viewer's own holdings refer to: the list itself would
+    // name what's in the other spouse's "Only me" accounts.
+    for (const s of it.securities || []) if (held.has(s.id)) out.securities[s.id] = s;
   }
   return out;
 }
@@ -183,6 +186,7 @@ export async function financeRoute(request, url, user, r) {
 
     case 'GET fin-advice': return advice(await loadState(), viewer);
     case 'POST fin-advice': return advice(await loadState(), viewer, { refresh: !!(await body(request)).refresh });
+    case 'POST fin-advice-ask': return askAdvice(await loadState(), viewer, await body(request));
 
     case 'POST fin-credit': return summary(user, viewer, await saveCredit(await body(request), viewer));
     case 'DELETE fin-credit': return summary(user, viewer, await deleteCredit(q('id'), viewer));

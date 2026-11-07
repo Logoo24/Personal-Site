@@ -32,7 +32,7 @@ export function vaultReady() {
 }
 
 function checkPath(p) {
-  if (!/^finance\/[a-z0-9/_.-]+\.json$/.test(p)) throw new Error('bad finance path: ' + p);
+  if (!/^finance\/[a-z0-9/_.-]+\.json$/.test(p) || p.split('/').includes('..')) throw new Error('bad finance path: ' + p);
 }
 
 export function encrypt(p, data) {
@@ -51,7 +51,8 @@ export function decrypt(p, env) {
   if (!env || env.v !== 1 || !env.iv || !env.tag || typeof env.data !== 'string') throw fail(500, 'A finance file isn’t in the expected format.');
   if (env.kid !== k.kid) throw fail(500, 'The finance data was saved with a different FINANCE_ENCRYPTION_KEY.');
   try {
-    const d = crypto.createDecipheriv('aes-256-gcm', k.bytes, Buffer.from(env.iv, 'base64'));
+    // authTagLength: a shortened tag would otherwise be accepted.
+    const d = crypto.createDecipheriv('aes-256-gcm', k.bytes, Buffer.from(env.iv, 'base64'), { authTagLength: 16 });
     d.setAAD(Buffer.from(p, 'utf8'));
     d.setAuthTag(Buffer.from(env.tag, 'base64'));
     return JSON.parse(Buffer.concat([d.update(Buffer.from(env.data, 'base64')), d.final()]).toString('utf8'));

@@ -31,9 +31,14 @@ process.chdir(ROOT);
 const vercel = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8'));
 const load = rel => import(pathToFileURL(path.join(ROOT, rel)).href);
 
+// Never serves dot-files and folders (.env.local, .git, .family-data) or
+// node_modules, which Vercel doesn't serve either.
 function resolve(urlPath) {
-  const p = path.join(ROOT, decodeURIComponent(urlPath));
-  if (!p.startsWith(ROOT)) return null;
+  let rel;
+  try { rel = decodeURIComponent(urlPath); } catch (e) { return null; }
+  if (rel.split(/[\\/]/).some(seg => seg.startsWith('.') || seg === 'node_modules')) return null;
+  const p = path.join(ROOT, rel);
+  if (p !== ROOT && !p.startsWith(ROOT + path.sep)) return null;
   const candidates = [p, p + '.html', path.join(p, 'index.html')];
   return candidates.find(c => fs.existsSync(c) && fs.statSync(c).isFile()) || null;
 }
@@ -83,6 +88,12 @@ function redirectFor(pathname) {
 
 http.createServer(async (req, res) => {
   try {
+    // Only this computer: a web page can't reach it by pointing its own
+    // domain at 127.0.0.1 (DNS rebinding).
+    if (!/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(req.headers.host || '')) {
+      res.writeHead(403, { 'Content-Type': 'text/plain' });
+      return res.end('Forbidden');
+    }
     let pathname = req.url.split('?')[0];
     const to = redirectFor(pathname);
     if (to) { res.writeHead(307, { Location: to }); return res.end(); }
@@ -111,4 +122,4 @@ http.createServer(async (req, res) => {
     res.writeHead(500, { 'Content-Type': 'text/plain' });
     res.end(String(e && e.stack || e));
   }
-}).listen(PORT, () => console.log(`Serving ${ROOT} at http://localhost:${PORT}`));
+}).listen(PORT, '127.0.0.1', () => console.log(`Serving ${ROOT} at http://localhost:${PORT}`)); // not the Wi-Fi network

@@ -120,7 +120,8 @@ export async function editTransactions({ edits, rule }, state, viewer) {
     const cur = familyDay().slice(0, 7);
     for (let k = 0; k < 6; k++) {
       await updateMonth(addMonths(cur, -k), txs => {
-        txs.forEach(t => { if (t.catSrc !== 'user' && ruleFor(t, [ruleSaved])) applyRule(t, ruleSaved); });
+        // Only accounts its maker can see: not the other person's "Only me" ones.
+        txs.forEach(t => { if (visible.has(t.acct) && t.catSrc !== 'user' && ruleFor(t, [ruleSaved])) applyRule(t, ruleSaved); });
         return txs;
       });
     }

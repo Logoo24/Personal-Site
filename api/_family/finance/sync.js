@@ -48,13 +48,16 @@ export async function linkBank({ publicToken, institution, owner, private: priv 
   const { accessToken, itemId } = await P.exchange(String(publicToken));
   // The token first: if anything after this fails, the connection isn't lost.
   await updateSecure(SECRETS, s => { s.items = s.items || {}; s.items[itemId] = { accessToken, cursor: null }; }, emptySecrets);
-  const inst = String((institution && institution.name) || '').slice(0, 80) || await P.institutionName(institution && institution.institution_id);
+  // From the page (Plaid Link's metadata): only a well-formed id is kept.
+  const rawInstId = String((institution && institution.institution_id) || '');
+  const instId = /^ins_\w{1,40}$/.test(rawInstId) ? rawInstId : null;
+  const inst = String((institution && institution.name) || '').slice(0, 80) || (instId && await P.institutionName(instId));
   const who = priv ? viewer : (owner === 'joint' || financeEmails().includes(String(owner || '').toLowerCase()) ? String(owner).toLowerCase() : 'joint');
   await updateState(s => {
     if ((s.items || []).some(i => i.id === itemId)) return;
     s.itemsUsed = (s.itemsUsed || 0) + 1;
     s.items = (s.items || []).concat({
-      id: itemId, inst: inst || 'Bank', instId: (institution && institution.institution_id) || null,
+      id: itemId, inst: inst || 'Bank', instId,
       owner: who, private: !!priv, createdBy: viewer, createdAt: new Date().toISOString(), status: 'ok', lastSync: null
     });
   });
@@ -132,7 +135,9 @@ function mergeAccounts(s, item, list, liabilities, now) {
       a = { id: 'a_' + randomId(12), src: 'plaid', itemId: item.id, type, side: ACCOUNT_TYPES[type].side, owner: item.owner, private: !!item.private,
         hidden: false, inNetWorth: true, notes: '', createdAt: now };
       // The same joint account linked from both logins: keep one, hide the copy.
-      const twin = s.accounts.find(x => x.src === 'plaid' && x.itemId !== item.id && x.mask && x.mask === pa.mask && x.inst === item.inst && x.type === type);
+      // Never matched against someone else's "Only me" account, which the
+      // other person can't see (and whose name the note would give away).
+      const twin = s.accounts.find(x => x.src === 'plaid' && x.itemId !== item.id && x.mask && x.mask === pa.mask && x.inst === item.inst && x.type === type && (!x.private || x.owner === item.owner));
       if (twin) { a.hidden = true; a.inNetWorth = false; a.dupOf = twin.id; a.notes = 'Looks like the same account as ' + (twin.nick || twin.name) + ', linked twice.'; }
       s.accounts.push(a);
     }

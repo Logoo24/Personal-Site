@@ -6,6 +6,9 @@
 //     (GITHUB_CMS_TOKEN), no GitHub page at all.
 //   - api/callback.js, everyone else: GitHub's own OAuth sign-in.
 
+// GitHub OAuth's state value, between api/auth.js and api/callback.js.
+export const STATE_COOKIE = 'cms_oauth_state';
+
 // The page's own origin, so the token only ever goes to this site.
 export function siteOrigin(req) {
   const host = req.headers['x-forwarded-host'] || req.headers.host;

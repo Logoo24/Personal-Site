@@ -9,10 +9,18 @@
 (function () {
   'use strict';
   var $ = Hub.$, $$ = Hub.$$, esc = Hub.esc;
+  // [id, name, the line under it in the Report drop-down]
   var REPORTS = [
-    ['cashflow', 'Cash flow'], ['spending', 'Spending'], ['trend', 'Category trend'], ['income', 'Income'],
-    ['merchants', 'Merchants'], ['networth', 'Net worth'], ['bills', 'Bills & subscriptions'],
-    ['debt', 'Debt payoff'], ['investments', 'Investments'], ['review', 'Year in review']
+    ['cashflow', 'Cash flow', 'Money in against money out each month, and where it went'],
+    ['spending', 'Spending', 'By category, against the period before'],
+    ['trend', 'Category trend', 'One category month by month, and the merchants behind it'],
+    ['income', 'Income', 'Where the money comes from, month by month'],
+    ['merchants', 'Merchants', 'Where you spend the most'],
+    ['networth', 'Net worth', 'What you own and owe at each month’s end'],
+    ['bills', 'Bills & subscriptions', 'What each regular charge costs a year'],
+    ['debt', 'Debt payoff', 'Avalanche against snowball, with extra payments'],
+    ['investments', 'Investments', 'Accounts, mix and holdings'],
+    ['review', 'Year in review', 'A written summary of a year or a month, and its highlights']
   ];
   var TIMELESS = { bills: 1, debt: 1, investments: 1, review: 1 };
   var PERIODS = [['3', 'Last 3 months'], ['6', 'Last 6 months'], ['12', 'Last 12 months'], ['ytd', 'This year'], ['ly', 'Last year'], ['24', 'Last 24 months']];
@@ -431,14 +439,18 @@
   /* ---------- tab ---------- */
   function render(view) {
     view.innerHTML = '<div class="fin-report-bar">' +
-        '<div class="fin-report-chips" role="tablist" aria-label="Reports">' + REPORTS.map(function (r) {
-          return '<button type="button" class="chip' + (r[0] === ui.report ? ' on' : '') + '" data-report="' + r[0] + '" aria-pressed="' + (r[0] === ui.report) + '">' + esc(r[1]) + '</button>';
-        }).join('') + '</div>' +
+        '<div class="fin-report-menu"></div>' +
         '<div class="fin-report-tools">' +
           (TIMELESS[ui.report] ? '' : '<select class="fin-period" data-period aria-label="Period">' + PERIODS.map(function (p) { return '<option value="' + p[0] + '"' + (p[0] === ui.period ? ' selected' : '') + '>' + p[1] + '</option>'; }).join('') + '</select>') +
           '<button class="btn btn-ghost btn-sm" type="button" data-print>' + Hub.icons.print + 'Print</button>' +
         '</div>' +
       '</div>' + printHead() + '<div class="fin-report" data-report-box><p class="hub-loading">Adding things up…</p></div>';
+    Fin.menu($('.fin-report-menu', view), {
+      id: 'report-menu', label: 'Report', ariaLabel: 'Reports', change: 'Choose another report',
+      options: REPORTS, value: ui.report,
+      // The tab draws again, menu and all, so the new button takes the focus.
+      pick: function (key) { ui.report = key; Fin.rerender(); $('#view .fin-report-menu .fin-menu-btn').focus(); }
+    });
     var box = $('[data-report-box]', view);
     var needsData = !{ networth: 1, bills: 1, debt: 1, investments: 1 }[ui.report];
     (needsData ? load() : Promise.resolve(data)).then(function () {
@@ -450,7 +462,7 @@
   function printHead() {
     var name = REPORTS.filter(function (r) { return r[0] === ui.report; })[0][1];
     var period = TIMELESS[ui.report] ? '' : PERIODS.filter(function (p) { return p[0] === ui.period; })[0][1];
-    var who = ($('#person .fin-person-v') || {}).textContent || '';
+    var who = ($('#person .fin-menu-v') || {}).textContent || '';
     var printed = 'Printed ' + new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     return '<div class="fin-print-head"><h2>' + esc(name) + '</h2><p>' + esc([period, who, printed].filter(Boolean).join(' · ')) + '</p></div>';
   }
@@ -463,10 +475,9 @@
   Fin.tab('reports', render);
   document.addEventListener('click', function (e) {
     if (location.hash.replace('#', '') !== 'reports') return;
-    var t = e.target.closest('[data-report],[data-trend],[data-strategy] [data-v],[data-print]');
+    var t = e.target.closest('[data-trend],[data-strategy] [data-v],[data-print]');
     if (!t || !$('#view').contains(t)) return;
     if (t.hasAttribute('data-print')) return window.print();
-    if (t.hasAttribute('data-report')) { ui.report = t.getAttribute('data-report'); return Fin.rerender(); }
     if (t.hasAttribute('data-trend')) { ui.report = 'trend'; ui.cat = t.getAttribute('data-trend'); return Fin.rerender(); }
     if (t.hasAttribute('data-v')) { ui.strategy = t.getAttribute('data-v'); return Fin.rerender(); }
   });

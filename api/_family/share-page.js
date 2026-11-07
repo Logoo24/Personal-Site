@@ -7,9 +7,24 @@
 // Uses the site's recipe-card styles (css/styles.css) and main.js's servings
 // scaler and print button.
 
+import crypto from 'node:crypto';
 import { Marked } from 'marked';
 import RecipeScale from '../../js/recipe-scale.js';
 import RecipeText from '../../js/recipe-text.js';
+
+// Every page's first-paint theme line (see CLAUDE.md), the page's only inline script.
+const THEME_SCRIPT = "try{document.documentElement.setAttribute('data-theme',localStorage.getItem('lb-theme')||'light')}catch(e){}";
+// The page's Content-Security-Policy (api/recipe.js sends it): the site's own
+// scripts and that one line, nothing else. A public page anyone can open,
+// so even markup that slipped past the markdown renderer couldn't run.
+export const SHARE_CSP = [
+  "default-src 'self'",
+  `script-src 'self' 'sha256-${crypto.createHash('sha256').update(THEME_SCRIPT).digest('base64')}'`,
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  'font-src https://fonts.gstatic.com',
+  "img-src 'self' data:",
+  "object-src 'none'", "base-uri 'none'", "form-action 'none'", "frame-ancestors 'none'"
+].join('; ');
 
 const esc = s => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -19,6 +34,9 @@ const esc = s => String(s == null ? '' : s)
 const md = new Marked({
   extensions: [RecipeText.colorExtension],
   renderer: {
+    // No raw HTML, no "javascript:" links (js/recipe-text.js).
+    html: RecipeText.safeRenderer.html,
+    link: RecipeText.safeRenderer.link,
     image(href, title, text) {
       const raw = s => String(s || '').replace(/&(amp|lt|gt|quot|#39);/g,
         (all, e) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" })[e]);
@@ -65,7 +83,7 @@ function shell({ title, description, url, image, body, status, back }) {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('lb-theme')||'light')}catch(e){}</script>
+  <script>${THEME_SCRIPT}</script>
   <title>${esc(title)}</title>
   <meta name="robots" content="noindex" />
   <meta name="theme-color" content="#FAFAFA" />

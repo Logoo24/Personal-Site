@@ -15,6 +15,17 @@
     { "source": "/recipes/:slug/photos/:file", "destination": "/api/recipe?slug=:slug&f=:file" },
     { "source": "/recipes/:slug", "destination": "/api/recipe?slug=:slug" }
   ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), payment=()" }
+      ]
+    }
+  ],
   "redirects": [
     { "source": "/admin", "destination": "/family/manage", "permanent": false },
     { "source": "/admin/:path*", "destination": "/family/manage", "permanent": false }

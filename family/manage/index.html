@@ -14,7 +14,10 @@
   <!-- Sveltia CMS - modern fork of Decap CMS, drop-in replacement.
        Reads config.yml (linked above), then renders the entire admin UI in
        this page. The family hub's sign-in (middleware.js) guards this page;
-       the CMS then asks for its own GitHub sign-in to commit changes. -->
-  <script type="module" src="https://unpkg.com/@sveltia/cms/dist/sveltia-cms.js"></script>
+       the CMS then asks for its own GitHub sign-in to commit changes.
+       Pinned to an exact version: an unpinned URL would run whatever was
+       published last, on this site, with the GitHub token in reach. To
+       update, pick a release that's been out a couple of weeks. -->
+  <script type="module" src="https://unpkg.com/@sveltia/cms@0.250.2/dist/sveltia-cms.js"></script>
 </body>
 </html>

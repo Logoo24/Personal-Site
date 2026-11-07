@@ -40,7 +40,7 @@ export function saveAccount(input, viewer) {
     if (isNew) a = { id: 'a_' + randomId(12), src: 'manual', createdAt: now, createdBy: viewer };
 
     const type = String(input.type || a.type || '');
-    const kind = ACCOUNT_TYPES[type];
+    const kind = Object.hasOwn(ACCOUNT_TYPES, type) ? ACCOUNT_TYPES[type] : null;
     if (!kind) throw fail(400, 'Pick what kind of account this is.');
     if (!isNew && !editable(a) && kind.side !== ACCOUNT_TYPES[a.type].side) throw fail(400, 'A linked account can’t switch between something you own and something you owe.');
 
@@ -61,7 +61,12 @@ export function saveAccount(input, viewer) {
     a.type = type;
     a.side = kind.side;
 
-    if (input.private) { a.private = true; a.owner = viewer; }
+    if (input.private) {
+      // "Only me" makes the account the ticker's own, so it can't be used
+      // to take one that's in the other person's name.
+      if (!isNew && !a.private && a.owner !== viewer && a.owner !== 'joint') throw fail(403, 'Only the person whose name it’s in can make this account “Only me”.');
+      a.private = true; a.owner = viewer;
+    }
     else {
       a.private = false;
       const owner = String(input.owner || 'joint').toLowerCase();
@@ -104,6 +109,10 @@ export async function deleteAccount(id, viewer) {
     const a = findVisible(s, id, viewer);
     if (!editable(a)) throw fail(400, 'Linked accounts go away when their bank connection is removed. You can hide this one instead.');
     s.accounts = s.accounts.filter(x => x.id !== id);
+    // Its recurring items and goals go too: they'd otherwise outlive an
+    // "Only me" account and nobody could see or remove them.
+    s.recurring = (s.recurring || []).filter(r => r.acct !== id);
+    s.goals = (s.goals || []).filter(g => !(g.accounts || []).includes(id));
   });
   await forgetAccount(id);
   return state;

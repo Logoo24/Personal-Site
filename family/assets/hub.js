@@ -211,6 +211,9 @@
       window.marked.use({
         extensions: window.RecipeText ? [RecipeText.colorExtension] : [],
         renderer: {
+          // No raw HTML, no "javascript:" links (js/recipe-text.js).
+          html: window.RecipeText ? RecipeText.safeRenderer.html : function (h) { return esc(typeof h === 'object' ? h.text : h); },
+          link: window.RecipeText ? RecipeText.safeRenderer.link : function (href, title, text) { return text; },
           image: function (href, title, alt) {
             var raw = function (s) { return String(s || '').replace(/&(amp|lt|gt|quot|#39);/g, function (a, e) { return { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" }[e]; }); };
             href = raw(href); title = raw(title); alt = raw(alt);

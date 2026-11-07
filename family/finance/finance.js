@@ -108,8 +108,84 @@
       var p = (Fin.data.people || []).filter(function (x) { return x.email === owner; })[0];
       return p ? p.name : 'Someone';
     },
-    rerender: function () { show(current()); }
+    rerender: function () { show(current()); },
+    menu: menu
   };
+
+  /* ---------- drop-down menus ---------- */
+  // A drop-down of choices, each with a line saying what it is: the
+  // "Showing" menu and the Reports picker. o: { id, label, ariaLabel,
+  // change (the button's aria-label ending), options: [[key, name, line]],
+  // value, pick(key) }.
+  function menu(wrap, o) {
+    wrap.classList.add('fin-menu');
+    wrap.innerHTML =
+      '<button class="fin-menu-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="' + o.id + '">' +
+        '<span class="fin-menu-k">' + esc(o.label) + '</span><span class="fin-menu-v"></span>' + Hub.icons.down +
+      '</button>' +
+      '<div class="fin-menu-list" id="' + o.id + '" role="menu" aria-label="' + esc(o.ariaLabel) + '">' +
+        o.options.map(function (x) {
+          return '<button type="button" role="menuitemradio" aria-checked="false" data-key="' + esc(x[0]) + '">' +
+            '<span class="fin-menu-check">' + Hub.icons.check + '</span>' +
+            '<span><strong>' + esc(x[1]) + '</strong><small>' + esc(x[2]) + '</small></span>' +
+          '</button>';
+        }).join('') +
+      '</div>';
+    var btn = $('.fin-menu-btn', wrap), items = $$('[data-key]', wrap), value = o.value;
+
+    function mark() {
+      var cur = o.options.filter(function (x) { return x[0] === value; })[0] || o.options[0];
+      $('.fin-menu-v', wrap).textContent = cur[1];
+      btn.setAttribute('aria-label', o.label + ' ' + cur[1] + '. ' + o.change);
+      items.forEach(function (x) { x.setAttribute('aria-checked', String(x.getAttribute('data-key') === value)); });
+    }
+    function open() {
+      wrap.classList.add('open');
+      btn.setAttribute('aria-expanded', 'true');
+      (items.filter(function (x) { return x.getAttribute('aria-checked') === 'true'; })[0] || items[0]).focus();
+    }
+    function close(refocus) {
+      if (!closeMenu(wrap)) return;
+      if (refocus) btn.focus();
+    }
+
+    btn.addEventListener('click', function () { if (wrap.classList.contains('open')) close(); else open(); });
+    wrap.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && wrap.classList.contains('open')) { e.stopPropagation(); close(true); return; }
+      if (e.target === btn) {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); open(); }
+        return;
+      }
+      var i = items.indexOf(document.activeElement);
+      if (i < 0) return;
+      var to = e.key === 'ArrowDown' ? (i + 1) % items.length
+        : e.key === 'ArrowUp' ? (i - 1 + items.length) % items.length
+        : e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1 : -1;
+      if (to >= 0) { e.preventDefault(); items[to].focus(); }
+      else if (e.key === 'Tab') close();
+    });
+    items.forEach(function (x) {
+      x.addEventListener('click', function () {
+        value = x.getAttribute('data-key');
+        mark();
+        close(true);
+        o.pick(value);
+      });
+    });
+    mark();
+  }
+  function closeMenu(wrap) {
+    if (!wrap.classList.contains('open')) return false;
+    wrap.classList.remove('open');
+    $('.fin-menu-btn', wrap).setAttribute('aria-expanded', 'false');
+    return true;
+  }
+  // One listener for every menu, including ones a tab draws again: a click
+  // outside closes it. Capture phase, so a click on the hub's user menu
+  // (which stops the click from bubbling) still closes it.
+  document.addEventListener('click', function (e) {
+    $$('.fin-menu.open').forEach(function (m) { if (!m.contains(e.target)) closeMenu(m); });
+  }, true);
 
   /* ---------- side drawer (the calendar's, bottom sheet on phones) ---------- */
   var lastFocus = null;
@@ -170,67 +246,15 @@
     var opts = personOptions();
     try { Fin.person = localStorage.getItem('fin-person') || 'all'; } catch (e) {}
     if (!opts.some(function (o) { return o[0] === Fin.person; })) Fin.person = 'all';
-    var wrap = $('#person');
-    wrap.innerHTML =
-      '<button class="fin-person-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="person-menu">' +
-        '<span class="fin-person-k">Showing</span><span class="fin-person-v"></span>' + Hub.icons.down +
-      '</button>' +
-      '<div class="fin-person-menu" id="person-menu" role="menu" aria-label="Whose accounts to show">' +
-        opts.map(function (o) {
-          return '<button type="button" role="menuitemradio" aria-checked="false" data-person="' + esc(o[0]) + '">' +
-            '<span class="fin-person-check">' + Hub.icons.check + '</span>' +
-            '<span><strong>' + esc(o[1]) + '</strong><small>' + esc(o[2]) + '</small></span>' +
-          '</button>';
-        }).join('') +
-      '</div>';
-    var btn = $('.fin-person-btn', wrap), items = $$('[data-person]', wrap);
-
-    function mark() {
-      var cur = opts.filter(function (o) { return o[0] === Fin.person; })[0];
-      $('.fin-person-v', wrap).textContent = cur[1];
-      btn.setAttribute('aria-label', 'Showing ' + cur[1] + '. Change whose accounts are shown');
-      items.forEach(function (x) { x.setAttribute('aria-checked', String(x.getAttribute('data-person') === Fin.person)); });
-    }
-    function open() {
-      wrap.classList.add('open');
-      btn.setAttribute('aria-expanded', 'true');
-      (items.filter(function (x) { return x.getAttribute('aria-checked') === 'true'; })[0] || items[0]).focus();
-    }
-    function close(refocus) {
-      if (!wrap.classList.contains('open')) return;
-      wrap.classList.remove('open');
-      btn.setAttribute('aria-expanded', 'false');
-      if (refocus) btn.focus();
-    }
-
-    btn.addEventListener('click', function () { if (wrap.classList.contains('open')) close(); else open(); });
-    wrap.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && wrap.classList.contains('open')) { e.stopPropagation(); close(true); return; }
-      if (e.target === btn) {
-        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); open(); }
-        return;
-      }
-      var i = items.indexOf(document.activeElement);
-      if (i < 0) return;
-      var to = e.key === 'ArrowDown' ? (i + 1) % items.length
-        : e.key === 'ArrowUp' ? (i - 1 + items.length) % items.length
-        : e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1 : -1;
-      if (to >= 0) { e.preventDefault(); items[to].focus(); }
-      else if (e.key === 'Tab') close();
-    });
-    items.forEach(function (x) {
-      x.addEventListener('click', function () {
-        Fin.person = x.getAttribute('data-person');
+    menu($('#person'), {
+      id: 'person-menu', label: 'Showing', ariaLabel: 'Whose accounts to show', change: 'Change whose accounts are shown',
+      options: opts, value: Fin.person,
+      pick: function (key) {
+        Fin.person = key;
         try { localStorage.setItem('fin-person', Fin.person); } catch (err) {}
-        mark();
-        close(true);
         Fin.rerender();
-      });
+      }
     });
-    // Capture phase, so a click on the hub's user menu (which stops the
-    // click from bubbling) still closes this one.
-    document.addEventListener('click', function (e) { if (!wrap.contains(e.target)) close(); }, true);
-    mark();
   }
 
   function drawHide() {

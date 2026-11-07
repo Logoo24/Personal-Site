@@ -18,6 +18,7 @@ import { readMonth } from './transactions.js';
 import { updateState, familyDay, addMonths, canSee } from './data.js';
 import { payeeKey, fromKeywords } from './categorize.js';
 import { randomId } from '../recipes.js';
+import { financeEmails } from '../session.js';
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
 const SCAN_MONTHS = 14;
@@ -29,6 +30,8 @@ export const CADENCES = {
   quarterly: { days: 91, perMonth: 1 / 3, min: 2, grace: 120, label: 'Every 3 months' },
   yearly: { days: 365, perMonth: 1 / 12, min: 2, grace: 400, label: 'Every year' }
 };
+// Own keys only: a stored "constructor" must not look like a cadence.
+const cadenceOrMonthly = c => (Object.hasOwn(CADENCES, c) ? CADENCES[c] : CADENCES.monthly);
 const VARIABLE_OK = new Set(['utilities', 'insurance', 'housing', 'paycheck', 'other-income', 'health', 'loans']);
 
 /* ---------- dates (YYYY-MM-DD strings, family time) ---------- */
@@ -67,7 +70,7 @@ export function nextAfter(item, after) {
       m = addMonths(m, 1);
     }
   }
-  const step = (CADENCES[c] || CADENCES.monthly).days;
+  const step = cadenceOrMonthly(c).days;
   let n = d;
   for (let i = 0; i < 2000 && n <= after; i++) n = addDays(n, Math.round(step));
   return n;
@@ -95,12 +98,18 @@ function kindOf(dir, cat, name) {
 // Finds recurring series in a list of transactions.
 export function detect(txs, state, today) {
   const transferCats = new Set((state.categories || []).filter(c => c.kind === 'transfer').map(c => c.id));
+  const accts = new Map((state.accounts || []).map(a => [a.id, a]));
   const groups = new Map();
   for (const t of txs) {
     if (t.pending || t.hidden || !t.amt || transferCats.has(t.cat)) continue;
+    // A deleted account's leftover transactions are skipped, and an "Only
+    // me" account's never share a series with anyone else's.
+    const a = accts.get(t.acct);
+    if (!a) continue;
     const dir = t.amt < 0 ? 'out' : 'in';
-    const key = payeeKey(t.name) || payeeKey(t.raw);
-    if (!key) continue;
+    const payee = payeeKey(t.name) || payeeKey(t.raw);
+    if (!payee) continue;
+    const key = a.private ? payee + '~' + a.owner : payee;
     const g = groups.get(dir + ':' + key) || { key, dir, list: [] };
     g.list.push(t);
     groups.set(dir + ':' + key, g);
@@ -182,14 +191,16 @@ export function view(r, today) {
   const cadence = r.customCadence || r.cadence;
   const v = { ...r, name: r.customName || r.name, amount: r.customAmount != null ? r.customAmount : r.amount, cadence };
   if (r.status === 'manual' || r.customCadence) v.nextDate = r.nextDate && r.nextDate > addDays(today, -1) ? r.nextDate : nextAfter(v, addDays(today, -1));
-  v.monthly = Math.round(v.amount * (CADENCES[cadence] || CADENCES.monthly).perMonth);
+  v.monthly = Math.round(v.amount * cadenceOrMonthly(cadence).perMonth);
   return v;
 }
 
+// An item tied to an account the viewer can't see, or to one that's been
+// deleted (it may have been someone's "Only me"), stays hidden.
 export function visibleRecurring(state, viewer) {
   const today = familyDay();
   const acct = new Map((state.accounts || []).map(a => [a.id, a]));
-  return (state.recurring || []).filter(r => !r.acct || !acct.has(r.acct) || canSee(acct.get(r.acct), viewer)).map(r => view(r, today));
+  return (state.recurring || []).filter(r => !r.acct || (acct.has(r.acct) && canSee(acct.get(r.acct), viewer))).map(r => view(r, today));
 }
 
 // Everything expected in the next `days` days: recurring items (more than
@@ -236,14 +247,18 @@ export function changeRecurring(input, state, viewer) {
       if (r.status === 'manual') { if (a == null) throw fail(400, 'Enter an amount.'); r.amount = a; } else r.customAmount = a == null ? undefined : a;
     }
     if (f.cadence !== undefined) {
-      if (!CADENCES[f.cadence]) throw fail(400, 'Pick how often it comes.');
+      if (!Object.hasOwn(CADENCES, f.cadence)) throw fail(400, 'Pick how often it comes.');
       if (r.status === 'manual') r.cadence = f.cadence; else r.customCadence = f.cadence === r.cadence ? undefined : f.cadence;
     }
     if (f.nextDate !== undefined) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(String(f.nextDate))) throw fail(400, 'Pick the next date.');
       r.nextDate = f.nextDate; r.lastDate = null;
     }
-    if (f.person !== undefined) r.person = f.person || undefined;
+    if (f.person !== undefined) {
+      const p = String(f.person || '').toLowerCase();
+      if (p && !financeEmails().includes(p)) throw fail(400, 'Pick whose it is.');
+      r.person = p || undefined;
+    }
     if (f.note !== undefined) r.note = String(f.note || '').slice(0, 300) || undefined;
     if (f.cat !== undefined && r.status === 'manual') r.cat = cats.has(f.cat) ? f.cat : null;
   };

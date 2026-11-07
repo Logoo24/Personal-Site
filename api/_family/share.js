@@ -17,6 +17,19 @@ export const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
 
+// Public lookups keep the map for half a minute, so a flood of made-up links
+// can't use up the Blob store's monthly reads (which the cookbook and
+// Finance share). Making a recipe private still takes effect at once: the
+// recipe's own `published` field is checked on every request.
+const SLUG_CACHE_MS = 30000;
+let slugCache = null; // { at, slugs }
+async function slugMap() {
+  if (slugCache && Date.now() - slugCache.at < SLUG_CACHE_MS) return slugCache.slugs;
+  const map = await readJSON(SLUGS, { etag: false });
+  slugCache = { at: Date.now(), slugs: (map && map.data.slugs) || {} };
+  return slugCache.slugs;
+}
+
 // Read-modify-write on the slug map, retried if someone else changed it.
 async function updateSlugs(fn) {
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -24,6 +37,7 @@ async function updateSlugs(fn) {
     const slugs = fn({ ...(cur ? cur.data.slugs || {} : {}) });
     try {
       await writeJSON(SLUGS, { slugs }, cur ? cur.etag : null);
+      slugCache = { at: Date.now(), slugs };
       return;
     } catch (e) {
       if (!e.precondition) throw e;
@@ -73,9 +87,9 @@ export async function unshareRecipe(recipe) {
 
 // The recipe behind a public link, or null.
 export async function recipeForSlug(slug) {
-  if (!SLUG_RE.test(String(slug || ''))) return null;
-  const map = await readJSON(SLUGS);
-  const id = map && map.data.slugs && map.data.slugs[slug];
+  if (!SLUG_RE.test(String(slug || '')) || slug.length > 120) return null;
+  const slugs = await slugMap();
+  const id = Object.hasOwn(slugs, slug) ? slugs[slug] : null;
   const recipe = id ? await getRecipe(id) : null;
   return recipe && recipe.published && recipe.published.slug === slug ? recipe : null;
 }
