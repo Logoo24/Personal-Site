@@ -228,7 +228,7 @@
   });
   document.addEventListener('click', function (e) {
     var view = $('#view');
-    if (!view || !view.contains(e.target) || location.hash.replace('#', '') !== 'recurring') return;
+    if (!view || !view.contains(e.target) || !Fin.at('recurring')) return;
     var t = e.target.closest('[data-rc],[data-rc-yes],[data-rc-no],[data-rc-scan],[data-rc-add]');
     if (!t) return;
     if (t.hasAttribute('data-rc-yes')) act(t.getAttribute('data-rc-yes'), 'confirm').then(function () { Hub.toast('Got it'); }).catch(function (er) { Hub.toast(er.message, true); });

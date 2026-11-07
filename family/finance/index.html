@@ -18,22 +18,39 @@
 <body class="hub fin">
   <header class="hub-bar" data-crumbs='[["Finance","/family/finance"]]'></header>
 
-  <main class="hub-main">
-    <div class="fin-head">
-      <div>
-        <h1>Finance</h1>
-        <p class="fin-sync" id="sync">&nbsp;</p>
-      </div>
-      <div class="fin-head-tools">
-        <div class="fin-person" id="person"></div>
-        <button class="btn btn-ghost fin-hide" type="button" id="hide"></button>
+  <main class="hub-main fin-main">
+    <div class="fin-layout">
+      <!-- Wide screens: the sidebar. Phones: the "More" sheet (finance.js). -->
+      <aside class="fin-side" id="side" aria-label="Finance">
+        <div class="fin-side-head">
+          <h2>Finance</h2>
+          <button class="btn btn-ghost btn-icon" type="button" id="side-close" aria-label="Close"></button>
+        </div>
+        <div class="fin-side-tools">
+          <div class="fin-person" id="person"></div>
+          <button class="btn btn-ghost fin-hide" type="button" id="hide"></button>
+        </div>
+        <nav class="fin-nav" id="tabs" aria-label="Finance sections"></nav>
+      </aside>
+
+      <div class="fin-content">
+        <div class="fin-head">
+          <div>
+            <h1 id="title">Finance</h1>
+            <p class="fin-sync" id="sync">&nbsp;</p>
+          </div>
+          <div class="fin-head-tools">
+            <button class="fin-showing" type="button" id="showing" hidden></button>
+            <button class="btn btn-ghost btn-icon fin-hide-quick" type="button" id="hide-quick"></button>
+          </div>
+        </div>
+        <div id="view" class="fin-view"><p class="hub-loading">Loading your accounts…</p></div>
       </div>
     </div>
-
-    <nav class="fin-tabs" id="tabs" role="tablist" aria-label="Finance sections"></nav>
-
-    <div id="view" class="fin-view"><p class="hub-loading">Loading your accounts…</p></div>
   </main>
+
+  <nav class="fin-bottom" id="bottom" aria-label="Finance sections"></nav>
+  <div class="fin-side-backdrop" id="side-backdrop"></div>
 
   <div class="cal-backdrop" id="backdrop"></div>
   <aside class="cal-drawer fin-drawer" id="drawer" aria-hidden="true" aria-labelledby="drawer-title" role="dialog">

@@ -79,6 +79,12 @@
       '<span class="' + amtCls + '">' + Fin.amt(t.amt, { cents: true, sign: true }) + '</span></button>' + quick + '</li>';
   }
 
+  // Phones keep the account / category / in-out filters folded away.
+  var filtersOpen = false;
+  var activeFilters = function () { return (f.acct ? 1 : 0) + (f.cat ? 1 : 0) + (f.dir !== 'all' ? 1 : 0); };
+  var DOWNLOAD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>';
+  var FILTER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>';
+
   function render(view) {
     month = month || Fin.data.today.slice(0, 7);
     var manual = Fin.data.accounts.filter(function (a) { return a.src !== 'plaid' && !a.hidden; });
@@ -92,19 +98,27 @@
             '<button class="btn btn-ghost btn-icon" type="button" data-month-step="1" aria-label="Next month"' + (month >= Fin.data.today.slice(0, 7) ? ' disabled' : '') + '>' + Hub.icons.right + '</button></div>') +
         '<div class="fin-tx-actions">' +
           '<button class="chip' + (f.review ? ' on' : '') + '" type="button" data-review>Needs review' + (Fin.data.toReview ? ' (' + Fin.data.toReview + ')' : '') + '</button>' +
-          (manual.length ? '<button class="btn btn-ghost btn-sm" type="button" data-add-tx>' + Hub.icons.plus + 'Add</button>' : '') +
-          '<button class="btn btn-ghost btn-sm" type="button" data-export>Export</button>' +
+          // Phones show just the icons (finance.css); the aria-labels name them.
+          (manual.length ? '<button class="btn btn-ghost btn-sm" type="button" data-add-tx aria-label="Add a transaction">' + Hub.icons.plus + '<span class="fin-btn-text">Add</span></button>' : '') +
+          '<button class="btn btn-ghost btn-sm" type="button" data-export aria-label="Export to a spreadsheet">' + DOWNLOAD + '<span class="fin-btn-text">Export</span></button>' +
         '</div>' +
       '</div>' +
-      '<div class="fin-tx-filters">' +
-        '<label class="search fin-search">' + Hub.icons.search + '<input class="input" type="search" placeholder="Search merchants, notes or amounts" value="' + esc(f.q) + '" data-f="q" aria-label="Search transactions" /></label>' +
-        '<select data-f="acct" aria-label="Account"><option value="">All accounts</option>' + Fin.data.accounts.filter(Fin.matches).map(function (a) {
-          return '<option value="' + esc(a.id) + '"' + (f.acct === a.id ? ' selected' : '') + '>' + esc(acctName(a)) + '</option>';
-        }).join('') + '</select>' +
-        '<select data-f="cat" aria-label="Category">' + catOptions(f.cat, 'All categories').replace('</option>', '</option><option value="_none"' + (f.cat === '_none' ? ' selected' : '') + '>Uncategorized</option>') + '</select>' +
-        '<div class="fin-seg" role="group" aria-label="Money in or out">' + [['all', 'All'], ['out', 'Out'], ['in', 'In']].map(function (d) {
-          return '<button type="button" data-dir="' + d[0] + '"' + (f.dir === d[0] ? ' class="on" aria-pressed="true"' : ' aria-pressed="false"') + '>' + d[1] + '</button>';
-        }).join('') + '</div>' +
+      // Phones: search and a Filters button on one row; the rest opens under it.
+      '<div class="fin-tx-filters' + (filtersOpen ? ' open' : '') + '">' +
+        '<div class="fin-tx-search-row">' +
+          '<label class="search fin-search">' + Hub.icons.search + '<input class="input" type="search" placeholder="Search merchants, notes or amounts" value="' + esc(f.q) + '" data-f="q" aria-label="Search transactions" /></label>' +
+          '<button class="btn btn-ghost btn-sm fin-tx-filter-btn" type="button" data-filters aria-expanded="' + filtersOpen + '" aria-controls="tx-more">' + FILTER + 'Filters' +
+            (activeFilters() ? ' <span class="fin-badge">' + activeFilters() + '</span>' : '') + '</button>' +
+        '</div>' +
+        '<div class="fin-tx-more" id="tx-more">' +
+          '<select data-f="acct" aria-label="Account"><option value="">All accounts</option>' + Fin.data.accounts.filter(Fin.matches).map(function (a) {
+            return '<option value="' + esc(a.id) + '"' + (f.acct === a.id ? ' selected' : '') + '>' + esc(acctName(a)) + '</option>';
+          }).join('') + '</select>' +
+          '<select data-f="cat" aria-label="Category">' + catOptions(f.cat, 'All categories').replace('</option>', '</option><option value="_none"' + (f.cat === '_none' ? ' selected' : '') + '>Uncategorized</option>') + '</select>' +
+          '<div class="fin-seg" role="group" aria-label="Money in or out">' + [['all', 'All'], ['out', 'Out'], ['in', 'In']].map(function (d) {
+            return '<button type="button" data-dir="' + d[0] + '"' + (f.dir === d[0] ? ' class="on" aria-pressed="true"' : ' aria-pressed="false"') + '>' + d[1] + '</button>';
+          }).join('') + '</div>' +
+        '</div>' +
       '</div>' +
       '<div class="fin-tx-totals" data-totals></div>' +
       '<section class="fin-card fin-tx-card" data-list><p class="hub-loading">Loading transactions…</p></section>';
@@ -124,7 +138,7 @@
     var out = counted.filter(function (t) { return t.amt < 0; }).reduce(function (m, t) { return m - t.amt; }, 0);
     $('[data-totals]', view).innerHTML = f.review ? '<span class="fin-muted">' + Hub.plural(shown.length, 'transaction') + ' to look over. Pick a category, or tap “Looks right”.</span>'
       : '<div class="fin-split"><span>In <b>' + Fin.amt(inn) + '</b></span><span>Out <b>' + Fin.amt(out) + '</b></span><span>Net <b>' + Fin.amt(inn - out, { sign: true }) + '</b></span>' +
-        '<span class="fin-muted">Transfers, pending and hidden aren’t counted.</span></div>';
+        '<span class="fin-muted fin-tx-note">Transfers, pending and hidden aren’t counted.</span></div>';
     var box = $('[data-list]', view);
     if (!shown.length) {
       box.innerHTML = '<p class="fin-muted fin-tx-empty">' + (list.length ? 'Nothing matches those filters.' : f.review ? 'All caught up. Nothing needs a look.' : 'No transactions in ' + esc(monthLabel(month)) + '.') + '</p>';
@@ -286,9 +300,15 @@
 
   document.addEventListener('click', function (e) {
     var view = $('#view');
-    if (!view || !view.contains(e.target) || location.hash.replace('#', '') !== 'transactions') return;
-    var t = e.target.closest('[data-tx],[data-month-step],[data-review],[data-dir],[data-add-tx],[data-export],[data-ok]');
+    if (!view || !view.contains(e.target) || !Fin.at('transactions')) return;
+    var t = e.target.closest('[data-tx],[data-month-step],[data-review],[data-dir],[data-add-tx],[data-export],[data-ok],[data-filters]');
     if (!t) return;
+    if (t.hasAttribute('data-filters')) {
+      filtersOpen = !filtersOpen;
+      t.setAttribute('aria-expanded', String(filtersOpen));
+      t.closest('.fin-tx-filters').classList.toggle('open', filtersOpen);
+      return;
+    }
     if (t.hasAttribute('data-ok')) { queueEdit(t.getAttribute('data-ok'), { reviewed: true }); return; }
     if (t.hasAttribute('data-tx')) return openTx(t.getAttribute('data-tx'), t.getAttribute('data-month'));
     if (t.hasAttribute('data-month-step')) { month = shift(month, +t.getAttribute('data-month-step')); return Fin.rerender(); }
@@ -302,7 +322,7 @@
     if (t.hasAttribute('data-export')) return exportMenu();
   });
   document.addEventListener('change', function (e) {
-    if (location.hash.replace('#', '') !== 'transactions') return;
+    if (!Fin.at('transactions')) return;
     var sel = e.target.closest('[data-quick-cat]');
     if (sel) { if (sel.value) queueEdit(sel.getAttribute('data-quick-cat'), { cat: sel.value }); return; }
     var fl = e.target.closest('select[data-f]');
@@ -311,7 +331,7 @@
   var searchTimer;
   document.addEventListener('input', function (e) {
     var s = e.target.closest('input[data-f="q"]');
-    if (!s || location.hash.replace('#', '') !== 'transactions') return;
+    if (!s || !Fin.at('transactions')) return;
     f.q = s.value;
     clearTimeout(searchTimer);
     searchTimer = setTimeout(function () {

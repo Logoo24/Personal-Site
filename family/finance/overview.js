@@ -193,7 +193,7 @@
     var b = Fin.budgetOverall(byCat, pace);
     return '<div class="fin-tm-budget"><div class="fin-budget-head"><span class="fin-label">Budgets</span><span><b class="fin-amt">' + esc(Fin.money(b.spent)) + '</b> <span class="fin-muted">of <span class="fin-amt">' + esc(Fin.money(b.total)) + '</span>' + (b.over ? ' · ' + b.over + ' over' : '') + '</span></span></div>' +
       '<span class="fin-meter ' + b.cls + '"><span class="fin-meter-fill" style="width:' + Math.min(100, b.total ? b.spent / b.total * 100 : 0) + '%"></span><span class="fin-meter-pace" style="left:' + b.marker * 100 + '%"></span></span>' +
-      '<button class="fin-link" type="button" data-alert="plan">Budgets</button></div>';
+      '<button class="fin-link" type="button" data-alert="budgets">Budgets</button></div>';
   }
 
   // Each person's latest credit score.
@@ -305,7 +305,7 @@
         '<div data-chart="net"></div>' +
         '<p class="fin-note" data-est hidden><span class="fin-dash"></span>Dashed months are estimated from transactions or typed in.</p>' +
       '</section>' +
-      '<div class="fin-row fin-row--3">' +
+      '<div class="fin-row fin-row--3 fin-tiles">' +
         tile('cash', 'Cash', groups.cash, 'asset') +
         tile('credit', 'Credit cards', groups.credit, 'liability') +
         tile('invest', 'Investments', groups.invest, 'asset') +

@@ -190,7 +190,7 @@
   function render(view) {
     view.innerHTML = banner() + '<p class="hub-loading">Working through your numbers…</p>';
     load().then(function (d) {
-      if (location.hash.replace('#', '') !== 'advice') return;
+      if (!Fin.at('advice')) return;
       view.innerHTML = banner() + briefingHTML(d) + askHTML(d) + cardsHTML(d.cards) + factsHTML(d.facts);
       var input = $('#fin-ask-q', view);
       if (input) grow(input);
@@ -219,7 +219,7 @@
 
   Fin.tab('advice', render);
   document.addEventListener('click', function (e) {
-    if (location.hash.replace('#', '') !== 'advice') return;
+    if (!Fin.at('advice')) return;
     var b = e.target.closest('[data-advice-refresh]');
     if (b && $('#view').contains(b)) return refresh(b);
     var idea = e.target.closest('[data-ask-idea]');

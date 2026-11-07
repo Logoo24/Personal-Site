@@ -106,7 +106,7 @@
       '<section class="fin-card"><div class="fin-card-head"><h2>Over time</h2></div><div data-credit-chart></div></section>' +
       utilization() +
       (hist.length ? '<section class="fin-card"><div class="fin-card-head"><h2>Every score</h2></div>' +
-        '<div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Date</th><th>Whose</th><th class="num">Score</th><th>Model</th><th>From</th></tr></thead><tbody>' +
+        '<div class="fin-table-wrap"><table class="fin-table fin-scores"><thead><tr><th>Date</th><th>Whose</th><th class="num">Score</th><th>Model</th><th>From</th></tr></thead><tbody>' +
         hist.map(function (c) {
           return '<tr class="fin-click" data-score="' + esc(c.id) + '" tabindex="0"><td>' + esc(day(c.date)) + '</td><td>' + esc(Fin.ownerName(c.person)) + (c.private ? ' <span class="fin-tag">' + Hub.icons.lock + 'Only me</span>' : '') + '</td>' +
             '<td class="num fin-amt">' + c.score + '</td><td>' + esc([c.model, c.bureau].filter(Boolean).join(' · ') || '–') + '</td><td>' + esc(c.source || '–') + '</td></tr>';
@@ -191,14 +191,14 @@
   Fin.addScore = function (person) { scoreForm(null, person); };
   Fin.creditBandOf = bandOf;
   document.addEventListener('click', function (e) {
-    if (location.hash.replace('#', '') !== 'credit' || !$('#view').contains(e.target)) return;
+    if (!Fin.at('credit') || !$('#view').contains(e.target)) return;
     var t = e.target.closest('[data-score-add],[data-score]');
     if (!t) return;
     if (t.hasAttribute('data-score-add')) scoreForm(null, t.getAttribute('data-score-add'));
     else scoreForm((Fin.data.credit || []).filter(function (c) { return c.id === t.getAttribute('data-score'); })[0]);
   });
   document.addEventListener('keydown', function (e) {
-    if (e.key !== 'Enter' || location.hash.replace('#', '') !== 'credit') return;
+    if (e.key !== 'Enter' || !Fin.at('credit')) return;
     var t = e.target.closest && e.target.closest('[data-score]');
     if (t) scoreForm((Fin.data.credit || []).filter(function (c) { return c.id === t.getAttribute('data-score'); })[0]);
   });

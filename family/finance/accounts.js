@@ -534,7 +534,7 @@
   // One click handler for the tab; the view element is the same across redraws.
   document.addEventListener('click', function (e) {
     var view = $('#view');
-    if (!view || !view.contains(e.target) || location.hash.replace('#', '') !== 'accounts') return;
+    if (!view || !view.contains(e.target) || !Fin.at('accounts')) return;
     var t = e.target.closest('[data-add],[data-history],[data-acct],[data-back],[data-save],[data-fill],[data-link],[data-reconnect],[data-unlink],[data-refresh]');
     if (!t) return;
     if (t.hasAttribute('data-link')) linkBank();

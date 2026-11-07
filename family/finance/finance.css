@@ -20,10 +20,97 @@
   --fin-warn: #fab219;
 }
 
-/* ---------- page head, tabs ---------- */
-.fin-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1rem 2rem; margin-bottom: 1.5rem; }
-.fin-sync { margin-top: 0.4rem; color: var(--text-muted); font-size: 0.92rem; }
-.fin-head-tools { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+/* ---------- layout: a sidebar on wide screens; on phones (under 1024px) a
+   bottom bar, and the sidebar opens as the "More" sheet ---------- */
+.fin .hub-main.fin-main { max-width: 1440px; padding-top: 1.75rem; }
+.fin-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 2.25rem; align-items: start; }
+.fin-content { min-width: 0; }
+.fin-side {
+  position: sticky; top: calc(var(--fin-bar, 62px) + 1.25rem); z-index: 30;
+  display: flex; flex-direction: column; gap: 1.1rem;
+  max-height: calc(100vh - var(--fin-bar, 62px) - 2.5rem);
+}
+.fin-side-head { display: none; }
+.fin-side-tools { display: grid; gap: 0.5rem; }
+.fin-side-tools .fin-menu-btn, .hub .fin-side-tools .fin-hide { width: 100%; justify-content: flex-start; }
+.fin-side-tools .fin-menu-btn svg { margin-left: auto; }
+.fin-side .fin-menu-list { left: 0; right: auto; }
+/* Only the list scrolls, so the "Showing" menu above it isn't clipped. */
+.fin-nav { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; margin: 0 -0.4rem; padding: 0 0.4rem 1rem; }
+.fin-nav-group + .fin-nav-group { margin-top: 1.1rem; }
+.fin-nav h3 { font: 700 0.7rem var(--sans); letter-spacing: 0.09em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 0.35rem 0.7rem; }
+.fin-nav ul { list-style: none; margin: 0; padding: 0; }
+.fin-nav-item {
+  display: flex; align-items: center; gap: 0.65rem; padding: 0.5rem 0.7rem; border-radius: 9px;
+  color: var(--text-soft); font: 600 0.92rem var(--sans); text-decoration: none;
+}
+.fin-nav-item svg { width: 18px; height: 18px; flex: none; color: var(--text-muted); }
+.fin-nav-item:hover { background: var(--bg-alt); color: var(--text); }
+.fin-nav-item[aria-current="page"] { background: var(--bg-deep); color: var(--text); }
+.fin-nav-item[aria-current="page"] svg { color: var(--accent); }
+.fin-badge {
+  margin-left: auto; min-width: 1.4rem; height: 1.4rem; padding: 0 0.4rem; border-radius: 999px;
+  background: var(--hub-finance-bg); color: var(--hub-finance); font: 700 0.74rem/1.4rem var(--sans); text-align: center;
+}
+.fin-badge.warn { background: color-mix(in srgb, var(--fin-warn) 18%, var(--hub-surface)); color: var(--fin-warn); }
+.fin-nav .fin-nav-sub { margin: 0.2rem 0 0.4rem 1.6rem; border-left: 1px solid var(--line); }
+.fin-nav-sub a { display: block; margin-left: -1px; padding: 0.3rem 0.75rem; border-left: 2px solid transparent; color: var(--text-muted); font-size: 0.86rem; text-decoration: none; }
+.fin-nav-sub a:hover { color: var(--text); }
+.fin-nav-sub a[aria-current="page"] { color: var(--text); font-weight: 600; border-left-color: var(--accent); }
+.fin-bottom, .fin-side-backdrop { display: none; }
+
+/* ---------- page head ---------- */
+.fin-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+.fin-head h1 { font-size: clamp(1.75rem, 3vw, 2.3rem); }
+.fin-sync { margin-top: 0.3rem; color: var(--text-muted); font-size: 0.9rem; }
+.fin-head-tools { display: none; gap: 0.5rem; align-items: center; flex: none; }
+.fin-showing {
+  max-width: 11rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 38px; padding: 0.4rem 0.8rem;
+  border: 1px solid var(--line-strong); border-radius: 999px; background: none; color: var(--text); font: 600 0.84rem var(--sans); cursor: pointer;
+}
+.fin-showing span { color: var(--text-muted); font-weight: 500; }
+.hub .fin-hide-quick.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+@media (max-width: 1023px) {
+  .fin-layout { display: block; }
+  .fin .hub-main.fin-main { padding-top: 1.25rem; padding-bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
+  .fin-head-tools { display: flex; }
+  .fin-side {
+    position: fixed; left: 0; right: 0; top: auto; bottom: 0; z-index: 60; gap: 0.9rem;
+    max-height: 86vh; padding: 0.85rem var(--gutter) calc(1rem + env(safe-area-inset-bottom));
+    background: var(--hub-surface); border-radius: 18px 18px 0 0; box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.18);
+    transform: translateY(105%); visibility: hidden;
+  }
+  .fin-side-open .fin-side { transform: none; visibility: visible; }
+  /* Slides only when opened or closed (finance.js adds fin-side-anim for
+     that), not when a rotated tablet crosses the breakpoint. */
+  .fin-side-anim .fin-side { transition: transform .25s ease, visibility 0s linear .25s; }
+  .fin-side-anim.fin-side-open .fin-side { transition: transform .25s ease; }
+  .fin-side-head { display: flex; align-items: center; justify-content: space-between; }
+  .fin-side-head h2 { font-size: 1.15rem; }
+  /* In the sheet the "Showing" choices open in place instead of floating. */
+  .fin-side .fin-menu-list { position: static; width: auto; max-width: none; max-height: none; margin-top: 0.4rem; box-shadow: none; }
+  .fin-side-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 55; background: rgba(0, 0, 0, 0.35);
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .fin-side-open .fin-side-backdrop { opacity: 1; pointer-events: auto; }
+  .fin-bottom {
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+    padding: 0.3rem 0.25rem calc(0.3rem + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--hub-surface) 92%, transparent); backdrop-filter: blur(12px);
+    border-top: 1px solid var(--line);
+  }
+  .fin-bottom-item {
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.2rem;
+    min-height: 50px; padding: 0.35rem 0.15rem; border: 0; border-radius: 10px; background: none;
+    color: var(--text-muted); font: 600 0.7rem var(--sans); text-decoration: none; cursor: pointer;
+  }
+  .fin-bottom-item svg { width: 22px; height: 22px; }
+  .fin-bottom-item[aria-current="page"], .fin-bottom-item.on { color: var(--accent); }
+  .fin-dot { position: absolute; top: 0.4rem; left: calc(50% + 6px); width: 8px; height: 8px; border-radius: 50%; background: var(--hub-danger); box-shadow: 0 0 0 2px var(--hub-surface); }
+}
 .fin-seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 9px; overflow: hidden; }
 .fin-seg button { border: 0; background: none; padding: 0.5rem 0.85rem; font: 600 0.84rem var(--sans); color: var(--text-soft); cursor: pointer; white-space: nowrap; }
 .fin-seg button + button { border-left: 1px solid var(--line); }
@@ -61,18 +148,6 @@
 .hub .fin-hide { min-height: 38px; padding: 0.45rem 0.85rem; font-size: 0.86rem; white-space: nowrap; }
 .hub .fin-hide.on { background: var(--text); color: var(--bg); border-color: var(--text); }
 
-.fin-tabs {
-  position: sticky; top: calc(var(--fin-bar, 62px) - 1px); z-index: 20; /* tucked under the hub bar (finance.js measures it) */
-  display: flex; gap: 0.25rem; overflow-x: auto; scrollbar-width: none;
-  margin: 0 calc(var(--gutter) * -1) 1.75rem; padding: 0.5rem var(--gutter);
-  background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--line);
-}
-.fin-tabs::-webkit-scrollbar { display: none; }
-.fin-tab { flex: none; border: 0; background: none; padding: 0.55rem 0.9rem; border-radius: 8px; font: 600 0.9rem var(--sans); color: var(--text-muted); cursor: pointer; white-space: nowrap; }
-.fin-tab:hover { color: var(--text); background: var(--bg-alt); }
-.fin-tab[aria-selected="true"] { color: var(--text); background: var(--bg-deep); }
-
 /* ---------- cards & layout ---------- */
 .fin-card { background: var(--hub-surface); border: 1px solid var(--line); border-radius: 16px; padding: 1.4rem 1.5rem; min-width: 0; }
 .fin-view > * + * { margin-top: 1.25rem; }
@@ -82,6 +157,17 @@
 .fin-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
 .fin-row--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 860px) { .fin-row--3 { grid-template-columns: minmax(0, 1fr); } }
+/* The Overview's Cash / Credit cards / Investments: three across even on a
+   phone, smaller, so they don't fill a whole screen. */
+@media (max-width: 860px) { .fin-row--3.fin-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.6rem; } }
+@media (max-width: 600px) {
+  .fin-tiles > .fin-card { padding: 0.9rem 0.75rem; border-radius: 14px; }
+  .fin-tiles .fin-label { font-size: 0.8rem; }
+  .fin-tiles .fin-kpi-value { font-size: 1.12rem; letter-spacing: -0.01em; }
+  .fin-tiles .fin-delta { font-size: 0.78rem; }
+  .fin-tiles .fin-delta small, .fin-tiles .fin-kpi .fin-muted { display: none; }
+  .fin-tiles .fc-spark-wrap { height: 26px; margin-top: 0.5rem; }
+}
 @media (max-width: 760px) { .fin-row { grid-template-columns: minmax(0, 1fr); } }
 .fin-muted { color: var(--text-muted); font-size: 0.88rem; }
 
@@ -235,12 +321,33 @@
 .fin-month .btn-icon svg { width: 18px; height: 18px; }
 .fin-tx-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
 .fin-tx-actions .btn svg { width: 15px; height: 15px; }
+/* Wide: search, account, category and in/out on one row (the wrappers step
+   aside with display: contents). Phones: search + Filters, the rest folded. */
 .fin-tx-filters { display: grid; grid-template-columns: minmax(12rem, 2fr) repeat(2, minmax(8rem, 1fr)) auto; gap: 0.6rem; align-items: center; }
+.fin-tx-search-row, .fin-tx-more { display: contents; }
+.fin-tx-filter-btn { display: none !important; }
 .fin-tx-filters select { padding: 0.55rem 0.7rem; }
 .fin-search { position: relative; display: block; }
 .fin-search svg { position: absolute; left: 0.8rem; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-muted); pointer-events: none; }
 .fin-search .input { width: 100%; padding-left: 2.4rem; }
-@media (max-width: 760px) { .fin-tx-filters { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .fin-search { grid-column: 1 / -1; } }
+@media (max-width: 760px) {
+  .fin-tx-filters { display: block; }
+  .fin-tx-search-row { display: flex; gap: 0.5rem; align-items: center; }
+  .fin-tx-search-row .fin-search { flex: 1; min-width: 0; }
+  .fin-tx-filter-btn { display: inline-flex !important; flex: none; }
+  .fin-tx-filter-btn svg { width: 15px; height: 15px; }
+  .fin-tx-filter-btn .fin-badge { margin-left: 0.15rem; }
+  .fin-tx-more { display: none; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.5rem; margin-top: 0.6rem; }
+  .fin-tx-filters.open .fin-tx-more { display: grid; }
+  .fin-tx-more .fin-seg { grid-column: 1 / -1; }
+  .fin-tx-more .fin-seg button { flex: 1; }
+  .fin-tx-note { display: none; }
+}
+@media (max-width: 560px) {
+  .fin-tx-actions .btn .fin-btn-text { display: none; }
+  .fin-tx-actions .btn { padding-left: 0.6rem; padding-right: 0.6rem; }
+  .fin-month strong { min-width: 0; font-size: 1.1rem; }
+}
 .fin-tx-card { padding-top: 0.6rem; padding-bottom: 0.6rem; }
 .fin-tx-day h3 { display: flex; justify-content: space-between; gap: 1rem; font: 600 0.8rem var(--sans); letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); padding: 0.9rem 0 0.35rem; border-bottom: 1px solid var(--line); }
 .fin-tx-day h3 .fin-muted { text-transform: none; letter-spacing: 0; font-variant-numeric: tabular-nums; }
@@ -293,11 +400,20 @@
 
 /* Reports tab */
 .fin-row--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+/* Summary tiles stay two across on phones (2 by 2), not one per row. */
 @media (max-width: 960px) { .fin-row--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 420px) { .fin-row--4 { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 560px) {
+  .fin-row--4 { gap: 0.6rem; }
+  .fin-row--4 > .fin-card { padding: 0.95rem 0.9rem; }
+  .fin-row--4 .fin-kpi-value { font-size: 1.35rem; }
+}
 .fin-report-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1rem; }
 .fin-report-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 .fin-print-head { display: none; }
+/* The report's name on wide screens (picked in the sidebar); the drop-down on phones. */
+.fin-report-name { font-family: var(--sans); font-size: 1.2rem; font-weight: 600; letter-spacing: -0.01em; }
+@media (min-width: 1024px) { .fin-report-menu { display: none; } }
+@media (max-width: 1023px) { .fin-report-name { display: none; } }
 .fin-report-menu .fin-menu-btn { font-size: 0.95rem; min-height: 42px; padding-left: 1rem; }
 .fin-report-menu .fin-menu-list { left: 0; right: auto; width: 21rem; }
 .fin-period { padding: 0.5rem 0.7rem; width: auto !important; min-width: 11rem; }
@@ -310,6 +426,23 @@
 .fin-table th { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
 .fin-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .fin-table td:first-child { overflow-wrap: anywhere; }
+@media (max-width: 560px) {
+  /* Report tables: a row is a heading line, then "Label value" pairs. */
+  .fin-table--stack thead { display: none; }
+  .fin-table--stack, .fin-table--stack tbody, .fin-table--stack tr { display: block; }
+  .fin-table--stack tr { padding: 0.65rem 0; border-bottom: 1px solid var(--line); }
+  .fin-table--stack td { display: inline-block; padding: 0 0.9rem 0.1rem 0; border: 0; text-align: left; font-size: 0.84rem; color: var(--text-soft); white-space: nowrap; }
+  .fin-table--stack td:first-child { display: block; padding: 0 0 0.2rem; font-size: 0.92rem; font-weight: 600; color: var(--text); white-space: normal; }
+  .fin-table--stack td:not(:first-child)[data-label]:not([data-label=""])::before { content: attr(data-label) ' '; color: var(--text-muted); font-weight: 500; }
+  /* Credit scores: the date and score on top, whose / model / source beneath. */
+  .fin-scores thead { display: none; }
+  .fin-scores, .fin-scores tbody { display: block; }
+  .fin-scores tr { display: block; position: relative; padding: 0.7rem 3.5rem 0.7rem 0; border-bottom: 1px solid var(--line); }
+  .fin-scores td { display: inline; padding: 0; border: 0; font-size: 0.84rem; color: var(--text-soft); }
+  .fin-scores td:first-child { display: block; font-size: 0.92rem; font-weight: 600; color: var(--text); margin-bottom: 0.15rem; }
+  .fin-scores td:nth-child(3) { position: absolute; right: 0; top: 50%; transform: translateY(-50%); font-size: 1.3rem; font-weight: 600; color: var(--text); }
+  .fin-scores td:nth-child(4)::before, .fin-scores td:nth-child(5)::before { content: ' · '; color: var(--text-muted); }
+}
 .fin-table .fin-acct-sub { display: block; white-space: normal; }
 .fin-table .fin-link { text-align: left; }
 .fin-range { width: 100%; accent-color: var(--accent); margin: 0.25rem 0 0.6rem; height: 28px; }
@@ -319,7 +452,6 @@
 .fin-kpi-value.is-text { font-size: 1.35rem; overflow-wrap: anywhere; }
 
 /* Budgets & goals */
-.fin-plan-seg { margin-bottom: 1.25rem; }
 /* Meter: the fill carries the state; the track is a lighter step of the same color. */
 .fin-meter { --m: var(--fin-good); position: relative; display: block; height: 10px; border-radius: 999px; background: color-mix(in srgb, var(--m) 16%, var(--hub-surface)); margin: 0.6rem 0 0.45rem; overflow: visible; }
 .fin-meter.warn { --m: var(--fin-warn); }
@@ -505,13 +637,37 @@
 .fc-node { stroke: var(--fc-surface); stroke-width: 1; }
 .fc-flow-label { fill: var(--text); font: 600 12px var(--sans); }
 .fc-flow-value { fill: var(--text-muted); font: 500 11px var(--sans); font-variant-numeric: tabular-nums; }
+/* Money flow: the groups open their row in the list below. */
+.fc-ribbon--pick, .fc-node--pick { cursor: pointer; }
+.fc-mflow-head { margin-bottom: 0.6rem; }
+.fc-mflow-total { font-size: 0.9rem; color: var(--text-soft); }
+.fc-mflow-total strong { color: var(--text); font-size: 1.05rem; font-weight: 600; }
+.fc-mflow-srcs { display: flex; flex-wrap: wrap; gap: 0.25rem 0.9rem; margin-top: 0.35rem; font-size: 0.82rem; color: var(--text-soft); }
+.fc-mflow-srcs .fc-key { width: 10px; height: 10px; border-radius: 3px; }
+.fc-mflow-sv { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.fc-mflow-list { margin-top: 1rem; border-top: 1px solid var(--line); }
+.fc-mflow-row { border-bottom: 1px solid var(--line); }
+.fc-mflow-sum { display: flex; align-items: center; gap: 0.6rem; padding: 0.7rem 0.15rem; font-size: 0.92rem; list-style: none; }
+.fc-mflow-sum::-webkit-details-marker { display: none; }
+summary.fc-mflow-sum { cursor: pointer; }
+summary.fc-mflow-sum::after { content: ''; width: 7px; height: 7px; margin: 0 0.2rem 0.15rem 0.1rem; border-right: 2px solid var(--text-muted); border-bottom: 2px solid var(--text-muted); transform: rotate(45deg); transition: transform .15s; }
+details[open] > summary.fc-mflow-sum::after { transform: rotate(-135deg); margin-bottom: -0.2rem; }
+div.fc-mflow-sum::after { content: ''; width: 7px; margin: 0 0.2rem 0 0.1rem; } /* lines up with the rows that open */
+.fc-mflow-sum .fc-key { width: 12px; height: 12px; border-radius: 3px; }
+.fc-mflow-name { font-weight: 600; min-width: 0; }
+.fc-mflow-pct { margin-left: auto; color: var(--text-muted); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+.fc-mflow-sum strong { min-width: 5.5rem; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.fc-mflow-items { list-style: none; margin: 0 0 0.6rem; padding: 0 1.2rem 0 1.85rem; display: grid; gap: 0.3rem; font-size: 0.86rem; color: var(--text-soft); }
+.fc-mflow-items li { display: flex; justify-content: space-between; gap: 1rem; }
+.fc-mflow-items .fc-val { font-variant-numeric: tabular-nums; }
 .fc-spark-line { fill: none; stroke: var(--text-muted); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; opacity: 0.7; }
 
 /* ---------- touch screens ---------- */
 @media (pointer: coarse) {
   .fin-seg button { min-height: 40px; }
-  .fin-tab { min-height: 42px; }
-  .fin-menu-btn, .hub .fin-hide { min-height: 42px; }
+  .fin-nav-item { min-height: 44px; }
+  .fin-nav-sub a { padding-top: 0.55rem; padding-bottom: 0.55rem; }
+  .fin-menu-btn, .hub .fin-hide, .fin-showing { min-height: 42px; }
   .fin-menu-list button { padding-top: 0.75rem; padding-bottom: 0.75rem; }
   .hub .fin-cell { font-size: 16px; width: 7.25rem; }
   .fin-tx { padding-top: 0.85rem; padding-bottom: 0.85rem; }
@@ -523,23 +679,22 @@
   .fc-table summary, .fin-hidden-accts summary { padding: 0.65rem 0; }
   .fin-range { height: 40px; }
 }
+/* Phones: toasts sit above the bottom bar. */
+@media (max-width: 1023px) {
+  .fin .hub-toast { bottom: calc(4.9rem + env(safe-area-inset-bottom)); transition: transform .35s var(--ease-out), opacity .2s; }
+  .fin .hub-toast:not(.show) { opacity: 0; }
+}
 @media (max-width: 560px) {
-  .fin-head-tools { width: 100%; flex-wrap: nowrap; }
-  .fin-person { flex: 1; min-width: 0; }
-  .fin-person .fin-menu-btn, .fin-report-menu .fin-menu-btn { width: 100%; }
+  .fin-report-menu .fin-menu-btn { width: 100%; }
   .fin-menu-v { overflow: hidden; text-overflow: ellipsis; }
-  .fin-person .fin-menu-btn svg, .fin-report-menu .fin-menu-btn svg { margin-left: auto; }
-  .fin-person .fin-menu-list { left: 0; right: auto; }
+  .fin-report-menu .fin-menu-btn svg { margin-left: auto; }
   /* Reports: the picker gets its own row, the period and Print share the next. */
   .fin-report-menu { flex: 1 1 100%; min-width: 0; }
   .fin-report-menu .fin-menu-list { width: 100%; max-width: none; }
   .fin-report-tools { flex: 1 1 100%; flex-wrap: nowrap; }
   .fin-report-tools .fin-period { flex: 1; min-width: 0; }
 }
-/* Phone-width: "Everyone" plus "Hide amounts" don't fit beside "Showing" too.
-   The button's aria-label still says "Showing ...". */
 @media (max-width: 440px) {
-  .fin-person .fin-menu-k { display: none; }
   .fin-card { padding: 1.15rem 1.1rem; border-radius: 14px; }
   .fin-grid-wrap { margin: 0 -1.1rem; padding: 0 1.1rem 0.25rem; }
   .fin-grid tbody th, .fin-grid tfoot th, .fin-grid thead th:first-child { min-width: 8.5rem; }
@@ -559,8 +714,10 @@
     --band-1: #86b6ef; --band-2: #5598e7; --band-3: #2a78d6; --band-4: #1c5cab; --band-5: #104281;
   }
   .fin * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  .fin-head-tools, .fin-sync, .fin-tabs, .fin-report-bar, .fin-drawer, .cal-backdrop, .fin-alerts,
+  .fin-head-tools, .fin-sync, .fin-side, .fin-bottom, .fin-side-backdrop, .fin-report-bar, .fin-drawer, .cal-backdrop, .fin-alerts,
   .fin-view .btn, .fc-tip, .fc-hit, .fc-hair, .fc-hover-dot, .fc-table summary { display: none !important; }
+  .fin-layout { display: block; }
+  .fin .hub-main.fin-main { padding-bottom: 0; }
   .fin-head { margin-bottom: 0.5rem; }
   .fin-head h1 { font-size: 18pt; }
   .fin-print-head { display: block; margin: 0 0 6mm; }

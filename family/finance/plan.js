@@ -361,24 +361,28 @@
     });
   }
 
-  /* ---------- tab ---------- */
+  /* ---------- sections: Budgets and Goals ---------- */
   var lastData = null;
-  Fin.tab('plan', function (box) {
-    box.innerHTML = '<div class="fin-seg fin-plan-seg" role="group" aria-label="Budgets or goals"><button type="button" data-plan="budgets"' + (view === 'budgets' ? ' class="on"' : '') + '>Budgets</button><button type="button" data-plan="goals"' + (view === 'goals' ? ' class="on"' : '') + '>Goals</button></div>' +
-      '<div data-plan-box><p class="hub-loading">Adding things up…</p></div>';
-    var inner = $('[data-plan-box]', box);
-    (Fin.reportData ? Fin.reportData() : Promise.resolve({ months: [], rows: [] })).then(function (data) {
-      lastData = data;
-      if (view === 'goals') goalsView(inner, data); else { budgetsView(inner, data); if (Fin.ensureRecurring) Fin.ensureRecurring(); }
-      inner.className = 'fin-report';
-    }).catch(function (e) { inner.innerHTML = '<p class="fin-muted">Couldn’t load the numbers: ' + esc(e.message) + '</p>'; });
-  });
+  function section(which) {
+    return function (box) {
+      if (view !== which) editing = false;
+      view = which;
+      box.innerHTML = '<div data-plan-box><p class="hub-loading">Adding things up…</p></div>';
+      var inner = $('[data-plan-box]', box);
+      (Fin.reportData ? Fin.reportData() : Promise.resolve({ months: [], rows: [] })).then(function (data) {
+        lastData = data;
+        if (view === 'goals') goalsView(inner, data); else { budgetsView(inner, data); if (Fin.ensureRecurring) Fin.ensureRecurring(); }
+        inner.className = 'fin-report';
+      }).catch(function (e) { inner.innerHTML = '<p class="fin-muted">Couldn’t load the numbers: ' + esc(e.message) + '</p>'; });
+    };
+  }
+  Fin.tab('budgets', section('budgets'));
+  Fin.tab('goals', section('goals'));
   document.addEventListener('click', function (e) {
-    if (location.hash.replace('#', '') !== 'plan' || !$('#view').contains(e.target)) return;
-    var t = e.target.closest('[data-plan],[data-bmonth],[data-bedit],[data-bcancel],[data-bsave],[data-bavg],[data-bfill],[data-goal],[data-goal-add],[data-emergency]');
+    if (!(Fin.at('budgets') || Fin.at('goals')) || !$('#view').contains(e.target)) return;
+    var t = e.target.closest('[data-bmonth],[data-bedit],[data-bcancel],[data-bsave],[data-bavg],[data-bfill],[data-goal],[data-goal-add],[data-emergency]');
     if (!t) return;
     var box = $('[data-plan-box]');
-    if (t.hasAttribute('data-plan')) { view = t.getAttribute('data-plan'); editing = false; return Fin.rerender(); }
     if (t.hasAttribute('data-bmonth')) { month = shift(month, +t.getAttribute('data-bmonth')); return Fin.rerender(); }
     if (t.hasAttribute('data-bedit')) { editing = true; return Fin.rerender(); }
     if (t.hasAttribute('data-bcancel')) { editing = false; return Fin.rerender(); }
@@ -396,5 +400,5 @@
       return goalForm(null, { name: 'Emergency fund', target: +t.getAttribute('data-emergency'), accounts: savings, template: 'emergency' });
     }
   });
-  Fin.openGoals = function (id) { view = 'goals'; Fin.go('plan'); if (id) setTimeout(function () { openGoal(id); }, 300); };
+  Fin.openGoals = function (id) { Fin.go('goals'); if (id) setTimeout(function () { openGoal(id); }, 300); };
 })();
