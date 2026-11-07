@@ -12,6 +12,8 @@
   var CADENCES = [['weekly', 'Every week'], ['biweekly', 'Every 2 weeks'], ['semimonthly', 'Twice a month'], ['monthly', 'Every month'], ['quarterly', 'Every 3 months'], ['yearly', 'Every year']];
   var KIND = { subscription: 'Subscription', bill: 'Bill', paycheck: 'Paycheck', income: 'Income', due: 'Payment due' };
   var scanned = false;
+  var reviewing = false;   // asking "Is this regular?" one item at a time
+  var showMonth = false;   // "Coming up" for 30 days instead of 7
 
   function cadenceLabel(c) { var x = CADENCES.filter(function (k) { return k[0] === c; })[0]; return x ? x[1] : c; }
   function acctOf(id) { return Fin.data.accounts.filter(function (a) { return a.id === id; })[0]; }
@@ -44,8 +46,21 @@
       '<span class="fin-acct-main"><span class="fin-acct-name">' + esc(r.name) + tags + '</span><span class="fin-acct-sub">' + esc(sub) + '</span></span>' +
       '<span class="fin-acct-right"><span class="fin-acct-bal' + (r.dir === 'in' ? ' fin-tx-amt is-in' : '') + '">' + (r.variable ? '<small>about </small>' : '') + Fin.amt(r.dir === 'in' ? r.amount : -r.amount, { cents: true, sign: r.dir === 'in' }) + '</span>' + perMonth + '</span>' +
     '</button>' +
-    (r.status === 'detected' ? '<div class="fin-rc-ask"><span class="fin-muted">Is this a regular ' + (r.dir === 'in' ? 'deposit' : 'charge') + '?</span><button class="btn btn-ghost btn-sm" type="button" data-rc-yes="' + esc(r.id) + '">' + Hub.icons.check + 'Yes</button><button class="btn btn-ghost btn-sm" type="button" data-rc-no="' + esc(r.id) + '">No</button></div>' : '') +
+    (r.status === 'detected' && reviewing ? '<div class="fin-rc-ask"><span class="fin-muted">Is this a regular ' + (r.dir === 'in' ? 'deposit' : 'charge') + '?</span><button class="btn btn-ghost btn-sm" type="button" data-rc-yes="' + esc(r.id) + '">' + Hub.icons.check + 'Yes</button><button class="btn btn-ghost btn-sm" type="button" data-rc-no="' + esc(r.id) + '">No</button></div>' : '') +
     '</li>';
+  }
+
+  // What the scan found and nobody has confirmed yet: confirm the lot in one
+  // tap, or go through them one by one (each row then asks "Is this regular?").
+  function foundCard(live) {
+    var found = live.filter(function (r) { return r.status === 'detected'; });
+    if (!found.length) { reviewing = false; return ''; }
+    var what = found.filter(function (r) { return r.dir === 'in'; }).length ? 'regular charges and deposits' : 'regular charges';
+    return '<section class="fin-card fin-found"><div class="fin-found-text">' + Hub.icons.sparkle +
+      '<span><b>Found ' + Hub.plural(found.length, 'item') + '</b> that look like ' + what + '. ' +
+      (reviewing ? 'Confirm or dismiss each one below.' : 'Confirm them all, or go through them one by one.') + '</span></div>' +
+      '<div class="hub-actions"><button class="btn btn-primary btn-sm" type="button" data-rc-all>' + Hub.icons.check + 'Confirm all</button>' +
+        '<button class="btn btn-ghost btn-sm" type="button" data-rc-review>' + (reviewing ? 'Done reviewing' : 'Review one by one') + '</button></div></section>';
   }
 
   function section(title, list, total) {
@@ -97,7 +112,9 @@
       (ups.length ? '<div class="fin-alerts">' + ups.map(function (r) {
         return '<button class="fin-alert fin-alert--up" type="button" data-rc="' + esc(r.id) + '">' + Hub.icons.up + '<span>' + esc(r.name) + ' went up from ' + Fin.amt(r.priceUp.from, { cents: true }) + ' to ' + Fin.amt(r.priceUp.to, { cents: true }) + ' (' + Fin.amt((r.priceUp.to - r.priceUp.from) * 12, { cents: true }) + ' more a year)</span>' + Hub.icons.right + '</button>';
       }).join('') + '</div>' : '') +
-      '<section class="fin-card"><div class="fin-card-head"><h2>Coming up</h2><span class="fin-muted">The next 30 days</span></div>' + upcomingHTML(items, 30) + '</section>' +
+      foundCard(live) +
+      '<section class="fin-card"><div class="fin-card-head"><h2>Coming up</h2><span class="fin-muted">The next ' + (showMonth ? 30 : 7) + ' days</span></div>' + upcomingHTML(items, showMonth ? 30 : 7) +
+        '<button class="fin-link" type="button" data-rc-days>' + (showMonth ? 'Just the next 7 days' : 'Show the next 30 days') + '</button></section>' +
       (items.length ? '' : '<div class="fin-soon"><h2>Nothing found yet</h2><p>Recurring charges show up here once there are a few months of transactions. You can add rent, lessons or anything else by hand.</p></div>') +
       section('Subscriptions', subs, sum(subs)) +
       section('Bills', bills, sum(bills)) +
@@ -229,9 +246,16 @@
   document.addEventListener('click', function (e) {
     var view = $('#view');
     if (!view || !view.contains(e.target) || !Fin.at('recurring')) return;
-    var t = e.target.closest('[data-rc],[data-rc-yes],[data-rc-no],[data-rc-scan],[data-rc-add]');
+    var t = e.target.closest('[data-rc],[data-rc-yes],[data-rc-no],[data-rc-scan],[data-rc-add],[data-rc-all],[data-rc-review],[data-rc-days]');
     if (!t) return;
-    if (t.hasAttribute('data-rc-yes')) act(t.getAttribute('data-rc-yes'), 'confirm').then(function () { Hub.toast('Got it'); }).catch(function (er) { Hub.toast(er.message, true); });
+    if (t.hasAttribute('data-rc-all')) {
+      t.disabled = true;
+      Fin.save('fin-recurring', { body: { action: 'confirm-all' } }).then(function () { reviewing = false; Hub.toast('All confirmed'); })
+        .catch(function (er) { Hub.toast(er.message, true); t.disabled = false; });
+    }
+    else if (t.hasAttribute('data-rc-review')) { reviewing = !reviewing; Fin.rerender(); }
+    else if (t.hasAttribute('data-rc-days')) { showMonth = !showMonth; Fin.rerender(); }
+    else if (t.hasAttribute('data-rc-yes')) act(t.getAttribute('data-rc-yes'), 'confirm').then(function () { Hub.toast('Got it'); }).catch(function (er) { Hub.toast(er.message, true); });
     else if (t.hasAttribute('data-rc-no')) act(t.getAttribute('data-rc-no'), 'ignore').then(function () { Hub.toast('Marked not recurring'); }).catch(function (er) { Hub.toast(er.message, true); });
     else if (t.hasAttribute('data-rc-scan')) scan(t);
     else if (t.hasAttribute('data-rc-add')) addForm();

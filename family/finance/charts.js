@@ -14,6 +14,8 @@
                         format, axisFormat, height, ariaLabel })
    FinCharts.stackedBars(el, { labels, titles, series, line?, format, ... })
                         (positive values stack up, negative ones down)
+                        bars and stackedBars take partial: an index to draw
+                        faded (the month that isn't over yet)
    FinCharts.moneyFlow(el, { sources:[{name,value,color}], trunk,
                         groups:[{name,value,color,items:[{name,value}]}],
                         format, ariaLabel })
@@ -272,7 +274,7 @@
           var v = s.values[i];
           if (v == null) return;
           var d = barPath(x0 + j * (barW + 2), barW, y(0), y(v));
-          if (d) svgEl('path', { d: d, fill: s.color, class: 'fc-bar' }, svg);
+          if (d) svgEl('path', { d: d, fill: s.color, class: 'fc-bar' + (i === opts.partial ? ' fc-bar--partial' : '') }, svg);
         });
       });
       if (opts.line) {
@@ -338,7 +340,7 @@
             if (Math.abs(y1 - gapped) >= 1) {
               var d = outer ? barPath(x0, barW, gapped, y1)
                 : 'M' + x0 + ',' + gapped + 'V' + y1 + 'H' + (x0 + barW) + 'V' + gapped + 'Z';
-              if (d) svgEl('path', { d: d, fill: p.s.color, class: 'fc-bar' }, svg);
+              if (d) svgEl('path', { d: d, fill: p.s.color, class: 'fc-bar' + (i === opts.partial ? ' fc-bar--partial' : '') }, svg);
             }
             base += p.v;
           });
@@ -525,6 +527,8 @@
     rows.forEach(function (r) {
       var row = htmlEl('div', 'fc-hrow', list);
       row.setAttribute('role', 'listitem');
+      // opts.attr: rows become tappable, carrying their key in that attribute.
+      if (opts.attr && r.key != null) { row.setAttribute(opts.attr, r.key); row.classList.add('fc-hrow--link'); row.tabIndex = 0; }
       var head = htmlEl('div', 'fc-hrow-head', row);
       htmlEl('span', 'fc-hrow-label', head, r.label);
       if (r.sub) htmlEl('span', 'fc-hrow-sub', head, r.sub);

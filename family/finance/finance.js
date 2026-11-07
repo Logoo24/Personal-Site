@@ -84,6 +84,58 @@
     if (!/^\d*\.?\d{0,2}$/.test(s) || s === '.') return NaN;
     return Math.round(parseFloat(s) * 100);
   }
+  /* ---------- categories: broad groups, colors and icons ---------- */
+  // The broad groups ("Where the money went" and the category icons share
+  // them). Anything not listed is "Everything else".
+  var CAT_GROUPS = [
+    { name: 'Housing & bills', color: 'var(--fc-2)', cats: ['housing', 'utilities', 'insurance', 'loans', 'taxes'] },
+    { name: 'Everyday', color: 'var(--fc-4)', cats: ['groceries', 'transport', 'health', 'kids', 'personal', 'education'] },
+    { name: 'Fun & lifestyle', color: 'var(--fc-5)', cats: ['dining', 'shopping', 'entertainment', 'travel', 'subscriptions', 'home', 'gifts'] }
+  ];
+  var CI = function (d) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>'; };
+  var CAT_ICONS = {
+    utilities: CI('<path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/>'),
+    transport: CI('<path d="M5 17V12l2-5h10l2 5v5H5z"/><circle cx="8" cy="17" r="1.6"/><circle cx="16" cy="17" r="1.6"/>'),
+    insurance: CI('<path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6l-7-3z"/>'),
+    health: CI('<path d="M20.8 5.6a5 5 0 0 0-7.1 0L12 7.3l-1.7-1.7a5 5 0 0 0-7.1 7.1L12 21.5l8.8-8.8a5 5 0 0 0 0-7.1z"/>'),
+    shopping: CI('<path d="M6 7h12l1 14H5L6 7z"/><path d="M9 7a3 3 0 0 1 6 0"/>'),
+    subscriptions: CI('<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>'),
+    entertainment: CI('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14M3 12h18"/>'),
+    travel: CI('<path d="M2 16l20-8-6 13-3-6-6-2z"/>'),
+    gifts: CI('<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M5 12v9h14v-9"/><path d="M12 8c-1.5-3-5-3-5 0h5zM12 8c1.5-3 5-3 5 0h-5z"/>'),
+    fees: CI('<path d="M19 5 5 19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>'),
+    taxes: CI('<path d="M14 3H6v18h12V7l-4-4z"/><path d="M14 3v4h4"/><path d="M9 13h6M9 17h4"/>'),
+    transfer: CI('<path d="M7 7h12l-3-3M17 17H5l3 3"/>'),
+    other: CI('<path d="M3 12V4h8l10 10-8 8L3 12z"/><circle cx="7.5" cy="7.5" r="1.5"/>')
+  };
+  var CAT_ICON_ALIAS = { housing: 'home', home: 'home', groceries: 'cart', loans: 'bank', kids: 'users', dining: 'chef', personal: 'sparkle', education: 'book', paycheck: 'wallet', 'other-income': 'wallet', 'card-payment': 'transfer', saving: 'transfer' };
+  function catLook(id) {
+    var c = (Fin.data && Fin.data.categories || []).filter(function (x) { return x.id === id; })[0];
+    var g = CAT_GROUPS.filter(function (x) { return x.cats.indexOf(id) >= 0; })[0];
+    var color = c && c.kind === 'income' ? 'var(--fc-1)' : c && c.kind === 'transfer' ? 'var(--text-muted)' : g ? g.color : 'var(--text-muted)';
+    var name = CAT_ICON_ALIAS[id] || id;
+    return { color: color, icon: CAT_ICONS[name] || Hub.icons[name] || (c && c.kind === 'transfer' ? CAT_ICONS.transfer : CAT_ICONS.other) };
+  }
+  // A small tinted circle with the category's icon, at the start of a row.
+  function catIcon(id) {
+    var l = catLook(id);
+    return '<span class="fin-cat-ic" style="--c:' + l.color + '" aria-hidden="true">' + l.icon + '</span>';
+  }
+
+  // Bank descriptions as people would write them: "TRANSFER TO SAVINGS" ->
+  // "Transfer to Savings", reference numbers ("1023774", "#4471") dropped.
+  // For showing only; the raw text stays on the drawer's "On the statement".
+  var SMALL = { a: 1, an: 1, and: 1, at: 1, for: 1, from: 1, of: 1, on: 1, or: 1, the: 1, to: 1 };
+  function niceName(s) {
+    s = String(s || '').replace(/\s+(?:#\s?|x{2,}|\*+)?\d{5,}\b/gi, '').replace(/\s+#\d+\b/g, '').replace(/\s{2,}/g, ' ').trim() || String(s || '');
+    var letters = s.replace(/[^A-Za-z]/g, '');
+    if (letters.length < 4 || letters !== letters.toUpperCase()) return s;
+    return s.toLowerCase().split(' ').map(function (w, i) {
+      if (i && SMALL[w]) return w;
+      return w.replace(/^([^a-z]*)([a-z])/, function (m, p, ch) { return p + ch.toUpperCase(); });
+    }).join(' ');
+  }
+
   // An account's contribution to net worth: what you owe counts against it.
   function signed(a) { return (TYPES[a.type] || {}).side === 'liability' || a.side === 'liability' ? -(a.balance || 0) : (a.balance || 0); }
   function sideOf(a) { return a.side || (TYPES[a.type] || {}).side || 'asset'; }
@@ -105,7 +157,7 @@
   var Fin = window.Fin = {
     data: null,
     person: 'all',
-    TYPES: TYPES, money: money, amt: amt, amtText: amtText, amountsHidden: function () { return document.body.classList.contains('fin-hidden'); }, moneyInput: moneyInput, parseMoney: parseMoney, signed: signed, sideOf: sideOf,
+    TYPES: TYPES, CAT_GROUPS: CAT_GROUPS, catLook: catLook, catIcon: catIcon, niceName: niceName, money: money, amt: amt, amtText: amtText, amountsHidden: function () { return document.body.classList.contains('fin-hidden'); }, moneyInput: moneyInput, parseMoney: parseMoney, signed: signed, sideOf: sideOf,
     dayKey: dayKey, monthKey: monthKey, monthDate: monthDate, ago: ago,
     tab: function (id, render) { renderers[id] = render; },
     // Calls a route that answers with a fresh summary, then redraws.

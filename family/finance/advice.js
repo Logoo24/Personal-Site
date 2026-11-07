@@ -24,8 +24,10 @@
   var oldInvalidate = Fin.invalidateTx;
   Fin.invalidateTx = function () { data = null; if (oldInvalidate) oldInvalidate(); };
 
+  // One line, opening to the rest.
   function banner() {
-    return '<div class="fin-banner fin-advice-note">' + Hub.icons.lock + '<span><b>Educational guidance from your own numbers, not personalized financial advice.</b> Claude isn’t a licensed advisor. For big decisions (investing, taxes, insurance), talk to a fiduciary professional.</span></div>';
+    return '<details class="fin-advice-note"><summary>' + Hub.icons.lock + '<span>Educational guidance from your own numbers, not personalized financial advice</span></summary>' +
+      '<p>Claude isn’t a licensed advisor. For big decisions (investing, taxes, insurance), talk to a fiduciary professional.</p></details>';
   }
 
   function briefingHTML(d) {
@@ -45,17 +47,14 @@
       '<p class="fin-brief-summary">' + Fin.amtText(b.summary) + '</p>' +
       list('Where to put money now', b.putMoney, function (xs) {
         return '<ol class="fin-brief-list">' + xs.map(function (x) {
-          return '<li><b>' + Fin.amtText(x.title) + '</b>' + (x.amount ? ' <span class="fin-brief-amt fin-amt">' + esc(x.amount) + '</span>' : '') + '<p>' + Fin.amtText(x.why) + '</p>' + askAbout(x.title) + '</li>';
+          return '<li><b>' + Fin.amtText(x.title) + '</b>' + (x.amount ? ' <span class="fin-brief-amt fin-amt">' + esc(x.amount) + '</span>' : '') + askAbout(x.title) + '<p>' + Fin.amtText(x.why) + '</p></li>';
         }).join('') + '</ol>';
       }) +
       '<div class="fin-row">' +
         list('Spend less on', b.spendLess, function (xs) { return '<ul class="fin-brief-list">' + xs.map(function (x) { return '<li><b>' + Fin.amtText(x.title) + '</b><p>' + Fin.amtText(x.why) + '</p></li>'; }).join('') + '</ul>'; }) +
         list('Worth spending on', b.spendMore, function (xs) { return '<ul class="fin-brief-list">' + xs.map(function (x) { return '<li><b>' + Fin.amtText(x.title) + '</b><p>' + Fin.amtText(x.why) + '</p></li>'; }).join('') + '</ul>'; }) +
       '</div>' +
-      '<div class="fin-row">' +
-        list('Going well', b.doingWell, function (xs) { return '<ul class="fin-brief-bullets good">' + xs.map(function (x) { return '<li>' + Hub.icons.check + '<span>' + esc(x) + '</span></li>'; }).join('') + '</ul>'; }) +
-        list('Keep an eye on', b.watch, function (xs) { return '<ul class="fin-brief-bullets">' + xs.map(function (x) { return '<li>' + Hub.icons.up + '<span>' + esc(x) + '</span></li>'; }).join('') + '</ul>'; }) +
-      '</div>' +
+      // "Going well" and "Keep an eye on" join the checks of the same name below.
       '<div class="fin-brief-foot"><span class="fin-muted">Written ' + esc(when) + (b.rates ? ' · rates as of ' + esc(new Date(b.rates.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) : '') + '</span>' +
         (b.rates && b.rates.sources && b.rates.sources.length ? '<span class="fin-brief-sources">Sources: ' + b.rates.sources.map(function (s) {
           return '<a href="' + esc(/^https?:\/\//.test(s.url) ? s.url : '#') + '" target="_blank" rel="noopener noreferrer">' + esc(hostOf(s.url)) + '</a>';
@@ -66,16 +65,23 @@
   }
   function hostOf(url) { try { return new URL(url).hostname.replace(/^www\./, ''); } catch (e) { return 'source'; } }
 
-  function cardsHTML(cards) {
+  // The checks in four groups that open and close, each with a count; "Do
+  // next" and "Keep an eye on" start open. The briefing's own short "going
+  // well" and "keep an eye on" notes join their group, so nothing is said twice.
+  var OPEN = { do: 1, watch: 1 };
+  function cardsHTML(cards, b) {
+    var extra = { good: (b && b.doingWell) || [], watch: (b && b.watch) || [] };
     return TONES.map(function (t) {
-      var mine = cards.filter(function (c) { return c.tone === t[0]; });
-      if (!mine.length) return '';
-      return '<section class="fin-card"><div class="fin-card-head"><h2>' + esc(t[1]) + '</h2></div><ul class="fin-checks-list">' + mine.map(function (c) {
-        return '<li class="fin-check-card ' + t[0] + '"><span class="fin-check-icon">' + ICON[t[0]] + '</span><div><b>' + Fin.amtText(c.title) + '</b><p>' + Fin.amtText(c.body) + '</p>' +
-          (c.numbers && c.numbers.length ? '<dl class="fin-check-nums">' + c.numbers.map(function (n) { return '<div><dt>' + esc(n[0]) + '</dt><dd class="fin-amt">' + esc(n[1]) + '</dd></div>'; }).join('') + '</dl>' : '') +
-          askAbout(c.title) +
-        '</div></li>';
-      }).join('') + '</ul></section>';
+      var mine = cards.filter(function (c) { return c.tone === t[0]; }), notes = extra[t[0]] || [];
+      if (!mine.length && !notes.length) return '';
+      return '<details class="fin-card fin-checks-group"' + (OPEN[t[0]] ? ' open' : '') + '><summary><h2>' + esc(t[1]) + '</h2><span class="fin-checks-count">' + (mine.length + notes.length) + '</span></summary>' +
+        '<ul class="fin-checks-list">' + mine.map(function (c) {
+          return '<li class="fin-check-card ' + t[0] + '"><span class="fin-check-icon">' + ICON[t[0]] + '</span><div><b>' + Fin.amtText(c.title) + '</b>' + askAbout(c.title) + '<p>' + Fin.amtText(c.body) + '</p>' +
+            (c.numbers && c.numbers.length ? '<dl class="fin-check-nums">' + c.numbers.map(function (n) { return '<div><dt>' + esc(n[0]) + '</dt><dd class="fin-amt">' + esc(n[1]) + '</dd></div>'; }).join('') + '</dl>' : '') +
+          '</div></li>';
+        }).join('') + notes.map(function (x) {
+          return '<li class="fin-check-card ' + t[0] + ' fin-check-note"><span class="fin-check-icon">' + ICON[t[0]] + '</span><div><p>' + Fin.amtText(x) + '</p></div></li>';
+        }).join('') + '</ul></details>';
     }).join('');
   }
 
@@ -98,9 +104,10 @@
 
   /* ---------- asking about it ---------- */
   var canAsk = function () { return data && data.claude && data.ready; };
-  // An "Ask about this" link under a briefing item or a check: fills the box.
+  // A small chat button beside a briefing item or a check: fills the box.
+  var CHAT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>';
   function askAbout(title) {
-    return canAsk() ? '<button class="fin-link fin-ask-about" type="button" data-ask-about="' + esc(title) + '">Ask about this</button>' : '';
+    return canAsk() ? '<button class="fin-ask-about" type="button" data-ask-about="' + esc(title) + '" aria-label="Ask about “' + esc(title) + '”" title="Ask about this">' + CHAT + '</button>' : '';
   }
 
   function askHTML(d) {
@@ -191,7 +198,7 @@
     view.innerHTML = banner() + '<p class="hub-loading">Working through your numbers…</p>';
     load().then(function (d) {
       if (!Fin.at('advice')) return;
-      view.innerHTML = banner() + briefingHTML(d) + askHTML(d) + cardsHTML(d.cards) + factsHTML(d.facts);
+      view.innerHTML = banner() + briefingHTML(d) + askHTML(d) + cardsHTML(d.cards, d.briefing) + factsHTML(d.facts);
       var input = $('#fin-ask-q', view);
       if (input) grow(input);
       // A briefing a month: write one when there's none yet or it's from an earlier month.
@@ -212,7 +219,7 @@
     }).catch(function (e) {
       // Without this the "Writing your briefing…" card would wait forever.
       autoFailed = e.message;
-      Hub.toast(e.message, true);
+      if (!auto) Hub.toast(e.message, true); // an automatic one says so on its card
       load(true).then(function () { Fin.rerender(); });
     });
   }

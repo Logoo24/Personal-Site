@@ -112,15 +112,29 @@
         '<button class="btn btn-ghost" type="button" data-bedit>Set them myself</button></p></div>';
       return;
     }
-    var fixed = fixedBills();
-    var rows = budgeted.map(function (c) {
+    // Two lists, flexible spending and bills, each with whatever needs a
+    // look first: over budget, then ahead of pace, then the most used up.
+    var fixed = fixedBills(), RANK = { over: 0, warn: 1, ok: 2 };
+    var items = budgeted.map(function (c) {
       var s = spent[c.id] || 0, f = isFixed(c, fixed);
-      var st = status(s, c.budget, pace, f);
-      return '<li class="fin-budget"><div class="fin-budget-head"><span class="fin-budget-name">' + esc(c.name) + (f ? '<span class="fin-tag">Bills</span>' : '') + '</span>' +
-        '<span class="fin-budget-nums"><b class="fin-amt">' + esc(Fin.money(s)) + '</b> <span class="fin-muted">of <span class="fin-amt">' + esc(Fin.money(c.budget)) + '</span></span></span></div>' +
-        meter(s, c.budget, f ? 1 : pace, st.cls) +
-        '<span class="fin-budget-status ' + st.cls + '">' + st.icon + '<span>' + Fin.amtText(st.text) + '</span></span></li>';
-    }).join('');
+      return { c: c, s: s, f: f, st: status(s, c.budget, pace, f) };
+    }).sort(function (a, b) { return RANK[a.st.cls] - RANK[b.st.cls] || b.s / b.c.budget - a.s / a.c.budget; });
+    function budgetRow(x) {
+      return '<li class="fin-budget"><div class="fin-budget-head"><span class="fin-budget-name">' + esc(x.c.name) + '</span>' +
+        '<span class="fin-budget-nums"><b class="fin-amt">' + esc(Fin.money(x.s)) + '</b> <span class="fin-muted">of <span class="fin-amt">' + esc(Fin.money(x.c.budget)) + '</span></span></span></div>' +
+        meter(x.s, x.c.budget, x.f ? 1 : pace, x.st.cls) +
+        '<span class="fin-budget-status ' + x.st.cls + '">' + x.st.icon + '<span>' + Fin.amtText(x.st.text) + '</span></span></li>';
+    }
+    function budgetCard(title, note, list) {
+      if (!list.length) return '';
+      var b = list.reduce(function (m, x) { return m + x.c.budget; }, 0), s = list.reduce(function (m, x) { return m + x.s; }, 0);
+      return '<section class="fin-card"><div class="fin-card-head"><div><h2>' + esc(title) + '</h2><p class="fin-muted">' + esc(note) + '</p></div>' +
+        '<span class="fin-muted"><span class="fin-amt">' + esc(Fin.money(s)) + '</span> of <span class="fin-amt">' + esc(Fin.money(b)) + '</span></span></div>' +
+        '<ul class="fin-budgets">' + list.map(budgetRow).join('') + '</ul></section>';
+    }
+    var flexCard = budgetCard('Flexible spending', 'Judged against how far into the month it is.', items.filter(function (x) { return !x.f; }));
+    var billCard = budgetCard('Bills', 'Mostly regular bills, so only going over counts.', items.filter(function (x) { return x.f; }));
+    var lists = flexCard && billCard ? '<div class="fin-row fin-budget-cols">' + flexCard + billCard + '</div>' : flexCard + billCard;
     var loose = Object.keys(spent).filter(function (k) { var c = cats().filter(function (x) { return x.id === k; })[0]; return !(c && c.budget) && spent[k] > 0; })
       .sort(function (a, b) { return spent[b] - spent[a]; });
     var looseTotal = loose.reduce(function (m, k) { return m + spent[k]; }, 0);
@@ -131,7 +145,7 @@
         meter(totalS, totalB, pace < 1 ? all.marker : 1, all.cls) +
         '<p class="fin-muted fin-budget-note">' + (pace < 1 ? 'Day ' + Fin.data.today.slice(8, 10).replace(/^0/, '') + ' of ' + daysIn(month) + '. The line marks where spending would be by now: bills already paid, plus the rest spread evenly through the month.' : 'The whole month.') +
         ' Budgets are for the whole household.</p></section>' +
-      '<section class="fin-card"><ul class="fin-budgets">' + rows + '</ul></section>' +
+      lists +
       (loose.length ? '<section class="fin-card"><div class="fin-card-head"><h2>Without a budget</h2><span class="fin-muted">' + Fin.amt(looseTotal) + '</span></div>' +
         '<ul class="fin-recent">' + loose.map(function (k) {
           var c = cats().filter(function (x) { return x.id === k; })[0];

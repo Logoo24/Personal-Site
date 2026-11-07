@@ -227,6 +227,21 @@
 .fin-acct-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1.5rem; }
 .fin-acct-head .btn svg { width: 15px; height: 15px; }
 .fin-group .fin-card-head { margin-bottom: 0.4rem; }
+/* Accounts: what you own / what you owe, each with headed groups. */
+.fin-acct-cols { align-items: start; }
+/* Shorter button words on phones ("Add", "Past months"). */
+.fin-btn-short { display: none; }
+@media (max-width: 560px) {
+  .fin-btn-long { display: none; }
+  .fin-btn-short { display: inline; }
+}
+.fin-acct-side .fin-card-head { margin-bottom: 0.25rem; }
+.fin-acct-group { margin-top: 1rem; }
+.fin-acct-group h3 {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; padding-bottom: 0.35rem; border-bottom: 1px solid var(--line);
+  font: 700 0.74rem var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted);
+}
+.fin-acct-group h3 .fin-group-total { font-size: 0.86rem; letter-spacing: 0; text-transform: none; color: var(--text-soft); }
 .fin-group-total { font-weight: 600; font-variant-numeric: tabular-nums; }
 .fin-accts { list-style: none; }
 .fin-accts li + li { border-top: 1px solid var(--line); }
@@ -303,6 +318,19 @@
 
 /* Overview alerts and recent transactions */
 .fin-alerts { display: grid; gap: 0.5rem; }
+/* The Overview's "Needs attention": one card, a row per item. */
+.fin-attn { padding-top: 1.1rem; padding-bottom: 0.6rem; }
+.fin-attn .fin-card-head { margin-bottom: 0.2rem; }
+.fin-attn-list .fin-alert { border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 0.75rem 0; background: none; }
+.fin-attn-list .fin-alert:first-child { border-top: 0; }
+.fin-attn-list .fin-alert:hover { border-color: var(--line); color: var(--accent); }
+.fin-tm-coming { margin-top: 0.35rem; }
+.fin-budget-cols { align-items: start; }
+.fin-budget-cols .fin-card-head p, .fin-budget-cols + * .fin-card-head p { margin-top: 0.15rem; }
+/* Recurring: what the scan found, to confirm in one go. */
+.fin-found { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1.25rem; background: var(--hub-finance-bg); border-color: transparent; }
+.fin-found-text { display: flex; gap: 0.6rem; align-items: flex-start; flex: 1 1 18rem; font-size: 0.92rem; }
+.fin-found-text svg { width: 18px; height: 18px; flex: none; margin-top: 0.1rem; color: var(--hub-finance); }
 .fin-alert { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid var(--line); background: var(--hub-surface); font: 600 0.92rem var(--sans); color: var(--text); text-align: left; cursor: pointer; }
 .fin-alert:hover { border-color: var(--accent); }
 .fin-alert span { flex: 1; }
@@ -370,6 +398,16 @@
 .fin-tx-quick select { flex: 1; min-width: 10rem; padding: 0.45rem 0.6rem; }
 .fin-tx-quick .btn svg { width: 14px; height: 14px; }
 .fin-tx-empty { padding: 1.5rem 0; text-align: center; }
+.fin-tx-wider { margin: 0.75rem 0 0.25rem; text-align: center; }
+.fin-tx-wider .btn svg { width: 15px; height: 15px; }
+/* A category's icon in a tinted circle, at the start of a transaction row. */
+.fin-cat-ic {
+  flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;
+  background: color-mix(in srgb, var(--c) 15%, var(--hub-surface)); color: var(--c);
+}
+.fin-cat-ic svg { width: 17px; height: 17px; }
+.fin-tx .fin-tx-main, .fin-recent .fin-acct-main { flex: 1; }
+.fin-tx > .fin-cat-ic + .fin-tx-main { margin-left: -0.2rem; }
 .fin-tx-form { display: grid; gap: 0.9rem; }
 .fin-export-list { display: grid; gap: 0.5rem; margin-top: 1rem; }
 .fin-export-list .btn { justify-content: center; }
@@ -417,6 +455,10 @@
 .fin-report-menu .fin-menu-btn { font-size: 0.95rem; min-height: 42px; padding-left: 1rem; }
 .fin-report-menu .fin-menu-list { left: 0; right: auto; width: 21rem; }
 .fin-period { padding: 0.5rem 0.7rem; width: auto !important; min-width: 11rem; }
+.fin-report-pick-slot { display: contents; }
+.fc-bar--partial { opacity: 0.45; }
+.fc-hrow--link { cursor: pointer; border-radius: 8px; margin: -0.3rem -0.4rem; padding: 0.3rem 0.4rem; }
+.fc-hrow--link:hover, .fc-hrow--link:focus-visible { background: var(--bg-alt); outline: none; }
 .fin-report > * + * { margin-top: 1.25rem; }
 .fin-report-pick { max-width: 320px; }
 .fin-flow-note { margin: -0.4rem 0 0.9rem; }
@@ -487,8 +529,10 @@
 
 /* Credit tab. The band scale is an ordered one-hue ramp (blue), its
    lightest step still clear of the card surface in each theme. */
-.fin { --band-1: #86b6ef; --band-2: #5598e7; --band-3: #2a78d6; --band-4: #1c5cab; --band-5: #104281; }
-[data-theme="dark"] .fin { --band-1: #184f95; --band-2: #256abf; --band-3: #3987e5; --band-4: #6da7ec; --band-5: #9ec5f4; }
+/* Credit bands, poor to excellent: red, orange, amber, light green, green.
+   Always beside the band's name (the score card says it in words). */
+.fin { --band-1: #e34948; --band-2: #eb6834; --band-3: #eda100; --band-4: #5fb36a; --band-5: #1f7a4d; }
+[data-theme="dark"] .fin { --band-1: #e66767; --band-2: #d95926; --band-3: #c98500; --band-4: #4fa35c; --band-5: #2f9e64; }
 .fin-score .fin-hero { margin-bottom: 0.75rem; }
 .fin-score-band { font-weight: 600; font-size: 1.05rem; }
 .fin-band { margin: 0.25rem 0 0.75rem; }
@@ -499,9 +543,11 @@
 .fin-band-seg.b1 { background: var(--band-1); } .fin-band-seg.b2 { background: var(--band-2); } .fin-band-seg.b3 { background: var(--band-3); }
 .fin-band-seg.b4 { background: var(--band-4); } .fin-band-seg.b5 { background: var(--band-5); }
 .fin-band-mark { position: absolute; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: var(--text); border: 3px solid var(--hub-surface); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); }
-.fin-band-labels { position: relative; display: flex; justify-content: space-between; margin-top: 0.45rem; font-size: 0.72rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.fin-band-labels .on { position: absolute; top: 0; transform: translateX(-50%); color: var(--text); font-weight: 700; font-size: 0.78rem; white-space: nowrap; }
-.fin-band-labels span[hidden] { display: inline !important; visibility: hidden; } /* keeps the other end in place */
+.fin-band-seg:not(.on) { opacity: 0.55; }
+.fin-band-labels { position: relative; height: 1rem; margin-top: 0.45rem; font-size: 0.7rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.fin-band-labels span { position: absolute; top: 0; transform: translateX(-50%); }
+.fin-band-labels span[style="left:0"] { transform: none; }
+.fin-band-labels span.end { transform: translateX(-100%); }
 .fin-click { cursor: pointer; }
 .fin-click:hover td { background: var(--bg-alt); }
 .fin-click:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
@@ -520,8 +566,24 @@
 .fin-mini-scores b { font-size: 1.25rem; font-weight: 600; }
 
 /* Advice tab */
-.fin-advice-note { align-items: flex-start; }
-.fin-advice-note svg { margin-top: 0.15rem; }
+/* The disclaimer: one line, opening to the rest. */
+.fin-advice-note { padding: 0.65rem 0.95rem; border-radius: 12px; background: var(--hub-warn-bg); font-size: 0.88rem; color: var(--text-soft); }
+.fin-advice-note summary { display: flex; align-items: center; gap: 0.55rem; cursor: pointer; font-weight: 600; color: var(--text); list-style: none; }
+.fin-advice-note summary::-webkit-details-marker { display: none; }
+.fin-advice-note summary span { flex: 1; }
+.fin-advice-note summary::after { content: 'More'; font-weight: 500; font-size: 0.8rem; color: var(--text-muted); }
+.fin-advice-note[open] summary::after { content: 'Less'; }
+.fin-advice-note svg { width: 16px; height: 16px; flex: none; }
+.fin-advice-note p { margin: 0.4rem 0 0 1.6rem; }
+/* Checks: groups that open and close, with a count. */
+.fin-checks-group > summary { display: flex; align-items: center; gap: 0.6rem; cursor: pointer; list-style: none; }
+.fin-checks-group > summary::-webkit-details-marker { display: none; }
+.fin-checks-group > summary h2 { font-family: var(--sans); font-size: 1rem; font-weight: 600; }
+.fin-checks-count { min-width: 1.5rem; height: 1.5rem; padding: 0 0.45rem; border-radius: 999px; background: var(--bg-alt); color: var(--text-soft); font: 700 0.76rem/1.5rem var(--sans); text-align: center; }
+.fin-checks-group > summary::after { content: ''; width: 8px; height: 8px; margin-left: auto; border-right: 2px solid var(--text-muted); border-bottom: 2px solid var(--text-muted); transform: rotate(45deg); transition: transform .15s; }
+.fin-checks-group[open] > summary::after { transform: rotate(-135deg); }
+.fin-checks-group[open] > summary { margin-bottom: 1rem; }
+.fin-check-note p { margin-top: 0.35rem !important; }
 .fin-briefing h2 { font-family: var(--sans); }
 .fin-brief-head { font-family: var(--display) !important; font-size: clamp(1.35rem, 2.6vw, 1.75rem) !important; line-height: 1.25; margin: 0.35rem 0 0.6rem; }
 .fin-brief-summary { color: var(--text-soft); font-size: 1rem; line-height: 1.6; max-width: 760px; }
@@ -562,7 +624,14 @@
 .hub .fin-ask-form textarea { min-height: 3.2rem; resize: none; line-height: 1.5; }
 .fin-ask-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-top: 0.5rem; font-size: 0.84rem; }
 .fin-ask-ideas { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.85rem; }
-.fin-ask-about { display: inline-block; margin-top: 0.35rem; font-size: 0.84rem; }
+/* "Ask about this": a small chat button beside a title. */
+.fin-ask-about {
+  display: inline-grid; place-items: center; width: 28px; height: 28px; margin: -0.3rem 0 -0.3rem 0.35rem; vertical-align: middle;
+  border: 0; border-radius: 8px; background: none; color: var(--text-muted); cursor: pointer;
+}
+.fin-ask-about svg { width: 15px; height: 15px; }
+.fin-ask-about:hover, .fin-ask-about:focus-visible { background: var(--bg-alt); color: var(--accent); outline: none; }
+@media (pointer: coarse) { .fin-ask-about { width: 36px; height: 36px; } }
 .fin-checks-list { list-style: none; display: grid; gap: 1rem; }
 .fin-check-card { display: grid; grid-template-columns: 2rem minmax(0, 1fr); gap: 0.75rem; }
 .fin-check-card p { color: var(--text-soft); font-size: 0.92rem; margin-top: 0.2rem; }
@@ -711,7 +780,7 @@ div.fc-mflow-sum::after { content: ''; width: 7px; margin: 0 0.2rem 0 0.1rem; } 
     --fc-1: #2a78d6; --fc-2: #eb6834; --fc-3: #1baf7a; --fc-4: #eda100;
     --fc-5: #e87ba4; --fc-6: #008300; --fc-7: #6250d6; --fc-8: #e34948;
     --fin-warn: #d99000;
-    --band-1: #86b6ef; --band-2: #5598e7; --band-3: #2a78d6; --band-4: #1c5cab; --band-5: #104281;
+    --band-1: #e34948; --band-2: #eb6834; --band-3: #eda100; --band-4: #5fb36a; --band-5: #1f7a4d;
   }
   .fin * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .fin-head-tools, .fin-sync, .fin-side, .fin-bottom, .fin-side-backdrop, .fin-report-bar, .fin-drawer, .cal-backdrop, .fin-alerts,

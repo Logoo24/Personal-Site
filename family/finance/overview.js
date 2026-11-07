@@ -145,7 +145,22 @@
       out.push('<button class="fin-alert fin-alert--up" type="button" data-alert-rc="' + esc(r.id) + '">' + Hub.icons.up + '<span>' + esc(r.name) + ' went up from ' +
         Fin.amt(r.priceUp.from, { cents: true }) + ' to ' + Fin.amt(r.priceUp.to, { cents: true }) + '</span>' + Hub.icons.right + '</button>');
     });
-    return out.length ? '<div class="fin-alerts">' + out.join('') + '</div>' : '';
+    // One card, a row each, instead of a stack of separate bars.
+    return out.length ? '<section class="fin-card fin-attn"><div class="fin-card-head"><h2>Needs attention</h2><span class="fin-muted">' + out.length + '</span></div>' +
+      '<div class="fin-attn-list">' + out.join('') + '</div></section>' : '';
+  }
+
+  // Paychecks and other regular income still expected later this month,
+  // for the accounts on screen.
+  function expectedIn(F) {
+    var cur = F.data.today.slice(0, 7);
+    return (F.data.upcoming || []).filter(function (u) {
+      if (u.dir !== 'in' || u.kind === 'due' || !u.amount || u.date.slice(0, 7) !== cur) return false;
+      var r = (F.data.recurring || []).filter(function (x) { return x.id === u.id; })[0];
+      if (r && r.person) return F.person === 'all' || r.person === F.person;
+      var a = u.acct && F.data.accounts.filter(function (x) { return x.id === u.acct; })[0];
+      return !a || F.matches(a);
+    }).reduce(function (m, u) { return m + u.amount; }, 0);
   }
 
   // This month so far: money in, spent, what's left, the pace against the
@@ -174,9 +189,14 @@
     var rows = Object.keys(byCat).map(function (k) { return { label: names[k] || 'Uncategorized', value: byCat[k] }; })
       .sort(function (a, b) { return b.value - a.value; }).slice(0, 5);
     var start = new Date(cur + '-01T12:00:00');
+    // Early in the month, before payday, "left" would read as a loss; count
+    // the regular income still on its way, and say so.
+    var coming = expectedIn(F);
     return '<section class="fin-card"><div class="fin-card-head"><h2>This month</h2><span class="fin-muted">' +
       esc(start.toLocaleDateString('en-US', { month: 'long' }) + ' 1–' + dom) + '</span></div>' +
-      '<div class="fin-split fin-split--big"><span>In <b>' + Fin.amt(inn) + '</b></span><span>Spent <b>' + Fin.amt(out) + '</b></span><span>Left <b>' + Fin.amt(inn - out, { sign: true }) + '</b></span></div>' +
+      '<div class="fin-split fin-split--big"><span>In <b>' + Fin.amt(inn) + '</b></span><span>Spent <b>' + Fin.amt(out) + '</b></span>' +
+        '<span>' + (coming ? 'Left after payday' : 'Left') + ' <b>' + Fin.amt(inn + coming - out, { sign: true }) + '</b></span></div>' +
+      (coming ? '<p class="fin-muted fin-tm-coming">Counts ' + Fin.amt(coming) + ' in regular income still expected this month.</p>' : '') +
       pace + budgetLine(F) + (rows.length ? '<div class="fin-tm-cats" data-hbars="cats"></div>' : '<p class="fin-muted">No spending yet this month.</p>') +
       '<button class="fin-link" type="button" data-alert="transactions">See transactions</button></section>';
   }
@@ -226,16 +246,16 @@
 
   function comingUpHTML(F) {
     if (!(F.data.upcoming || []).length && !(F.data.recurring || []).length) return '';
-    return '<section class="fin-card"><div class="fin-card-head"><h2>Coming up</h2><span class="fin-muted">The next 14 days</span></div>' +
-      (Fin.upcomingHTML ? Fin.upcomingHTML(F.data.recurring || [], 14) : '') +
-      '<button class="fin-link" type="button" data-alert="recurring">All bills and subscriptions</button></section>';
+    return '<section class="fin-card"><div class="fin-card-head"><h2>Coming up</h2><span class="fin-muted">The next 7 days</span></div>' +
+      (Fin.upcomingHTML ? Fin.upcomingHTML(F.data.recurring || [], 7) : '') +
+      '<button class="fin-link" type="button" data-alert="recurring">See all</button></section>';
   }
 
   function recentHTML(F) {
     var list = (F.data.recent || []).filter(function (t) {
       var a = F.data.accounts.filter(function (x) { return x.id === t.acct; })[0];
       return a && F.matches(a);
-    }).slice(0, 8);
+    }).slice(0, 6);
     if (!list.length) return '';
     var cat = {};
     (F.data.categories || []).forEach(function (c) { cat[c.id] = c; });
@@ -243,7 +263,7 @@
       '<ul class="fin-recent">' + list.map(function (t) {
         var c = cat[t.cat], d = new Date(t.date + 'T12:00:00');
         var muted = (c && c.kind === 'transfer') || t.hidden;
-        return '<li><span class="fin-acct-main"><span class="fin-acct-name">' + esc(t.name) + (t.pending ? '<span class="fin-tag">Pending</span>' : '') + '</span>' +
+        return '<li>' + Fin.catIcon(t.cat) + '<span class="fin-acct-main"><span class="fin-acct-name">' + esc(Fin.niceName(t.name)) + (t.pending ? '<span class="fin-tag">Pending</span>' : '') + '</span>' +
           '<span class="fin-acct-sub">' + esc((c ? c.name : 'Uncategorized') + ' · ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + '</span></span>' +
           '<span class="fin-tx-amt' + (t.amt > 0 ? ' is-in' : '') + (muted ? ' is-muted' : '') + '">' + Fin.amt(t.amt, { cents: true, sign: true }) + '</span></li>';
       }).join('') + '</ul></section>';
@@ -311,12 +331,15 @@
         tile('invest', 'Investments', groups.invest, 'asset') +
       '</div>' +
       (function () { var a = thisMonthHTML(F), b = comingUpHTML(F); return a || b ? '<div class="fin-row">' + a + b + '</div>' : ''; })() +
+      // Cards paired so each row's halves are about the same height: what
+      // you own beside what you owe plus credit scores; recent transactions
+      // beside goals.
       '<div class="fin-row">' +
         '<section class="fin-card"><div class="fin-card-head"><h2>What you own</h2><span class="fin-muted">' + Fin.amt(live.assets) + '</span></div><div data-hbars="own"></div></section>' +
-        '<section class="fin-card"><div class="fin-card-head"><h2>What you owe</h2><span class="fin-muted">' + Fin.amt(live.debts) + '</span></div><div data-hbars="owe"></div></section>' +
+        '<div class="fin-side-col"><section class="fin-card"><div class="fin-card-head"><h2>What you owe</h2><span class="fin-muted">' + Fin.amt(live.debts) + '</span></div><div data-hbars="owe"></div></section>' + creditHTML(F) + '</div>' +
       '</div>' + (function () {
-        var r = recentHTML(F), side = goalsHTML(F) + creditHTML(F);
-        return r && side ? '<div class="fin-row">' + r + '<div class="fin-side-col">' + side + '</div></div>' : r + side;
+        var r = recentHTML(F), g = goalsHTML(F);
+        return r && g ? '<div class="fin-row">' + r + g + '</div>' : r + g;
       })();
     Hub.$$('[data-alert]', view).forEach(function (b) {
       b.addEventListener('click', function () {

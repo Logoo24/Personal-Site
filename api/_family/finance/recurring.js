@@ -274,6 +274,11 @@ export function changeRecurring(input, state, viewer) {
       s.recurring.push(r);
       return;
     }
+    // Everything found that the viewer can see, confirmed in one save.
+    if (input.action === 'confirm-all') {
+      for (const x of s.recurring) if (visible.has(x.id) && x.status === 'detected' && !x.ended) x.status = 'confirmed';
+      return;
+    }
     const r = s.recurring.find(x => x.id === input.id);
     if (!r || !visible.has(r.id)) throw fail(404, 'That wasn’t found.');
     switch (input.action) {

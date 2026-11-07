@@ -52,6 +52,11 @@
     var d = Fin.monthDate(m);
     return long ? d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : d.toLocaleDateString('en-US', { month: 'short' }) + (d.getMonth() === 0 ? ' ’' + String(d.getFullYear()).slice(2) : '');
   }
+  // The month that isn't over yet: drawn faded with "(so far)" in its
+  // tooltip, and left out of monthly averages when there are full months.
+  function partialAt(months) { return months.indexOf(Fin.data.today.slice(0, 7)); }
+  function titlesFor(months) { var p = partialAt(months); return months.map(function (m, i) { return monthLabel(m, true) + (i === p ? ' (so far)' : ''); }); }
+  function fullMonths(months) { var f = months.filter(function (m) { return m !== Fin.data.today.slice(0, 7); }); return f.length ? f : months; }
   function periodMonths(p) {
     var all = data ? data.months : allMonthsFromSnapshots(), cur = Fin.data.today.slice(0, 7), y = cur.slice(0, 4);
     p = p || ui.period;
@@ -109,12 +114,6 @@
     return '<div class="fin-card fin-kpi"><span class="fin-label">' + esc(label) + '</span><div class="fin-kpi-value' + (isText ? ' is-text' : '') + '">' + value + '</div>' + (sub ? '<span class="fin-muted">' + sub + '</span>' : '') + '</div>';
   }
   function pct(a, b) { return b ? Math.round(a / b * 100) + '%' : '–'; }
-  function change(now, before) {
-    if (!before) return '<span class="fin-muted">–</span>';
-    var d = (now - before) / before;
-    var cls = Math.abs(d) < 0.05 ? 'flat' : d > 0 ? 'bad' : 'good';
-    return '<span class="fin-delta ' + cls + '">' + (d > 0 ? '+' : '') + Math.round(d * 100) + '%</span>';
-  }
   function card(title, body, extra) {
     return '<section class="fin-card"><div class="fin-card-head"><h2>' + esc(title) + '</h2>' + (extra || '') + '</div>' + body + '</section>';
   }
@@ -133,13 +132,14 @@
     var all = totals(rowsIn(months));
     if (!all.inc && !all.out) { box.innerHTML = empty('Cash flow fills in once there are transactions from linked banks or added by hand.'); return; }
     var n = months.length, net = all.inc - all.out;
+    var full = fullMonths(months), fullT = totals(rowsIn(full));
     box.innerHTML = '<div class="fin-row fin-row--4">' +
-      tile('Average income', Fin.amt(all.inc / n), 'a month') + tile('Average spending', Fin.amt(all.out / n), 'a month') +
+      tile('Average income', Fin.amt(fullT.inc / full.length), 'a month') + tile('Average spending', Fin.amt(fullT.out / full.length), 'a month') +
       tile('Saved', Fin.amt(net, { sign: true }), 'over ' + Hub.plural(n, 'month')) + tile('Savings rate', pct(net, all.inc), 'of what came in') + '</div>' +
       card('Money in and out', '<div data-c="bars"></div>') +
       card('Where the money went', '<p class="fin-muted fin-flow-note">Everything that came in during this period, and what it went to. Open a group to see what’s in it. Transfers between your own accounts aren’t counted.</p><div data-c="flow"></div>');
     FinCharts.bars($('[data-c="bars"]', box), {
-      labels: months.map(function (m) { return monthLabel(m); }), titles: months.map(function (m) { return monthLabel(m, true); }),
+      labels: months.map(function (m) { return monthLabel(m); }), titles: titlesFor(months), partial: partialAt(months),
       series: [{ name: 'Money in', color: 'var(--fc-1)', values: per.map(function (t) { return t.inc; }) }, { name: 'Money out', color: 'var(--fc-2)', values: per.map(function (t) { return t.out; }) }],
       line: { name: 'Net', color: 'var(--text)', values: per.map(function (t) { return t.inc - t.out; }) },
       format: fmt, axisFormat: axis, height: 280, ariaLabel: 'Money in and money out each month, with the net'
@@ -167,14 +167,10 @@
     if (net > 0) groups.push({ name: 'Saved', value: net, color: 'var(--accent)', items: [] });
     if (left.length && groups.length) FinCharts.moneyFlow($('[data-c="flow"]', box), { sources: left, groups: groups, trunk: net < 0 ? 'Came in, plus savings' : 'Came in', format: fmt, ariaLabel: 'Where the money that came in went, in broad groups' });
   }
-  // The flow's broad groups, by category id. Anything else (custom
-  // categories, uncategorized) is "Everything else", always last.
-  var FLOW_GROUPS = [
-    { name: 'Housing & bills', color: 'var(--fc-2)', cats: ['housing', 'utilities', 'insurance', 'loans', 'taxes'] },
-    { name: 'Everyday', color: 'var(--fc-4)', cats: ['groceries', 'transport', 'health', 'kids', 'personal', 'education'] },
-    { name: 'Fun & lifestyle', color: 'var(--fc-5)', cats: ['dining', 'shopping', 'entertainment', 'travel', 'subscriptions', 'home', 'gifts'] },
-    { name: 'Everything else', color: 'var(--text-muted)', cats: [] }
-  ];
+  // The flow's broad groups (Fin.CAT_GROUPS, shared with the category
+  // icons). Anything else (custom categories, uncategorized) is
+  // "Everything else", always last.
+  var FLOW_GROUPS = Fin.CAT_GROUPS.concat([{ name: 'Everything else', color: 'var(--text-muted)', cats: [] }]);
 
   /* ---------- 2. spending by category ---------- */
   function spending(box) {
@@ -183,12 +179,26 @@
     var list = sortedEntries(now);
     if (!list.length) { box.innerHTML = empty('Spending by category fills in once there are transactions.'); return; }
     var total = list.reduce(function (m, e) { return m + e[1]; }, 0);
-    box.innerHTML = card('Spending by category', '<div data-c="cats"></div>', '<span class="fin-muted">' + Fin.amt(total) + ' total</span>') +
-      card('Compared with the ' + (prev.length === months.length ? 'period before' : 'months before'),
-        table(['Category', 'This period', 'Before', 'Change', 'A month'], list.map(function (e) {
-          return { attr: ' data-trend="' + esc(e[0]) + '"', cells: ['<button class="fin-link" type="button" data-trend="' + esc(e[0]) + '">' + esc(catName(e[0] || null)) + '</button>', Fin.amt(e[1]), prev.length ? Fin.amt(before[e[0]] || 0) : '–', prev.length ? change(e[1], before[e[0]] || 0) : '–', Fin.amt(e[1] / months.length)] };
-        })));
-    FinCharts.hbars($('[data-c="cats"]', box), { rows: list.map(function (e) { return { label: catName(e[0] || null), value: e[1], sub: Math.round(e[1] / total * 100) + '%' }; }), format: fmt, color: 'var(--fc-1)', ariaLabel: 'Spending by category, largest first' });
+    // Each bar carries its share and its change against the period before
+    // (what the separate comparison table used to say); a tap opens its trend.
+    // A month's average against a month's average, so a shorter stretch
+    // before (when history runs out) still compares fairly.
+    var seen = {};
+    data.rows.forEach(function (r) { if (acctOk(r.a)) seen[r.m] = 1; });
+    var prevN = prev.filter(function (m) { return seen[m]; }).length;
+    var vs = function (id, v) {
+      if (!prevN) return '';
+      var b = (before[id] || 0) / prevN, now = v / months.length;
+      if (!b) return now ? 'new' : '';
+      var d = Math.round((now - b) / b * 100);
+      return d === 0 ? 'same as before' : (d > 0 ? 'up ' : 'down ') + Math.abs(d) + '%';
+    };
+    box.innerHTML = card('Spending by category', '<div data-c="cats"></div>',
+      '<span class="fin-muted">' + Fin.amt(total) + ' total' + (prevN ? ' · changes are a month’s average against the ' + (prevN === months.length ? 'period before' : Hub.plural(prevN, 'month') + ' before') : '') + '</span>');
+    FinCharts.hbars($('[data-c="cats"]', box), {
+      rows: list.map(function (e) { var c = vs(e[0], e[1]); return { key: e[0], label: catName(e[0] || null), value: e[1], sub: Math.round(e[1] / total * 100) + '%' + (c ? ' · ' + c : '') }; }),
+      attr: 'data-trend', format: fmt, color: 'var(--fc-1)', ariaLabel: 'Spending by category, largest first, with the change against the period before'
+    });
   }
 
   /* ---------- 3. one category over time ---------- */
@@ -212,7 +222,7 @@
       card(catName(ui.cat || null) + ' each month', '<div data-c="trend"></div>') +
       (merch.length ? card('Where it went', '<div data-c="merch"></div>') : '');
     FinCharts.bars($('[data-c="trend"]', box), {
-      labels: months.map(function (m) { return monthLabel(m); }), titles: months.map(function (m) { return monthLabel(m, true); }),
+      labels: months.map(function (m) { return monthLabel(m); }), titles: titlesFor(months), partial: partialAt(months),
       series: [{ name: catName(ui.cat || null), color: 'var(--fc-1)', values: per }],
       line: { name: '3-month average', color: 'var(--text)', values: avg3 },
       format: fmt, axisFormat: axis, height: 260, ariaLabel: catName(ui.cat || null) + ' spending each month, with a 3-month average'
@@ -238,10 +248,11 @@
     var series = top.map(function (e, i) { return { name: e[0], color: 'var(--fc-' + (i + 1) + ')', values: months.map(function (m) { return bySrcMonth[e[0]][m] || 0; }) }; });
     if (rest.length) series.push({ name: 'Other', color: 'var(--text-muted)', values: months.map(function (m) { return rest.reduce(function (s, e) { return s + (bySrcMonth[e[0]][m] || 0); }, 0); }) });
     var total = list.reduce(function (m, e) { return m + e[1]; }, 0);
-    box.innerHTML = '<div class="fin-row fin-row--3">' + tile('Total', Fin.amt(total), 'over ' + Hub.plural(months.length, 'month')) + tile('A month, on average', Fin.amt(total / months.length)) + tile('Biggest source', esc(list[0][0]), Fin.amt(list[0][1]) + ' · ' + pct(list[0][1], total), true) + '</div>' +
+    var full = fullMonths(months), fullTotal = list.reduce(function (m, e) { return m + full.reduce(function (s, k) { return s + (bySrcMonth[e[0]][k] || 0); }, 0); }, 0);
+    box.innerHTML = '<div class="fin-row fin-row--3">' + tile('Total', Fin.amt(total), 'over ' + Hub.plural(months.length, 'month')) + tile('A month, on average', Fin.amt(fullTotal / full.length)) + tile('Biggest source', esc(list[0][0]), Fin.amt(list[0][1]) + ' · ' + pct(list[0][1], total), true) + '</div>' +
       card('Income each month', '<div data-c="inc"></div>') +
       card('By source', table(['Source', 'Total', 'A month', 'Share'], list.map(function (e) { return { cells: [esc(e[0]), Fin.amt(e[1]), Fin.amt(e[1] / months.length), pct(e[1], total)] }; })));
-    FinCharts.stackedBars($('[data-c="inc"]', box), { labels: months.map(function (m) { return monthLabel(m); }), titles: months.map(function (m) { return monthLabel(m, true); }), series: series, format: fmt, axisFormat: axis, height: 260, ariaLabel: 'Income each month by source' });
+    FinCharts.stackedBars($('[data-c="inc"]', box), { labels: months.map(function (m) { return monthLabel(m); }), titles: titlesFor(months), partial: partialAt(months), series: series, format: fmt, axisFormat: axis, height: 260, ariaLabel: 'Income each month by source' });
   }
 
   /* ---------- 5. merchants ---------- */
@@ -422,7 +433,9 @@
     var label = options.filter(function (o) { return o[0] === ui.review; })[0][1];
     var rows = rowsIn(months), t = totals(rows), net = t.inc - t.out;
     var cats = sortedEntries(spendByCat(rows));
-    var merch = merchantsIn(months).filter(function (x) { return x.o > x.i; }).sort(function (a, b) { return (b.o - b.i) - (a.o - a.i); });
+    // Top merchant leaves out rent, loans and the like: it would always win.
+    var FIXED = { housing: 1, loans: 1, insurance: 1, utilities: 1, taxes: 1 };
+    var merch = merchantsIn(months).filter(function (x) { return x.o > x.i && !FIXED[x.c] && kind(x.c) !== 'transfer'; }).sort(function (a, b) { return (b.o - b.i) - (a.o - a.i); });
     var set = {}; months.forEach(function (m) { set[m] = 1; });
     var big = data.big.filter(function (b) { return set[b.m] && acctOk(b.a) && kind(b.c) !== 'transfer'; }).sort(function (a, b) { return b.amt - a.amt; })[0];
     var count = rows.reduce(function (m, r) { return m + r.n; }, 0);
@@ -434,8 +447,11 @@
     var before = months[0] ? (function () { var d = Fin.monthDate(months[0]); d.setMonth(d.getMonth() - 1); return nwAt(Fin.monthKey(d)); })() : null;
     var lastM = months[months.length - 1], cur = Fin.data.today.slice(0, 7);
     var after = lastM === cur ? accts.reduce(function (s, a) { return s + (Fin.sideOf(a) === 'liability' ? -(a.balance || 0) : (a.balance || 0)); }, 0) : nwAt(lastM);
-    if (!count) { box.innerHTML = '<div class="fin-report-pick"><label class="field"><span>Look back at</span><select data-pick-review>' + options.map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === ui.review ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></label></div>' + empty('No transactions in that stretch.'); return; }
-    box.innerHTML = '<div class="fin-report-pick"><label class="field"><span>Look back at</span><select data-pick-review>' + options.map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === ui.review ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></label></div>' +
+    // Which year or month: in the bar at the top, where the other reports keep their period.
+    var slot = $('[data-report-pick]');
+    if (slot) slot.innerHTML = '<select class="fin-period" data-pick-review aria-label="Look back at">' + options.map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === ui.review ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>';
+    if (!count) { box.innerHTML = empty('No transactions in that stretch.'); return; }
+    box.innerHTML =
       '<section class="fin-card fin-review"><h2>' + esc(label) + '</h2><p class="fin-review-lede">You brought in <b class="fin-amt">' + esc(Fin.money(t.inc)) + '</b> and spent <b class="fin-amt">' + esc(Fin.money(t.out)) + '</b>, ' +
         (net >= 0 ? 'keeping <b class="fin-amt">' + esc(Fin.money(net)) + '</b> (' + pct(net, t.inc) + ' of it).' : 'spending <b class="fin-amt">' + esc(Fin.money(-net)) + '</b> more than came in.') +
         (before != null && after != null ? ' Net worth went ' + (after >= before ? 'up' : 'down') + ' <b class="fin-amt">' + esc(Fin.money(Math.abs(after - before))) + '</b>.' : '') + '</p></section>' +
@@ -469,6 +485,7 @@
         '<h2 class="fin-report-name">' + esc(name) + '</h2>' +
         '<div class="fin-report-menu"></div>' +
         '<div class="fin-report-tools">' +
+          '<span class="fin-report-pick-slot" data-report-pick></span>' +
           (TIMELESS[ui.report] ? '' : '<select class="fin-period" data-period aria-label="Period">' + PERIODS.map(function (p) { return '<option value="' + p[0] + '"' + (p[0] === ui.period ? ' selected' : '') + '>' + p[1] + '</option>'; }).join('') + '</select>') +
           '<button class="btn btn-ghost btn-sm" type="button" data-print>' + Hub.icons.print + 'Print</button>' +
         '</div>' +
@@ -515,6 +532,10 @@
     if (e.target.matches('[data-pick-cat]')) { ui.cat = e.target.value; return Fin.rerender(); }
     if (e.target.matches('[data-pick-review]')) { ui.review = e.target.value; return Fin.rerender(); }
     if (e.target.matches('[data-extra]')) { ui.extra = +e.target.value; return Fin.rerender(); }
+  });
+  // A tappable bar row (Spending -> its trend) opens with Enter too.
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && Fin.at('reports') && e.target.matches && e.target.matches('.fc-hrow--link')) e.target.click();
   });
   document.addEventListener('input', function (e) {
     if (!Fin.at('reports') || !e.target.matches('[data-extra]')) return;

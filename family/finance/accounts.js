@@ -38,7 +38,8 @@
   function row(a) {
     var right = '';
     if (a.type === 'credit' && a.limit) right = Math.round((a.balance || 0) / a.limit * 100) + '% of limit';
-    else if (a.src !== 'plaid' && a.asOf) right = 'Updated ' + Fin.ago(a.asOf);
+    // A hand-kept balance only says when it was updated once that's a while ago.
+    else if (a.src !== 'plaid' && a.asOf && Date.now() - new Date(a.asOf) > 30 * 864e5) right = 'Updated ' + Fin.ago(a.asOf);
     var tags = (a.private ? '<span class="fin-tag" title="Only you can see this account">' + Hub.icons.lock + 'Only me</span>' : '') +
       (a.inNetWorth === false ? '<span class="fin-tag">Not counted</span>' : '');
     return '<li><button class="fin-acct" type="button" data-acct="' + esc(a.id) + '">' +
@@ -67,18 +68,25 @@
     var html = '<div class="fin-acct-head">' +
       '<div class="fin-split"><span>Own <b>' + Fin.amt(own) + '</b></span><span>Owe <b>' + Fin.amt(owe) + '</b></span><span>' + Hub.plural(active.length, 'account') + '</span></div>' +
       '<div class="hub-actions">' +
-      '<button class="btn btn-ghost btn-sm" type="button" data-history>Edit past months</button>' +
-      '<button class="btn btn-ghost btn-sm" type="button" data-add>' + Hub.icons.plus + 'Add an asset or debt</button>' +
+      '<button class="btn btn-ghost btn-sm" type="button" data-history><span class="fin-btn-long">Edit past months</span><span class="fin-btn-short">Past months</span></button>' +
+      '<button class="btn btn-ghost btn-sm" type="button" data-add>' + Hub.icons.plus + 'Add<span class="fin-btn-long"> an asset or debt</span></button>' +
       '<button class="btn btn-primary btn-sm" type="button" data-link>' + Hub.icons.bank + 'Link a bank</button></div></div>' +
       banksCard();
     if (!active.length) html += '<div class="fin-soon"><h2>No accounts for ' + esc(Fin.ownerName(Fin.person)) + '</h2><p>Pick Everyone to see them all.</p></div>';
-    GROUPS.forEach(function (g) {
-      var list = active.filter(function (a) { return groupOf(a) === g; });
-      if (!list.length) return;
-      var total = list.filter(function (a) { return a.inNetWorth !== false; }).reduce(function (m, a) { return m + (a.balance || 0); }, 0);
-      html += '<section class="fin-card fin-group"><div class="fin-card-head"><h2>' + esc(g) + '</h2><span class="fin-group-total">' + Fin.amt(total) + '</span></div>' +
-        '<ul class="fin-accts">' + list.map(row).join('') + '</ul></section>';
-    });
+    // Two cards, what you own and what you owe (side by side on wide
+    // screens), each with its groups as headed lists.
+    function sideCard(side, title, total) {
+      var groups = GROUPS.map(function (g) {
+        var list = active.filter(function (a) { return groupOf(a) === g && Fin.sideOf(a) === side; });
+        if (!list.length) return '';
+        var t = list.filter(function (a) { return a.inNetWorth !== false; }).reduce(function (m, a) { return m + (a.balance || 0); }, 0);
+        return '<div class="fin-acct-group"><h3><span>' + esc(g) + '</span><span class="fin-group-total">' + Fin.amt(t) + '</span></h3>' +
+          '<ul class="fin-accts">' + list.map(row).join('') + '</ul></div>';
+      }).join('');
+      return groups ? '<section class="fin-card fin-acct-side"><div class="fin-card-head"><h2>' + esc(title) + '</h2><span class="fin-group-total">' + Fin.amt(total) + '</span></div>' + groups + '</section>' : '';
+    }
+    var cards = [sideCard('asset', 'What you own', own), sideCard('liability', 'What you owe', owe)].filter(Boolean);
+    html += cards.length === 2 ? '<div class="fin-row fin-acct-cols">' + cards.join('') + '</div>' : cards.join('');
     if (hidden.length) {
       html += '<details class="fin-card fin-hidden-accts"><summary>' + Hub.plural(hidden.length, 'hidden account') + '</summary><ul class="fin-accts">' + hidden.map(row).join('') + '</ul></details>';
     }

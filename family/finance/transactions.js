@@ -13,6 +13,7 @@
   var reviewCache = null;    // the review queue, while open
   var f = { q: '', acct: '', cat: '', dir: 'all', review: false };
   var queue = {}, flushTimer = null; // review-mode edits waiting to be saved together
+  var everyMonth = null;     // a search widened to every month: all of them, tagged with their month
 
   function cats() { return Fin.data.categories || []; }
   function catOf(id) { return cats().filter(function (c) { return c.id === id; })[0]; }
@@ -27,13 +28,24 @@
     if (d === today) return 'Today';
     return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   }
-  function catOptions(selected, blank) {
+  // mostUsed: start with the categories used most in the months loaded so far.
+  function catOptions(selected, blank, mostUsed) {
     var groups = [['income', 'Income'], ['expense', 'Spending'], ['transfer', 'Transfers (not counted as spending)']];
-    return (blank ? '<option value="">' + esc(blank) + '</option>' : '') + groups.map(function (g) {
+    var top = mostUsed ? topCats(5) : [];
+    return (blank ? '<option value="">' + esc(blank) + '</option>' : '') +
+      (top.length ? '<optgroup label="Most used">' + top.map(function (c) {
+        return '<option value="' + esc(c.id) + '"' + (c.id === selected ? ' selected' : '') + '>' + esc(c.name) + '</option>';
+      }).join('') + '</optgroup>' : '') + groups.map(function (g) {
       return '<optgroup label="' + g[1] + '">' + cats().filter(function (c) { return c.kind === g[0]; }).map(function (c) {
         return '<option value="' + esc(c.id) + '"' + (c.id === selected ? ' selected' : '') + '>' + esc(c.name) + '</option>';
       }).join('') + '</optgroup>';
     }).join('');
+  }
+
+  function topCats(n) {
+    var count = {};
+    Object.keys(cache).forEach(function (k) { cache[k].forEach(function (t) { if (t.cat) count[t.cat] = (count[t.cat] || 0) + 1; }); });
+    return Object.keys(count).sort(function (a, b) { return count[b] - count[a]; }).map(catOf).filter(Boolean).slice(0, n);
   }
 
   function load(m) {
@@ -43,7 +55,7 @@
   function loadReview() {
     return Hub.api('fin-review').then(function (d) { reviewCache = d.transactions; return d.transactions; });
   }
-  Fin.invalidateTx = function () { cache = {}; reviewCache = null; };
+  Fin.invalidateTx = function () { cache = {}; reviewCache = null; everyMonth = null; };
 
   function filtered(list) {
     var q = f.q.trim().toLowerCase();
@@ -75,7 +87,8 @@
         '<button class="btn btn-ghost btn-sm" type="button" data-ok="' + esc(t.id) + '"' + (t.cat ? '' : ' disabled') + '>' + Hub.icons.check + 'Looks right</button></span>'
       : '';
     return '<li class="fin-tx-li' + (queue[t.id] ? ' is-done' : '') + '"><button class="fin-tx" type="button" data-tx="' + esc(t.id) + '" data-month="' + esc(t.month || month) + '">' +
-      '<span class="fin-tx-main"><span class="fin-tx-name">' + esc(t.name) + flags + '</span><span class="fin-acct-sub">' + esc(sub) + '</span></span>' +
+      Fin.catIcon(t.cat) +
+      '<span class="fin-tx-main"><span class="fin-tx-name">' + esc(Fin.niceName(t.name)) + flags + '</span><span class="fin-acct-sub">' + esc(sub) + '</span></span>' +
       '<span class="' + amtCls + '">' + Fin.amt(t.amt, { cents: true, sign: true }) + '</span></button>' + quick + '</li>';
   }
 
@@ -127,7 +140,7 @@
       $('[data-list]', view).innerHTML = '<div class="fin-soon"><h2>No transactions yet</h2><p>Link a bank on the Accounts tab and its transactions show up here, sorted into categories.</p></div>';
       return;
     }
-    (f.review ? loadReview() : load(month)).then(function (list) { draw(view, list); })
+    (f.review ? loadReview() : load(month)).then(function (list) { draw(view, everyMonth && f.q.trim() ? everyMonth : list); })
       .catch(function (e) { $('[data-list]', view).innerHTML = '<p class="fin-muted">Couldn’t load transactions: ' + esc(e.message) + '</p>'; });
   }
 
@@ -140,17 +153,34 @@
       : '<div class="fin-split"><span>In <b>' + Fin.amt(inn) + '</b></span><span>Out <b>' + Fin.amt(out) + '</b></span><span>Net <b>' + Fin.amt(inn - out, { sign: true }) + '</b></span>' +
         '<span class="fin-muted fin-tx-note">Transfers, pending and hidden aren’t counted.</span></div>';
     var box = $('[data-list]', view);
+    // A search looks in the month on screen first; one tap widens it to every month.
+    var wider = !f.q.trim() || f.review ? ''
+      : everyMonth ? '<p class="fin-muted fin-tx-wider">Searched every month back to ' + esc(monthLabel(oldestMonth())) + '.</p>'
+      : '<p class="fin-tx-wider"><button class="btn btn-ghost btn-sm" type="button" data-search-all>' + Hub.icons.search + 'Search every month</button></p>';
     if (!shown.length) {
-      box.innerHTML = '<p class="fin-muted fin-tx-empty">' + (list.length ? 'Nothing matches those filters.' : f.review ? 'All caught up. Nothing needs a look.' : 'No transactions in ' + esc(monthLabel(month)) + '.') + '</p>';
+      box.innerHTML = '<p class="fin-muted fin-tx-empty">' + (list.length ? 'Nothing matches' + (f.q.trim() && !everyMonth && !f.review ? ' in ' + esc(monthLabel(month)) : ' those filters') + '.' : f.review ? 'All caught up. Nothing needs a look.' : 'No transactions in ' + esc(monthLabel(month)) + '.') + '</p>' + wider;
       return;
     }
     var days = {};
     shown.forEach(function (t) { (days[t.date] = days[t.date] || []).push(t); });
     box.innerHTML = Object.keys(days).sort().reverse().map(function (d) {
       var net = days[d].filter(function (t) { return !isTransfer(t) && !t.hidden; }).reduce(function (m, t) { return m + t.amt; }, 0);
-      return '<div class="fin-tx-day"><h3><span>' + esc(dayLabel(d)) + '</span><span class="fin-muted">' + Fin.amt(net, { cents: true, sign: true }) + '</span></h3>' +
+      return '<div class="fin-tx-day"><h3><span>' + esc(dayLabel(d) + (everyMonth && d.slice(0, 4) !== Fin.data.today.slice(0, 4) ? ', ' + d.slice(0, 4) : '')) + '</span><span class="fin-muted">' + Fin.amt(net, { cents: true, sign: true }) + '</span></h3>' +
         '<ul>' + days[d].map(row).join('') + '</ul></div>';
-    }).join('');
+    }).join('') + wider;
+  }
+
+  // Every month that can be shown, oldest first, loaded and tagged with its month.
+  function oldestMonth() { return shift(Fin.data.today.slice(0, 7), -24); }
+  function searchAll(view) {
+    var months = [], m = oldestMonth();
+    while (m <= Fin.data.today.slice(0, 7)) { months.push(m); m = shift(m, 1); }
+    var btn = $('[data-search-all]', view);
+    if (btn) { btn.disabled = true; btn.lastChild.textContent = 'Searching…'; }
+    Promise.all(months.map(load)).then(function () {
+      everyMonth = [].concat.apply([], months.map(function (k) { return cache[k].map(function (t) { return Object.assign({ month: k }, t); }); }));
+      draw(view, everyMonth);
+    }).catch(function (e) { Hub.toast(e.message, true); if (btn) btn.disabled = false; });
   }
 
   /* ---------- one transaction ---------- */
@@ -165,17 +195,19 @@
     if (!t) return;
     t.month = t.month || m;
     var a = acctOf(t.acct);
-    var body = Fin.openDrawer(t.name,
+    var name = Fin.niceName(t.name);
+    var body = Fin.openDrawer(name,
       '<div><span class="fin-label">' + (t.amt > 0 ? 'Money in' : 'Money out') + (t.pending ? ' · pending' : '') + '</span>' +
         '<div class="fin-kpi-value">' + Fin.amt(t.amt, { cents: true, sign: true }) + '</div>' +
         '<span class="fin-muted">' + esc(dayLabel(t.date)) + (t.date !== Fin.data.today ? ', ' + esc(t.date.slice(0, 4)) : '') + ' · ' + esc(acctName(a)) + '</span></div>' +
       '<form class="fin-tx-form" data-txform>' +
-        '<label class="field"><span>Category</span><select name="cat">' + catOptions(t.cat, 'Uncategorized') + '</select></label>' +
-        '<label class="cf-check"><input type="checkbox" name="rule" /> <span data-rule-label>Always put ' + esc(t.name) + ' here</span></label>' +
+        '<label class="field"><span>Category</span><select name="cat">' + catOptions(t.cat, 'Uncategorized', true) + '</select></label>' +
+        '<label class="cf-check"><input type="checkbox" name="rule" /> <span data-rule-label>Always put ' + esc(name) + ' here</span></label>' +
         '<label class="field"><span>Note</span><textarea name="note" rows="2" maxlength="500" placeholder="Optional">' + esc(t.note || '') + '</textarea></label>' +
         '<label class="cf-check"><input type="checkbox" name="hidden"' + (t.hidden ? ' checked' : '') + ' /> Leave out of totals and reports</label>' +
-        '<div class="fin-drawer-actions"><button class="btn btn-primary btn-sm" type="submit">Save</button>' +
-          (t.reviewed === false ? '<button class="btn btn-ghost btn-sm" type="button" data-looks-right>' + Hub.icons.check + 'Looks right</button>' : '') +
+        // One button: saves any change, and marks a transaction waiting for
+        // review as looked at (so "it's right as it is" is just Done).
+        '<div class="fin-drawer-actions"><button class="btn btn-primary btn-sm" type="submit">' + Hub.icons.check + 'Done</button>' +
           (String(t.id).indexOf('m_') === 0 ? '<button class="btn btn-danger btn-sm" type="button" data-del-tx>' + Hub.icons.trash + 'Delete</button>' : '') + '</div>' +
       '</form>' +
       '<dl class="fin-facts">' +
@@ -184,14 +216,15 @@
         (t.pair ? '<div><dt>Transfer</dt><dd>Matched with the same amount in another of your accounts</dd></div>' : '') +
       '</dl>');
     var form = $('[data-txform]', body), el = form.elements;
-    function save(extra) {
+    function save() {
       var edit = { id: t.id, month: t.month };
       if ((el.cat.value || null) !== (t.cat || null)) edit.cat = el.cat.value || null;
       if (el.note.value !== (t.note || '')) edit.note = el.note.value;
       if (el.hidden.checked !== !!t.hidden) edit.hidden = el.hidden.checked;
-      Object.assign(edit, extra || {});
+      if (t.reviewed === false) edit.reviewed = true;
       var payload = { edits: [edit] };
       if (el.rule.checked && el.cat.value) payload.rule = { id: t.id, month: t.month, cat: el.cat.value };
+      if (Object.keys(edit).length === 2 && !payload.rule) { Fin.closeDrawer(); return; } // nothing changed
       $$('button', form).forEach(function (b) { b.disabled = true; });
       Hub.api('fin-tx-edit', { body: payload }).then(function (data) {
         Fin.invalidateTx(); Fin.closeDrawer(); Fin.apply(data);
@@ -199,8 +232,6 @@
       }).catch(function (e) { Hub.toast(e.message, true); $$('button', form).forEach(function (b) { b.disabled = false; }); });
     }
     form.addEventListener('submit', function (e) { e.preventDefault(); save(); });
-    var ok = $('[data-looks-right]', body);
-    if (ok) ok.addEventListener('click', function () { save({ reviewed: true }); });
     var del = $('[data-del-tx]', body);
     if (del) del.addEventListener('click', function () {
       Hub.confirm({ title: 'Delete this transaction?', danger: true, confirm: 'Delete', body: '<p>' + (t.adjusted ? 'The account’s balance goes back to what it was before.' : 'It comes off the list.') + '</p>' }).then(function (yes) {
@@ -301,8 +332,9 @@
   document.addEventListener('click', function (e) {
     var view = $('#view');
     if (!view || !view.contains(e.target) || !Fin.at('transactions')) return;
-    var t = e.target.closest('[data-tx],[data-month-step],[data-review],[data-dir],[data-add-tx],[data-export],[data-ok],[data-filters]');
+    var t = e.target.closest('[data-tx],[data-month-step],[data-review],[data-dir],[data-add-tx],[data-export],[data-ok],[data-filters],[data-search-all]');
     if (!t) return;
+    if (t.hasAttribute('data-search-all')) return searchAll(view);
     if (t.hasAttribute('data-filters')) {
       filtersOpen = !filtersOpen;
       t.setAttribute('aria-expanded', String(filtersOpen));
@@ -311,7 +343,7 @@
     }
     if (t.hasAttribute('data-ok')) { queueEdit(t.getAttribute('data-ok'), { reviewed: true }); return; }
     if (t.hasAttribute('data-tx')) return openTx(t.getAttribute('data-tx'), t.getAttribute('data-month'));
-    if (t.hasAttribute('data-month-step')) { month = shift(month, +t.getAttribute('data-month-step')); return Fin.rerender(); }
+    if (t.hasAttribute('data-month-step')) { month = shift(month, +t.getAttribute('data-month-step')); everyMonth = null; return Fin.rerender(); }
     if (t.hasAttribute('data-review')) {
       flush(); f.review = !f.review; reviewCache = null;
       if (f.review) { f.cat = ''; f.dir = 'all'; } // the queue is mostly uncategorized: don't hide it behind a filter
@@ -333,9 +365,10 @@
     var s = e.target.closest('input[data-f="q"]');
     if (!s || !Fin.at('transactions')) return;
     f.q = s.value;
+    if (!f.q.trim()) everyMonth = null;
     clearTimeout(searchTimer);
     searchTimer = setTimeout(function () {
-      var view = $('#view'), list = f.review ? reviewCache : cache[month];
+      var view = $('#view'), list = f.review ? reviewCache : everyMonth || cache[month];
       if (list) draw(view, list);
     }, 150);
   });

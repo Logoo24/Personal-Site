@@ -22,21 +22,22 @@
   function day(d, opts) { return new Date(d + 'T12:00:00').toLocaleDateString('en-US', opts || { month: 'short', day: 'numeric', year: 'numeric' }); }
   function daysSince(d) { return Math.round((new Date(Fin.data.today + 'T12:00:00') - new Date(d + 'T12:00:00')) / 864e5); }
 
-  // A score's place on its model's scale: five steps, light to dark, with a marker.
+  // A score's place on its model's scale: the bands colored from poor (red)
+  // to excellent (green), a marker at the score, and the score where each
+  // band starts underneath (the names are too long for the narrow bands;
+  // the current one is beside the score, and every band says its name on hover).
   function bandBar(score, model) {
     var b = bandsFor(model), lo = 300, hi = 850;
-    var pos = Math.max(0, Math.min(1, (score - lo) / (hi - lo))) * 100, here = bandOf(score, model);
+    var at = function (v) { return Math.max(0, Math.min(1, (v - lo) / (hi - lo))) * 100; };
+    var here = bandOf(score, model);
     return '<div class="fin-band" role="img" aria-label="' + esc(score + ', ' + here.name + ' on a scale from 300 to 850') + '">' +
       '<div class="fin-band-track">' + b.map(function (x, i) {
-        return '<span class="fin-band-seg b' + (i + 1) + '" style="flex:' + (x[1] - x[0] + 1) + '"></span>';
-      }).join('') + '<span class="fin-band-mark" style="left:' + pos + '%"></span></div>' +
-      // The ends of the scale, and only the current band's name (the others
-      // are too narrow to label without cutting words off).
-      (function () {
-        var at = Math.max(12, Math.min(88, ((b[here.i][0] + b[here.i][1]) / 2 - lo) / (hi - lo) * 100));
-        // An end number the band name would run into is left out.
-        return '<div class="fin-band-labels"><span' + (at < 30 ? ' hidden' : '') + '>300</span><span class="on" style="left:' + at + '%">' + esc(here.name) + '</span><span' + (at > 70 ? ' hidden' : '') + '>850</span></div></div>';
-      })();
+        return '<span class="fin-band-seg b' + (i + 1) + (i === here.i ? ' on' : '') + '" style="flex:' + (x[1] - x[0] + 1) + '" title="' + esc(x[2] + ': ' + x[0] + '–' + x[1]) + '"></span>';
+      }).join('') + '<span class="fin-band-mark" style="left:' + at(score) + '%"></span></div>' +
+      // An end number a band start would run into is left out.
+      '<div class="fin-band-labels" aria-hidden="true">' + (at(b[1][0]) > 12 ? '<span style="left:0">300</span>' : '') + b.slice(1).map(function (x) {
+        return '<span style="left:' + at(x[0]) + '%">' + x[0] + '</span>';
+      }).join('') + (at(b[b.length - 1][0]) < 88 ? '<span class="end" style="left:100%">850</span>' : '') + '</div></div>';
   }
 
   function personCard(p) {
@@ -95,6 +96,7 @@
       '<p class="fin-muted fin-budget-note">Under 30% is good and under 10% is better. Card companies usually report your statement balance, so paying it down before the statement closes lowers what the credit bureaus see.</p></section>';
   }
 
+  var allScores = false; // "Every score": the latest 5, or all of them
   function render(view) {
     var me = Fin.data.viewer.email, mine = latest(me);
     var shown = Fin.person === 'all' || Fin.person === 'joint' ? people() : people().filter(function (p) { return p.email === Fin.person; });
@@ -105,12 +107,13 @@
       '<div class="fin-row">' + shown.map(personCard).join('') + '</div>' +
       '<section class="fin-card"><div class="fin-card-head"><h2>Over time</h2></div><div data-credit-chart></div></section>' +
       utilization() +
-      (hist.length ? '<section class="fin-card"><div class="fin-card-head"><h2>Every score</h2></div>' +
+      (hist.length ? '<section class="fin-card"><div class="fin-card-head"><h2>Every score</h2>' + (hist.length > 5 ? '<span class="fin-muted">' + (allScores ? hist.length : 'The latest 5 of ' + hist.length) + '</span>' : '') + '</div>' +
         '<div class="fin-table-wrap"><table class="fin-table fin-scores"><thead><tr><th>Date</th><th>Whose</th><th class="num">Score</th><th>Model</th><th>From</th></tr></thead><tbody>' +
-        hist.map(function (c) {
+        (allScores ? hist : hist.slice(0, 5)).map(function (c) {
           return '<tr class="fin-click" data-score="' + esc(c.id) + '" tabindex="0"><td>' + esc(day(c.date)) + '</td><td>' + esc(Fin.ownerName(c.person)) + (c.private ? ' <span class="fin-tag">' + Hub.icons.lock + 'Only me</span>' : '') + '</td>' +
             '<td class="num fin-amt">' + c.score + '</td><td>' + esc([c.model, c.bureau].filter(Boolean).join(' · ') || '–') + '</td><td>' + esc(c.source || '–') + '</td></tr>';
-        }).join('') + '</tbody></table></div></section>' : '') +
+        }).join('') + '</tbody></table></div>' +
+        (hist.length > 5 ? '<button class="fin-link" type="button" data-scores-all>' + (allScores ? 'Show the latest 5' : 'Show all ' + hist.length) + '</button>' : '') + '</section>' : '') +
       '<section class="fin-card fin-tips"><h2>What moves a score</h2><ul>' +
         '<li><b>Paying on time</b> matters most. Autopay for at least the minimum keeps a slip from counting against you.</li>' +
         '<li><b>Card use</b> (above) is next. Lower is better, and it bounces back as soon as balances come down.</li>' +
@@ -192,9 +195,10 @@
   Fin.creditBandOf = bandOf;
   document.addEventListener('click', function (e) {
     if (!Fin.at('credit') || !$('#view').contains(e.target)) return;
-    var t = e.target.closest('[data-score-add],[data-score]');
+    var t = e.target.closest('[data-score-add],[data-score],[data-scores-all]');
     if (!t) return;
-    if (t.hasAttribute('data-score-add')) scoreForm(null, t.getAttribute('data-score-add'));
+    if (t.hasAttribute('data-scores-all')) { allScores = !allScores; Fin.rerender(); }
+    else if (t.hasAttribute('data-score-add')) scoreForm(null, t.getAttribute('data-score-add'));
     else scoreForm((Fin.data.credit || []).filter(function (c) { return c.id === t.getAttribute('data-score'); })[0]);
   });
   document.addEventListener('keydown', function (e) {
