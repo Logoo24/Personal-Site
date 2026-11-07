@@ -1,7 +1,7 @@
 // Local testing only: fills .family-data/finance/ with a believable year of
 // made-up money for two people, so Finance can be built and checked without
 // real bank data. It simulates every day: paychecks, rent, bills,
-// subscriptions (Spotify went up last month), groceries and the rest on two cards
+// subscriptions (Netflix and Spotify went up last month), groceries and the rest on two cards
 // that get paid off each month, savings and investing transfers, market
 // swings, a car losing value and two loans paying down. One savings account
 // is "Only me" for the second person. The oldest months are marked estimated,
@@ -102,6 +102,7 @@ const GAS = [['MAVERIK #412', 'Maverik'], ['CHEVRON 0098812', 'Chevron'], ['SINC
 const SHOP = [['AMAZON MKTPL*2K4L19', 'Amazon'], ['TARGET 00012345', 'Target'], ['HOBBY LOBBY #233', 'Hobby Lobby'], ['OLD NAVY ON-LINE', 'Old Navy']];
 const UNSURE = [['SQ *LOCAL FARMSTAND', null], ['VENMO PAYMENT 1023774', null], ['PAYPAL *EBAY INC', null]];
 let card1Statement = 0, card2Statement = 0, lastMonth = null;
+let rentDays = [1, 15], rentFirst = 82500;
 let p1Payday = new Date(start); while (p1Payday.getDay() !== 5) p1Payday.setDate(p1Payday.getDate() + 1);
 
 for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
@@ -119,7 +120,13 @@ for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
   if (day === 28) add('sav', d, Math.round(accounts.sav.balance * 0.04 / 12), 'INTEREST PAYMENT', 'Interest', 'other-income');
 
   // Housing, bills, loans
-  if (day === 1) add('chk', d, -165000, 'RENT SUNSET APARTMENTS', 'Sunset Apartments', 'housing');
+  // Rent goes by Zelle in two parts that never quite match, a day or two
+  // either side of the 1st and the 15th.
+  if (day === rentDays[0]) { rentFirst = between(780, 870); add('chk', d, -rentFirst, 'ZELLE PAYMENT TO SUNSET APTS JPM' + id().toUpperCase(), 'Sunset Apartments', 'housing'); }
+  if (day === rentDays[1]) add('chk', d, -(165000 - rentFirst + between(-20, 20)), 'ZELLE PAYMENT TO SUNSET APTS JPM' + id().toUpperCase(), 'Sunset Apartments', 'housing');
+  if (day === 28) rentDays = [1 + Math.floor(rand() * 3), 14 + Math.floor(rand() * 4)];
+  // Water and sewer every other month.
+  if (day === 20 && month % 2 === 0) add('chk', d, -between(winter ? 55 : 80, winter ? 70 : 120), 'CITY OF REXBURG UTIL BILL', 'City of Rexburg', 'utilities');
   if (day === 1) accounts.car.balance = Math.round(accounts.car.balance * 0.99);
   if (day === 12) add('chk', d, -between(winter ? 95 : 60, winter ? 140 : 110), 'ROCKY MTN POWER', 'Rocky Mountain Power', 'utilities');
   if (day === 13) add('chk', d, -between(winter ? 70 : 25, winter ? 115 : 40), 'DOMINION ENERGY', 'Dominion Energy', 'utilities');
@@ -138,11 +145,15 @@ for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
     accounts.stud.balance -= 21000 - interest;
   }
 
-  // Subscriptions and phone (Spotify went up a dollar 6 months ago)
+  // Subscriptions and phone: two from Apple at different prices; Netflix
+  // and Spotify went up last month (Spotify's statement line carries a
+  // new reference code every time).
   const monthsIn = (d.getFullYear() - start.getFullYear()) * 12 + month - start.getMonth();
-  if (day === 3) add('card1', d, -299, 'APPLE.COM/BILL', 'iCloud+', 'subscriptions');
-  if (day === 8) add('card1', d, -1549, 'NETFLIX.COM', 'Netflix', 'subscriptions');
-  if (day === 14) add('card1', d, monthsIn >= 12 ? -1199 : -1099, 'SPOTIFY USA', 'Spotify', 'subscriptions');
+  if (day === 3) add('card1', d, -299, 'APPLE.COM/BILL 866-712-7753 CA', 'Apple', 'subscriptions');
+  if (day === 19) add('card1', d, -1099, 'APPLE.COM/BILL 866-712-7753 CA', 'Apple', 'subscriptions');
+  if (day === 8) add('card1', d, monthsIn >= 12 ? -1799 : -1549, 'NETFLIX.COM 866-579-7172 CA', 'Netflix', 'subscriptions');
+  if (day === 14) add('card1', d, monthsIn >= 12 ? -1199 : -1099, 'SPOTIFY P' + id().toUpperCase(), 'Spotify', 'subscriptions');
+  if (day === 17) add('card2', d, -2499, 'PLANET FITNESS CLUB FEES', 'Planet Fitness', 'personal');
   if (day === 22) add('card2', d, -799, 'DISNEYPLUS', 'Disney+', 'subscriptions');
   if (day === 20) add('card1', d, -between(84, 92), 'VERIZON WIRELESS', 'Verizon', 'utilities');
   if (day === 9 && month === 2) add('card1', d, -13900, 'AMAZON PRIME*MEMBERSHIP', 'Amazon Prime', 'subscriptions');

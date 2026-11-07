@@ -28,11 +28,12 @@
 //   DELETE fin-goal&id=                 -> delete a goal
 //   GET    fin-advice                   -> facts, rule cards and the cached briefing
 //   POST   fin-advice {refresh:true}    -> write a new briefing with Claude (5 a day)
-//   POST   fin-advice-ask {question, history} -> Claude answers a question about it (30 a day)
+//   POST   fin-advice-ask {question, history} -> Claude answers a question about it, with lookup tools (30 a day)
+//   POST   fin-profile {...}            -> save "About you two" (household profile for Advice) -> advice payload
 //   POST   fin-credit {...}             -> add / edit a credit score
 //   DELETE fin-credit&id=               -> delete one
 //   POST   fin-credit-read (image body) -> a score read from a screenshot (nothing saved)
-//   POST   fin-recurring {action, ...}  -> scan for recurring money, or confirm /
+//   POST   fin-recurring {action, ...}  -> scan for recurring money, track a transaction's merchant ({action: track, tx, month}), or confirm /
 //                                          dismiss / edit / add / delete one
 //   GET    fin-logo&inst=               -> a linked bank's logo (PNG), for banks the viewer can see
 //   GET    fin-cron                     -> the daily job (Vercel Cron, CRON_SECRET)
@@ -45,10 +46,11 @@ import { plaidConfigured, institutionLogo } from './plaid.js';
 import { updateSecure } from './vault.js';
 import { newLinkToken, linkBank, reconnected, removeBank, syncAll, HOLDINGS } from './sync.js';
 import { monthList, reviewList, editTransactions, addManual, deleteManual, exportCsv, recentAndReview, reportData } from './transactions.js';
-import { scanRecurring, visibleRecurring, upcoming, changeRecurring } from './recurring.js';
+import { scanRecurring, trackRecurring, visibleRecurring, upcoming, changeRecurring } from './recurring.js';
 import { setBudgets, saveGoal, deleteGoal, visibleGoals } from './plan.js';
 import { visibleCredit, saveCredit, deleteCredit, readScreenshot, MODELS, BUREAUS } from './credit.js';
 import { advice, askAdvice } from './advice.js';
+import { saveProfile } from './profile.js';
 import { safeEqual } from '../session.js';
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
@@ -198,7 +200,10 @@ export async function financeRoute(request, url, user, r) {
 
     case 'GET fin-transactions': return monthList(q('month'), await loadState(), viewer);
     case 'GET fin-review': return reviewList(await loadState(), viewer);
-    case 'POST fin-tx-edit': return summary(user, viewer, await editTransactions(await body(request), await loadState(), viewer));
+    case 'POST fin-tx-edit': {
+      const r = await editTransactions(await body(request), await loadState(), viewer);
+      return { ...(await summary(user, viewer, r.state)), sortedToo: r.sortedToo };
+    }
     case 'POST fin-tx': return summary(user, viewer, await addManual(await body(request), await loadState(), viewer));
     case 'DELETE fin-tx': return summary(user, viewer, await deleteManual(q('id'), q('month'), await loadState(), viewer));
     case 'GET fin-export': return exportCsv(q('from'), q('to'), await loadState(), viewer);
@@ -211,6 +216,7 @@ export async function financeRoute(request, url, user, r) {
     case 'GET fin-advice': return advice(await loadState(), viewer);
     case 'POST fin-advice': return advice(await loadState(), viewer, { refresh: !!(await body(request)).refresh });
     case 'POST fin-advice-ask': return askAdvice(await loadState(), viewer, await body(request));
+    case 'POST fin-profile': return advice(await saveProfile(await body(request), viewer), viewer);
 
     case 'POST fin-credit': return summary(user, viewer, await saveCredit(await body(request), viewer));
     case 'DELETE fin-credit': return summary(user, viewer, await deleteCredit(q('id'), viewer));
@@ -220,6 +226,10 @@ export async function financeRoute(request, url, user, r) {
     case 'POST fin-recurring': {
       const input = await body(request);
       if (input.action === 'scan') return summary(user, viewer, await scanRecurring());
+      if (input.action === 'track') {
+        const r = await trackRecurring(input, await loadState(), viewer);
+        return { ...(await summary(user, viewer, r.state)), trackedId: r.id };
+      }
       return summary(user, viewer, await changeRecurring(input, await loadState(), viewer));
     }
   }

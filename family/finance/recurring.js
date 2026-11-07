@@ -1,15 +1,20 @@
 /* ============================================================
-   Finance > Recurring: subscriptions, bills and regular income,
-   found automatically in the transactions (api/_family/finance/
-   recurring.js) or added by hand. Shows what each costs a month and
-   a year, what's coming in the next 30 days (card and loan due dates
-   too), and price rises. Found items can be confirmed or dismissed;
-   any of them can be renamed or have their amount and timing fixed.
+   Finance > Recurring: subscriptions, bills and regular income
+   (api/_family/finance/recurring.js finds them; the family can add
+   their own or track any merchant from a transaction).
+   - Subscriptions: the same price on the same day. A price change
+     shows as an alert until someone taps "Got it".
+   - Bills: fixed ones (insurance, a loan) and ones that change each
+     month (rent, power, gas), shown as "usually about" with how much
+     of this month's is paid so far.
+   - Regular income.
+   Plus what's coming up (card and loan due dates too). Found items
+   can be confirmed or dismissed; any can be renamed or corrected.
    ============================================================ */
 (function () {
   'use strict';
   var $ = Hub.$, $$ = Hub.$$, esc = Hub.esc;
-  var CADENCES = [['weekly', 'Every week'], ['biweekly', 'Every 2 weeks'], ['semimonthly', 'Twice a month'], ['monthly', 'Every month'], ['quarterly', 'Every 3 months'], ['yearly', 'Every year']];
+  var CADENCES = [['weekly', 'Every week'], ['biweekly', 'Every 2 weeks'], ['semimonthly', 'Twice a month'], ['monthly', 'Every month'], ['bimonthly', 'Every 2 months'], ['quarterly', 'Every 3 months'], ['yearly', 'Every year']];
   var KIND = { subscription: 'Subscription', bill: 'Bill', paycheck: 'Paycheck', income: 'Income', due: 'Payment due' };
   var scanned = false;
   var reviewing = false;   // asking "Is this regular?" one item at a time
@@ -24,6 +29,10 @@
     var diff = Math.round((new Date(d + 'T12:00:00') - new Date(t + 'T12:00:00')) / 864e5);
     return diff === 1 ? 'Tomorrow' : day(d);
   }
+  function nth(n) { var s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+  function list(xs) { return xs.length < 2 ? xs.join('') : xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1]; }
+  function monthName(m) { return new Date(m + '-15T12:00:00').toLocaleDateString('en-US', { month: 'long' }); }
+  function money(c) { return Fin.amt(c, { cents: c < 10000 }); }
   // The person filter: an item follows its account's owner, or "whose" for a paycheck.
   function shown(r) {
     if (Fin.person === 'all') return true;
@@ -33,18 +42,62 @@
   }
   function active(r) { return r.status !== 'ignored' && !r.ended; }
 
+  // When it comes, in words: "Every month on the 8th", "Changes each month,
+  // in 2 payments around the 3rd and 15th", "Every 2 weeks · next Fri, Nov 14".
+  function when(r, long) {
+    if (r.pattern === 'month') {
+      var days = (r.days || []).map(nth);
+      if (r.parts > 1) return 'Usually ' + (r.parts > 3 ? 'several' : r.parts) + ' payments' + (days.length ? ', around the ' + list(days) : ' a month');
+      return days.length ? 'Usually around the ' + days[0] : 'Changes each month';
+    }
+    var c = r.cadence, d = r.days || [];
+    if (c === 'monthly' && d.length && !r.ended) return 'Every month on the ' + nth(d[0]);
+    if (c === 'semimonthly' && d.length === 2) return 'Twice a month, the ' + list(d.slice().sort(function (a, b) { return a - b; }).map(nth));
+    return cadenceLabel(c) + (r.ended || !r.nextDate ? '' : ' · next ' + (long ? day(r.nextDate, { weekday: 'long', month: 'long', day: 'numeric' }) : relDay(r.nextDate)));
+  }
+
+  function priceText(r) {
+    var p = r.priceChange, up = p.to > p.from, yr = Math.abs(p.to - p.from) * 12 * ({ weekly: 52 / 12, biweekly: 26 / 12, semimonthly: 2, monthly: 1, bimonthly: 0.5, quarterly: 1 / 3, yearly: 1 / 12 }[r.cadence] || 1);
+    return esc(r.name) + ' went ' + (up ? 'up' : 'down') + ' from ' + Fin.amt(p.from, { cents: true }) + ' to ' + Fin.amt(p.to, { cents: true }) +
+      ' on ' + esc(day(p.date, { month: 'short', day: 'numeric' })) + '. That’s ' + Fin.amt(Math.round(yr)) + (up ? ' more' : ' less') + ' a year.';
+  }
+
+  // A changing bill's month so far: a meter, and what's paid against usual.
+  // Nothing paid and not due yet: no line (the usual day is already shown).
+  function monthProgress(r, always) {
+    if (r.pattern !== 'month' || r.ended || !r.amount) return '';
+    var paid = r.thisMonth || 0, m = monthName(Fin.data.today.slice(0, 7));
+    var done = paid >= r.amount * 0.9 || (r.parts && (r.thisMonthCount || 0) >= r.parts);
+    var late = !paid && r.nextDate && r.nextDate < Fin.data.today;
+    if (!paid && !late && !always) return '';
+    var text = done ? Hub.icons.check + 'Paid for ' + m + ': ' + Fin.amt(paid, { cents: paid < 10000 })
+      : paid ? Fin.amt(paid, { cents: paid < 10000 }) + ' of about ' + money(r.amount) + ' paid for ' + m
+      : late ? 'Not paid yet for ' + m + ', usually by the ' + nth(+r.nextDate.slice(8, 10))
+      : 'Nothing yet for ' + m + (r.nextDate ? ', expected ' + esc(relDay(r.nextDate)) : '');
+    return '<span class="fin-rc-progress' + (done ? ' is-done' : late ? ' is-late' : '') + '">' +
+      (paid && !done ? '<span class="fin-meter"><span class="fin-meter-fill" style="width:' + Math.min(100, Math.round(paid / r.amount * 100)) + '%"></span></span>' : '') +
+      '<span>' + text + '</span></span>';
+  }
+
+  function amountHTML(r) {
+    var v = Fin.amt(r.dir === 'in' ? r.amount : -r.amount, { cents: r.amount < 100000, sign: r.dir === 'in' });
+    return (r.variable ? '<small>about </small>' : '') + v;
+  }
+
   function row(r) {
     var a = r.acct && acctOf(r.acct);
     var tags = (r.status === 'detected' ? '<span class="fin-tag fin-tag--review">Found</span>' : '') +
       (r.status === 'manual' ? '<span class="fin-tag">Added by hand</span>' : '') +
-      (r.priceUp ? '<span class="fin-tag fin-tag--up">' + Hub.icons.up + 'Went up</span>' : '') +
+      (r.priceAlert ? '<span class="fin-tag fin-tag--' + (r.priceChange.to > r.priceChange.from ? 'up' : 'down') + '">' + (r.priceChange.to > r.priceChange.from ? Hub.icons.up + 'Went up' : 'Went down') + '</span>' : '') +
       (r.ended ? '<span class="fin-tag">Stopped?</span>' : '');
-    var sub = [cadenceLabel(r.cadence), r.ended ? 'last seen ' + day(r.lastDate) : 'next ' + relDay(r.nextDate), a ? (a.nick || a.name) : '', r.person ? Fin.ownerName(r.person) : ''].filter(Boolean).join(' · ');
-    var perMonth = r.cadence !== 'monthly' ? '<span class="fin-acct-sub">' + Fin.amt(r.monthly) + ' a month</span>' : '';
+    var sub = [r.ended ? 'last seen ' + day(r.lastDate) : when(r), a ? (a.nick || a.name) : '', r.person ? Fin.ownerName(r.person) : ''].filter(Boolean).join(' · ');
+    var right = r.pattern === 'month' ? (r.low && r.high && r.high - r.low >= 500 ? '<span class="fin-acct-sub fin-rc-range">' + money(r.low) + '–' + money(r.high) + '</span>' : '<span class="fin-acct-sub">a month</span>')
+      : r.cadence !== 'monthly' ? '<span class="fin-acct-sub">' + Fin.amt(r.monthly) + ' a month</span>' : '';
     return '<li class="fin-rc-li"><button class="fin-acct" type="button" data-rc="' + esc(r.id) + '">' +
-      '<span class="fin-acct-icon" aria-hidden="true">' + esc(String(r.name || '?').replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || '?') + '</span>' +
+      (r.cat ? Fin.catIcon(r.cat) : '<span class="fin-acct-icon" aria-hidden="true">' + esc(String(r.name || '?').replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || '?') + '</span>') +
       '<span class="fin-acct-main"><span class="fin-acct-name">' + esc(r.name) + tags + '</span><span class="fin-acct-sub">' + esc(sub) + '</span></span>' +
-      '<span class="fin-acct-right"><span class="fin-acct-bal' + (r.dir === 'in' ? ' fin-tx-amt is-in' : '') + '">' + (r.variable ? '<small>about </small>' : '') + Fin.amt(r.dir === 'in' ? r.amount : -r.amount, { cents: true, sign: r.dir === 'in' }) + '</span>' + perMonth + '</span>' +
+      '<span class="fin-acct-right"><span class="fin-acct-bal' + (r.dir === 'in' ? ' fin-tx-amt is-in' : '') + '">' + amountHTML(r) + '</span>' + right + '</span>' +
+      monthProgress(r) +
     '</button>' +
     (r.status === 'detected' && reviewing ? '<div class="fin-rc-ask"><span class="fin-muted">Is this a regular ' + (r.dir === 'in' ? 'deposit' : 'charge') + '?</span><button class="btn btn-ghost btn-sm" type="button" data-rc-yes="' + esc(r.id) + '">' + Hub.icons.check + 'Yes</button><button class="btn btn-ghost btn-sm" type="button" data-rc-no="' + esc(r.id) + '">No</button></div>' : '') +
     '</li>';
@@ -63,10 +116,11 @@
         '<button class="btn btn-ghost btn-sm" type="button" data-rc-review>' + (reviewing ? 'Done reviewing' : 'Review one by one') + '</button></div></section>';
   }
 
-  function section(title, list, total) {
-    if (!list.length) return '';
-    return '<section class="fin-card"><div class="fin-card-head"><h2>' + esc(title) + '</h2>' + (total != null ? '<span class="fin-muted">' + Fin.amt(total) + ' a month</span>' : '') + '</div>' +
-      '<ul class="fin-accts">' + list.map(row).join('') + '</ul></section>';
+  function section(title, note, items, total, about) {
+    if (!items.length) return '';
+    return '<section class="fin-card"><div class="fin-card-head"><div><h2>' + esc(title) + '</h2>' + (note ? '<p class="fin-muted fin-rc-note">' + esc(note) + '</p>' : '') + '</div>' +
+      (total != null ? '<span class="fin-muted">' + (about ? 'about ' : '') + Fin.amt(total) + ' a month</span>' : '') + '</div>' +
+      '<ul class="fin-accts">' + items.map(row).join('') + '</ul></section>';
   }
 
   function upcomingHTML(items, days) {
@@ -94,31 +148,38 @@
   function render(view) {
     var items = (Fin.data.recurring || []).filter(shown);
     var live = items.filter(active);
-    var subs = live.filter(function (r) { return r.kind === 'subscription'; });
-    var bills = live.filter(function (r) { return r.kind === 'bill'; });
+    var subs = live.filter(function (r) { return r.dir === 'out' && r.kind === 'subscription'; });
+    var bills = live.filter(function (r) { return r.dir === 'out' && r.kind !== 'subscription'; });
     var income = live.filter(function (r) { return r.dir === 'in'; });
     var sum = function (l) { return l.reduce(function (m, r) { return m + (r.monthly || 0); }, 0); };
-    var out = sum(subs) + sum(bills), inn = sum(income);
     var stopped = items.filter(function (r) { return r.ended && r.status !== 'ignored'; });
     var ignored = items.filter(function (r) { return r.status === 'ignored'; });
-    var ups = live.filter(function (r) { return r.priceUp; });
+    var alerts = live.filter(function (r) { return r.priceAlert; });
+    // Fixed bills first (by date), then the ones that change, biggest first.
+    bills.sort(function (a, b) { return (a.pattern === 'month') - (b.pattern === 'month') || (a.pattern === 'month' ? b.amount - a.amount : (a.nextDate || '') < (b.nextDate || '') ? -1 : 1); });
+    var byDate = function (a, b) { return (a.nextDate || '9') < (b.nextDate || '9') ? -1 : 1; };
+    subs.sort(byDate); income.sort(byDate);
 
     view.innerHTML =
       '<div class="fin-acct-head"><div class="fin-split">' +
-        (live.length ? '<span>Bills &amp; subscriptions <b>' + Fin.amt(out) + '</b> a month <span class="fin-muted">(' + Fin.amt(out * 12) + ' a year)</span></span>' +
-          '<span>Regular income <b>' + Fin.amt(inn) + '</b> a month</span>' : '') + '</div>' +
+        (subs.length ? '<span>Subscriptions <b>' + Fin.amt(sum(subs)) + '</b> a month</span>' : '') +
+        (bills.length ? '<span>Bills <b>' + (bills.some(function (r) { return r.variable; }) ? 'about ' : '') + Fin.amt(sum(bills)) + '</b> a month</span>' : '') +
+        (income.length ? '<span>Regular income <b>' + Fin.amt(sum(income)) + '</b> a month</span>' : '') + '</div>' +
         '<div class="hub-actions">' + (Fin.data.recent && Fin.data.recent.length ? '<button class="btn btn-ghost btn-sm" type="button" data-rc-scan>' + Hub.icons.refresh + 'Look again</button>' : '') +
         '<button class="btn btn-primary btn-sm" type="button" data-rc-add>' + Hub.icons.plus + 'Add a bill or income</button></div></div>' +
-      (ups.length ? '<div class="fin-alerts">' + ups.map(function (r) {
-        return '<button class="fin-alert fin-alert--up" type="button" data-rc="' + esc(r.id) + '">' + Hub.icons.up + '<span>' + esc(r.name) + ' went up from ' + Fin.amt(r.priceUp.from, { cents: true }) + ' to ' + Fin.amt(r.priceUp.to, { cents: true }) + ' (' + Fin.amt((r.priceUp.to - r.priceUp.from) * 12, { cents: true }) + ' more a year)</span>' + Hub.icons.right + '</button>';
+      (alerts.length ? '<div class="fin-alerts">' + alerts.map(function (r) {
+        var up = r.priceChange.to > r.priceChange.from;
+        return '<div class="fin-alert fin-alert--split' + (up ? ' fin-alert--up' : '') + '"><button class="fin-alert-main" type="button" data-rc="' + esc(r.id) + '">' + (up ? Hub.icons.up : Hub.icons.check) + '<span>' + priceText(r) + '</span></button>' +
+          '<button class="btn btn-ghost btn-sm" type="button" data-rc-seen="' + esc(r.id) + '">Got it</button></div>';
       }).join('') + '</div>' : '') +
       foundCard(live) +
       '<section class="fin-card"><div class="fin-card-head"><h2>Coming up</h2><span class="fin-muted">The next ' + (showMonth ? 30 : 7) + ' days</span></div>' + upcomingHTML(items, showMonth ? 30 : 7) +
         '<button class="fin-link" type="button" data-rc-days>' + (showMonth ? 'Just the next 7 days' : 'Show the next 30 days') + '</button></section>' +
-      (items.length ? '' : '<div class="fin-soon"><h2>Nothing found yet</h2><p>Recurring charges show up here once there are a few months of transactions. You can add rent, lessons or anything else by hand.</p></div>') +
-      section('Subscriptions', subs, sum(subs)) +
-      section('Bills', bills, sum(bills)) +
-      section('Income', income, sum(income)) +
+      (items.length ? '' : '<div class="fin-soon"><h2>Nothing found yet</h2><p>Subscriptions show up here after two or three charges at the same price. Bills that change, like power or rent, after about three months. You can add anything by hand, or tap a transaction and choose “Track as recurring”.</p></div>') +
+      section('Subscriptions', 'The same price on the same day. A price change shows at the top.', subs, sum(subs)) +
+      section('Bills', 'Fixed ones, and ones that change from month to month.', bills, sum(bills), bills.some(function (r) { return r.variable; })) +
+      section('Income', '', income, sum(income)) +
+      (items.length ? '<p class="fin-muted fin-rc-tip">Something missing? Tap one of its transactions and choose “Track as recurring”.</p>' : '') +
       (stopped.length ? '<details class="fin-card fin-hidden-accts"><summary>' + stopped.length + (stopped.length === 1 ? ' seems' : ' seem') + ' to have stopped</summary><ul class="fin-accts">' + stopped.map(row).join('') + '</ul></details>' : '') +
       (ignored.length ? '<details class="fin-card fin-hidden-accts"><summary>' + ignored.length + ' marked not recurring</summary><ul class="fin-accts">' + ignored.map(row).join('') + '</ul></details>' : '');
 
@@ -144,21 +205,34 @@
   /* ---------- one item ---------- */
   var openRc = null;
   function find(id) { return (Fin.data.recurring || []).filter(function (r) { return r.id === id; })[0]; }
+  // The last months of a changing bill, as small bars.
+  function historyHTML(r) {
+    var h = (r.history || []).slice(0, -1).filter(function (x, i, all) { return x.total || all.slice(0, i).some(function (y) { return y.total; }); });
+    if (!h.length) return '';
+    var max = Math.max.apply(null, h.map(function (x) { return x.total; }).concat(r.amount || 0)) || 1;
+    return '<div class="fin-rc-hist"><span class="fin-label">The last ' + Hub.plural(h.length, 'month') + '</span><ul>' + h.map(function (x) {
+      return '<li><span>' + esc(new Date(x.m + '-15T12:00:00').toLocaleDateString('en-US', { month: 'short' })) + '</span><span class="fin-rc-bar"><span style="width:' + Math.round(x.total / max * 100) + '%"></span></span><span class="fin-amt-cell">' + (x.total ? Fin.amt(x.total, { cents: x.total < 10000 }) : '<span class="fin-muted">none</span>') + '</span></li>';
+    }).join('') + '</ul></div>';
+  }
   function openItem(id) {
     var r = find(id);
     if (!r) { openRc = null; Fin.closeDrawer(); return; }
     openRc = id;
-    var manual = r.status === 'manual';
+    var manual = r.status === 'manual', month = r.pattern === 'month';
     var people = [['', 'Not set']].concat((Fin.data.people || []).map(function (p) { return [p.email, p.name]; }));
     var a = r.acct && acctOf(r.acct);
+    var prices = (r.prices || []).length > 1 ? r.prices.slice().reverse() : [];
     var body = Fin.openDrawer(r.name,
-      '<div><span class="fin-label">' + esc(KIND[r.kind] || '') + ' · ' + esc(cadenceLabel(r.cadence)) + '</span>' +
-        '<div class="fin-kpi-value">' + (r.variable ? '<small class="fin-muted">about </small>' : '') + Fin.amt(r.dir === 'in' ? r.amount : -r.amount, { cents: true, sign: r.dir === 'in' }) + '</div>' +
-        '<span class="fin-muted">' + Fin.amt(r.monthly) + ' a month · ' + Fin.amt(r.monthly * 12) + ' a year</span></div>' +
+      '<div><span class="fin-label">' + esc(KIND[r.kind] || '') + (month ? ' · changes each month' : r.variable ? '' : ' · same price each time') + '</span>' +
+        '<div class="fin-kpi-value">' + amountHTML(r) + (month ? '<small class="fin-muted"> a month</small>' : '') + '</div>' +
+        '<span class="fin-muted">' + esc(when(r, true)) + (month && r.low && r.high && r.high - r.low >= 500 ? ' · ' + money(r.low) + '–' + money(r.high) + ' most months' : '') +
+          (!month && r.cadence !== 'monthly' ? ' · ' + Fin.amt(r.monthly) + ' a month' : '') + ' · ' + Fin.amt(r.monthly * 12) + ' a year</span></div>' +
+      (r.priceAlert ? '<div class="fin-rc-price"><span>' + priceText(r) + '</span><button class="btn btn-ghost btn-sm" type="button" data-rc-seen>Got it</button></div>' : '') +
+      (month ? (monthProgress(r, true) ? '<div class="fin-rc-now">' + monthProgress(r, true) + '</div>' : '') + historyHTML(r) : '') +
       '<form class="fin-tx-form" data-rcform>' +
         '<label class="field"><span>Name</span><input class="input" name="name" maxlength="60" value="' + esc(r.name) + '" /></label>' +
-        '<div class="cf-row"><label class="field"><span>' + (r.variable ? 'Usually about' : 'Amount') + '</span><input class="input" name="amount" inputmode="decimal" value="' + esc(Fin.moneyInput(r.amount)) + '" /></label>' +
-        '<label class="field"><span>How often</span><select name="cadence">' + CADENCES.map(function (c) { return '<option value="' + c[0] + '"' + (c[0] === r.cadence ? ' selected' : '') + '>' + c[1] + '</option>'; }).join('') + '</select></label></div>' +
+        '<div class="cf-row"><label class="field"><span>' + (month ? 'Usually about (a month)' : r.variable ? 'Usually about' : 'Price') + '</span><input class="input" name="amount" inputmode="decimal" value="' + esc(Fin.moneyInput(r.amount)) + '" /></label>' +
+        (month ? '' : '<label class="field"><span>How often</span><select name="cadence">' + CADENCES.map(function (c) { return '<option value="' + c[0] + '"' + (c[0] === r.cadence ? ' selected' : '') + '>' + c[1] + '</option>'; }).join('') + '</select></label>') + '</div>' +
         (manual ? '<label class="field"><span>Next date</span><input class="input" type="date" name="nextDate" value="' + esc(r.nextDate || Fin.data.today) + '" /></label>' : '') +
         (r.dir === 'in' ? '<label class="field"><span>Whose</span><select name="person">' + people.map(function (p) { return '<option value="' + esc(p[0]) + '"' + ((r.person || '') === p[0] ? ' selected' : '') + '>' + esc(p[1]) + '</option>'; }).join('') + '</select></label>' : '') +
         '<label class="field"><span>Note</span><input class="input" name="note" maxlength="300" value="' + esc(r.note || '') + '" placeholder="Optional" /></label>' +
@@ -168,23 +242,27 @@
             : '<button class="btn btn-ghost btn-sm" type="button" data-rc-ignore>Not recurring</button>') + '</div>' +
       '</form>' +
       '<dl class="fin-facts">' +
-        (r.nextDate && !r.ended ? '<div><dt>Next</dt><dd>' + esc(day(r.nextDate, { weekday: 'long', month: 'long', day: 'numeric' })) + '</dd></div>' : '') +
-        (r.lastDate ? '<div><dt>Last seen</dt><dd>' + esc(day(r.lastDate, { month: 'long', day: 'numeric', year: 'numeric' })) + (r.last ? ', ' + Fin.amt(r.last, { cents: true }) : '') + '</dd></div>' : '') +
-        (r.count ? '<div><dt>Seen</dt><dd>' + esc(Hub.plural(r.count, 'time')) + ' in the last 14 months</dd></div>' : '') +
+        (r.nextDate && !r.ended && !month ? '<div><dt>Next</dt><dd>' + esc(day(r.nextDate, { weekday: 'long', month: 'long', day: 'numeric' })) + '</dd></div>' : '') +
+        (r.lastDate ? '<div><dt>Last paid</dt><dd>' + esc(day(r.lastDate, { month: 'long', day: 'numeric', year: 'numeric' })) + (r.last ? ', ' + Fin.amt(r.last, { cents: true }) : '') + '</dd></div>' : '') +
+        prices.map(function (p, i) { return '<div><dt>' + (i ? 'Before that' : 'Price now') + '</dt><dd>' + Fin.amt(p.amount, { cents: true }) + ', since ' + esc(day(p.since, { month: 'long', year: 'numeric' })) + '</dd></div>'; }).join('') +
+        (r.count && !month ? '<div><dt>Seen</dt><dd>' + esc(Hub.plural(r.count, 'time')) + ' in the last 14 months</dd></div>' : '') +
+        (r.count && month ? '<div><dt>Seen</dt><dd>' + esc(Hub.plural(r.count, 'month')) + ' of the last ' + Math.max(r.count, Math.min(6, (r.history || []).length - 1)) + '</dd></div>' : '') +
         (a ? '<div><dt>Account</dt><dd>' + esc((a.nick || a.name) + (a.mask ? ' ••' + a.mask : '')) + '</dd></div>' : '') +
-        (r.priceUp ? '<div><dt>Price</dt><dd>Went up ' + esc(day(r.priceUp.date, { month: 'long', day: 'numeric' })) + ', from ' + Fin.amt(r.priceUp.from, { cents: true }) + ' to ' + Fin.amt(r.priceUp.to, { cents: true }) + '</dd></div>' : '') +
-        (r.variable ? '<div><dt>Amount</dt><dd>Changes from month to month, so this is the average of the last three</dd></div>' : '') +
+        (month ? '<div><dt>Amount</dt><dd>The average of the last three months. Change it above if you know the usual amount.</dd></div>' : r.variable ? '<div><dt>Amount</dt><dd>Changes from time to time, so this is the average of the last three</dd></div>' : '') +
       '</dl>');
     var form = $('[data-rcform]', body), el = form.elements;
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       var amount = Fin.parseMoney(el.amount.value);
       if (!amount || isNaN(amount)) { Hub.toast('Enter the amount, like 15.49.', true); return; }
-      var edit = { name: el.name.value, amount: amount, cadence: el.cadence.value, note: el.note.value };
+      var edit = { name: el.name.value, amount: amount, note: el.note.value };
+      if (el.cadence) edit.cadence = el.cadence.value;
       if (el.nextDate) edit.nextDate = el.nextDate.value;
       if (el.person) edit.person = el.person.value;
       act(r.id, 'edit', edit).then(function () { Hub.toast('Saved'); }).catch(function (err) { Hub.toast(err.message, true); });
     });
+    var seen = $('[data-rc-seen]', body);
+    if (seen) seen.addEventListener('click', function () { act(r.id, 'price-ok').then(function () { Hub.toast('Got it'); }).catch(function (e) { Hub.toast(e.message, true); }); });
     var ig = $('[data-rc-ignore]', body);
     if (ig) ig.addEventListener('click', function () { act(r.id, 'ignore').then(function () { Fin.closeDrawer(); Hub.toast('Marked not recurring'); }).catch(function (e) { Hub.toast(e.message, true); }); });
     var re = $('[data-rc-restore]', body);
@@ -203,7 +281,7 @@
     m.className = 'hub-modal';
     var cats = Fin.data.categories || [];
     m.innerHTML = '<div class="hub-modal-box cal-form" role="dialog" aria-modal="true" aria-labelledby="rc-title"><h3 id="rc-title">Add a bill or income</h3>' +
-      '<p class="fin-muted">For anything regular that doesn’t show up on its own, like rent paid by check or lessons paid in cash.</p><form novalidate>' +
+      '<p class="fin-muted">For anything regular that doesn’t show up on its own, like rent paid by check or lessons paid in cash. If it’s in your transactions, tap one of them and choose “Track as recurring” instead.</p><form novalidate>' +
       '<div class="fin-seg" role="group" aria-label="Money in or out" data-dir-pick><button type="button" class="on" data-v="out">Money out</button><button type="button" data-v="in">Money in</button></div>' +
       '<label class="field"><span>Name</span><input class="input" name="name" maxlength="60" placeholder="Piano lessons, rent, allowance…" /></label>' +
       '<div class="cf-row"><label class="field"><span>Amount</span><input class="input" name="amount" inputmode="decimal" placeholder="0.00" /></label>' +
@@ -246,13 +324,14 @@
   document.addEventListener('click', function (e) {
     var view = $('#view');
     if (!view || !view.contains(e.target) || !Fin.at('recurring')) return;
-    var t = e.target.closest('[data-rc],[data-rc-yes],[data-rc-no],[data-rc-scan],[data-rc-add],[data-rc-all],[data-rc-review],[data-rc-days]');
+    var t = e.target.closest('[data-rc],[data-rc-yes],[data-rc-no],[data-rc-scan],[data-rc-add],[data-rc-all],[data-rc-review],[data-rc-days],[data-rc-seen]');
     if (!t) return;
     if (t.hasAttribute('data-rc-all')) {
       t.disabled = true;
       Fin.save('fin-recurring', { body: { action: 'confirm-all' } }).then(function () { reviewing = false; Hub.toast('All confirmed'); })
         .catch(function (er) { Hub.toast(er.message, true); t.disabled = false; });
     }
+    else if (t.hasAttribute('data-rc-seen')) { t.disabled = true; act(t.getAttribute('data-rc-seen'), 'price-ok').catch(function (er) { Hub.toast(er.message, true); t.disabled = false; }); }
     else if (t.hasAttribute('data-rc-review')) { reviewing = !reviewing; Fin.rerender(); }
     else if (t.hasAttribute('data-rc-days')) { showMonth = !showMonth; Fin.rerender(); }
     else if (t.hasAttribute('data-rc-yes')) act(t.getAttribute('data-rc-yes'), 'confirm').then(function () { Hub.toast('Got it'); }).catch(function (er) { Hub.toast(er.message, true); });
@@ -262,4 +341,11 @@
     else openItem(t.getAttribute('data-rc'));
   });
   Fin.openRecurring = function (id) { Fin.go('recurring'); if (id) setTimeout(function () { openItem(id); }, 0); };
+  // From a transaction: follow its merchant on this tab from now on.
+  Fin.trackRecurring = function (tx, month) {
+    return Fin.save('fin-recurring', { body: { action: 'track', tx: tx, month: month } }).then(function (data) {
+      Hub.toast('Added to Recurring');
+      Fin.openRecurring(data.trackedId);
+    });
+  };
 })();

@@ -453,6 +453,36 @@
 .fin-rc-ask .btn svg { width: 14px; height: 14px; }
 .fin-tag--up { border-color: color-mix(in srgb, var(--fin-bad) 45%, transparent); color: var(--fin-bad); }
 .fin-tag--up svg { width: 11px; height: 11px; }
+.fin-tag--down { border-color: color-mix(in srgb, var(--fin-good) 45%, transparent); color: var(--fin-good); }
+.fin-rc-note { font-size: 0.82rem; margin-top: 0.15rem; }
+.fin-rc-tip { font-size: 0.85rem; text-align: center; }
+/* A changing bill's month so far, under its name. */
+.fin-rc-progress { display: grid; gap: 0.3rem; margin-top: 0.4rem; font-size: 0.8rem; color: var(--text-soft); }
+.fin-acct > .fin-rc-progress { grid-column: 2 / -1; margin-top: -0.45rem; }
+.fin-rc-progress .fin-meter { margin: 0; height: 6px; max-width: 16rem; }
+.fin-rc-progress.is-done { color: var(--fin-good); }
+.fin-rc-progress.is-late { color: var(--fin-warn); }
+.fin-rc-progress svg { width: 13px; height: 13px; vertical-align: -2px; margin-right: 0.2rem; }
+.fin-rc-now .fin-rc-progress { font-size: 0.88rem; margin: 0; }
+@media (max-width: 520px) {
+  .fin-rc-range { display: none; }
+  .fin-rc-li .fin-acct-bal small { display: block; line-height: 1.1; }
+}
+.fin-rc-now .fin-rc-progress .fin-meter { height: 8px; max-width: none; }
+/* Price change: the alert row with "Got it", and the same in the drawer. */
+.fin-alert--split { cursor: default; padding: 0.45rem 0.5rem 0.45rem 1rem; }
+.fin-alert--split:hover { border-color: var(--line); }
+.fin-alert-main { display: flex; align-items: center; gap: 0.6rem; flex: 1; min-width: 0; padding: 0.3rem 0; background: none; border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.fin-alert-main:hover { color: var(--accent); }
+.fin-alert--split > .btn { flex: none; }
+.fin-alert--up .fin-alert-main svg { color: var(--hub-danger); }
+.fin-rc-price { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; justify-content: space-between; padding: 0.7rem 0.85rem; border-radius: 12px; background: color-mix(in srgb, var(--fin-bad) 9%, var(--hub-surface)); font-size: 0.9rem; font-weight: 600; }
+/* A changing bill's last months, as small bars. */
+.fin-rc-hist ul { list-style: none; display: grid; gap: 0.35rem; margin-top: 0.45rem; }
+.fin-rc-hist li { display: grid; grid-template-columns: 2.4rem minmax(0, 1fr) auto; align-items: center; gap: 0.6rem; font-size: 0.85rem; }
+.fin-rc-bar { height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 12%, var(--hub-surface)); overflow: hidden; }
+.fin-rc-bar span { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
+.fin-rc-hist .fin-amt-cell { min-width: 4.5rem; text-align: right; font-variant-numeric: tabular-nums; }
 
 /* Reports tab */
 .fin-row--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -638,6 +668,25 @@
 .fin-ask-a > :last-child { margin-bottom: 0; }
 .fin-ask-a .fin-brief-sources { font-size: 0.84rem; }
 .fin-ask-a.is-loading { padding: 0.55rem 0; }
+/* What an answer looked up in their own numbers. */
+.fin-ask-a .fin-ask-lookups { display: flex; gap: 0.4rem; align-items: flex-start; margin: 0.6rem 0 0; font-size: 0.8rem; line-height: 1.45; color: var(--text-muted); }
+.fin-ask-lookups svg { width: 13px; height: 13px; flex: none; margin-top: 0.15rem; }
+/* The briefing's "To sharpen this". */
+.fin-brief-sharpen { margin-top: 1.2rem; padding: 0.85rem 1rem; border-radius: 12px; background: var(--bg-alt); }
+.fin-brief-sharpen h3 { font-family: var(--sans); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); font-weight: 700; }
+.fin-brief-sharpen ul { margin: 0.45rem 0 0.5rem 1.1rem; display: grid; gap: 0.25rem; font-size: 0.9rem; }
+/* About you two: the summary card and the form. */
+.fin-about-list { list-style: none; display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.7rem; }
+.fin-about-list li { padding: 0.3rem 0.7rem; border-radius: 999px; background: var(--bg-alt); font-size: 0.85rem; }
+.fin-about-when { font-size: 0.8rem; margin-top: 0.7rem; }
+.fin-about-form fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 0.75rem; }
+.fin-about-form fieldset + fieldset { border-top: 1px solid var(--line); padding-top: 1.1rem; }
+.fin-about-form legend { padding: 0; margin-bottom: 0.35rem; font-weight: 700; font-size: 0.95rem; }
+.fin-about-plan { display: grid; gap: 0.6rem; }
+.fin-about-plan[hidden] { display: none; }
+.fin-about-line { font-size: 0.9rem; line-height: 2.5; }
+.fin-about-line .fin-pct { display: inline-block; width: 4.4rem; padding: 0.3rem 0.5rem; margin: 0 0.15rem; text-align: right; }
+.fin-about-hint { font-size: 0.8rem; margin-top: -0.35rem; }
 .fin-ask-form { margin-top: 1rem; }
 .hub .fin-ask-form textarea { min-height: 3.2rem; resize: none; line-height: 1.5; }
 .fin-ask-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-top: 0.5rem; font-size: 0.84rem; }

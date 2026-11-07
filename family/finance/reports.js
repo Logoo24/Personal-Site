@@ -307,11 +307,11 @@
     if (!list.length) { box.innerHTML = empty('Recurring bills and subscriptions show up here once they’re found (see the Recurring tab).'); return; }
     var month = list.reduce(function (m, r) { return m + r.monthly; }, 0);
     var subs = list.filter(function (r) { return r.kind === 'subscription'; }).reduce(function (m, r) { return m + r.monthly; }, 0);
-    var CAD = { weekly: 'Every week', biweekly: 'Every 2 weeks', semimonthly: 'Twice a month', monthly: 'Every month', quarterly: 'Every 3 months', yearly: 'Every year' };
+    var CAD = { weekly: 'Every week', biweekly: 'Every 2 weeks', semimonthly: 'Twice a month', monthly: 'Every month', bimonthly: 'Every 2 months', quarterly: 'Every 3 months', yearly: 'Every year' };
     box.innerHTML = '<div class="fin-row fin-row--3">' + tile('A month', Fin.amt(month)) + tile('A year', Fin.amt(month * 12)) + tile('Subscriptions alone', Fin.amt(subs * 12), 'a year') + '</div>' +
       card('What each costs a year', '<div data-c="yr"></div>') +
       card('All of them', table(['Name', 'How often', 'Amount', 'A month', 'A year'], list.map(function (r) {
-        return { cells: [esc(r.name) + (r.kind === 'subscription' ? '<span class="fin-acct-sub"> subscription</span>' : ''), esc(CAD[r.cadence] || r.cadence), (r.variable ? 'about ' : '') + Fin.amt(r.amount, { cents: true }), Fin.amt(r.monthly), Fin.amt(r.monthly * 12)] };
+        return { cells: [esc(r.name) + (r.kind === 'subscription' ? '<span class="fin-acct-sub"> subscription</span>' : ''), esc(r.pattern === 'month' ? 'Every month, changes' : CAD[r.cadence] || r.cadence), (r.variable ? 'about ' : '') + Fin.amt(r.amount, { cents: true }), Fin.amt(r.monthly), Fin.amt(r.monthly * 12)] };
       })));
     FinCharts.hbars($('[data-c="yr"]', box), { rows: list.slice(0, 15).map(function (r) { return { label: r.name, value: r.monthly * 12 }; }), format: fmt, color: 'var(--fc-2)', ariaLabel: 'Yearly cost of each bill and subscription' });
   }

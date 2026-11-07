@@ -2,8 +2,11 @@
    Finance > Advice: a monthly briefing written by Claude from the
    household's own numbers (with today's savings, Treasury and CD
    rates looked up on the web), above a set of plain checks worked
-   out in code (api/_family/finance/advice.js), and a box for asking
-   Claude about any of it. Educational, not personalized financial
+   out in code (api/_family/finance/advice.js), "About you two" (the
+   household details the accounts can't show: ages, pay, 401(k) match,
+   filing status, plans; api/_family/finance/profile.js), and a box for
+   asking Claude about any of it (it can look up exact totals and do
+   payoff and growth math). Educational, not personalized financial
    advice - the banner says so on every view.
    ============================================================ */
 (function () {
@@ -13,7 +16,7 @@
   // This visit's questions and answers, oldest first: { q, a, sources, error, pending }.
   // Kept across tab switches, gone on reload (the server keeps only a count).
   var thread = [], draft = '';
-  var IDEAS = ['What should we do first this month?', 'How do I open a high-yield savings account?', 'Roth or traditional IRA for us?', 'How much should our emergency fund be?'];
+  var IDEAS = ['What should we do first this month?', 'How much did we spend on dining out the last three months?', 'What if we paid $200 a month extra on our highest-rate debt?', 'Roth or traditional IRA for us?'];
   var TONES = [['do', 'Do next'], ['watch', 'Keep an eye on'], ['info', 'Good to know'], ['good', 'Going well']];
   var ICON = { do: Hub.icons.arrow, watch: Hub.icons.up, info: Hub.icons.sparkle, good: Hub.icons.check };
 
@@ -54,8 +57,12 @@
         list('Spend less on', b.spendLess, function (xs) { return '<ul class="fin-brief-list">' + xs.map(function (x) { return '<li><b>' + Fin.amtText(x.title) + '</b><p>' + Fin.amtText(x.why) + '</p></li>'; }).join('') + '</ul>'; }) +
         list('Worth spending on', b.spendMore, function (xs) { return '<ul class="fin-brief-list">' + xs.map(function (x) { return '<li><b>' + Fin.amtText(x.title) + '</b><p>' + Fin.amtText(x.why) + '</p></li>'; }).join('') + '</ul>'; }) +
       '</div>' +
+      // Questions whose answers would change the advice, with a way to answer them.
+      (b.toSharpen && b.toSharpen.length ? '<div class="fin-brief-sharpen"><h3>To sharpen this</h3><ul>' + b.toSharpen.map(function (q) { return '<li>' + Fin.amtText(q) + '</li>'; }).join('') + '</ul>' +
+        '<button class="fin-link" type="button" data-profile-open>Add it under About you two</button></div>' : '') +
       // "Going well" and "Keep an eye on" join the checks of the same name below.
-      '<div class="fin-brief-foot"><span class="fin-muted">Written ' + esc(when) + (b.rates ? ' · rates as of ' + esc(new Date(b.rates.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) : '') + '</span>' +
+      '<div class="fin-brief-foot"><span class="fin-muted">Written ' + esc(when) + (b.rates ? ' · rates as of ' + esc(new Date(b.rates.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) : '') +
+        ' · ' + esc(String(d.referenceYear)) + ' IRS figures' + (b.irsCheckedAt ? ', checked on irs.gov ' + esc(new Date(b.irsCheckedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) : '') + '</span>' +
         (b.rates && b.rates.sources && b.rates.sources.length ? '<span class="fin-brief-sources">Sources: ' + b.rates.sources.map(function (s) {
           return '<a href="' + esc(/^https?:\/\//.test(s.url) ? s.url : '#') + '" target="_blank" rel="noopener noreferrer">' + esc(hostOf(s.url)) + '</a>';
         }).join(', ') + '</span>' : '') +
@@ -98,7 +105,7 @@
       ['Bills and subscriptions', '$' + f.billsPerMonth.toLocaleString() + ' a month']
     ];
     return '<details class="fin-card fin-hidden-accts"><summary>The numbers behind this</summary>' +
-      '<p class="fin-muted" style="margin:0.5rem 0">Worked out from the accounts you can see. Totals like these, with account, goal and merchant names, go to Claude for the briefing and your questions. Never account numbers or your list of transactions.</p>' +
+      '<p class="fin-muted" style="margin:0.5rem 0">Worked out from the accounts you can see. Totals like these, with account, goal and merchant names and what you put under About you two, go to Claude for the briefing and your questions; questions can also look up totals by category, merchant or month. Never account numbers or your list of transactions.</p>' +
       '<dl class="fin-facts">' + rows.map(function (r) { return '<div><dt>' + esc(r[0]) + '</dt><dd class="fin-amt">' + esc(r[1]) + '</dd></div>'; }).join('') + '</dl></details>';
   }
 
@@ -114,7 +121,7 @@
     if (!canAsk()) return '';
     return '<section class="fin-card fin-ask" id="fin-ask">' +
       '<div class="fin-card-head"><h2>Ask about your advice</h2></div>' +
-      '<p class="fin-muted">Ask Claude to explain a step, go into more detail, or walk you through doing it. It sees the same numbers as the briefing, never account numbers or your list of transactions.</p>' +
+      '<p class="fin-muted">Ask Claude to explain a step or walk you through it. It sees the same numbers as the briefing and can look up exact totals (by category, merchant or month), balances and payoff math. Never account numbers or your list of transactions.</p>' +
       '<div class="fin-ask-thread" aria-live="polite">' + threadHTML() + '</div>' +
       '<form class="fin-ask-form" data-ask-form>' +
         '<textarea id="fin-ask-q" rows="2" maxlength="1000" aria-label="Your question about the advice" placeholder="e.g. How much should we move into savings, and where?">' + esc(draft) + '</textarea>' +
@@ -132,7 +139,7 @@
       return '<div class="fin-ask-turn"><p class="fin-ask-q">' + esc(t.q) + '</p>' +
         (t.pending ? '<div class="fin-ask-a is-loading"><span class="fin-muted">Thinking it through…</span></div>'
           : t.error ? '<div class="fin-ask-a"><p class="fin-muted">' + esc(t.error) + '</p></div>'
-          : '<div class="fin-ask-a">' + answerHTML(t.a) + sourcesHTML(t.sources) + '</div>') +
+          : '<div class="fin-ask-a">' + answerHTML(t.a) + lookupsHTML(t.lookups) + sourcesHTML(t.sources) + '</div>') +
       '</div>';
     }).join('');
   }
@@ -153,6 +160,11 @@
     });
     endList();
     return out.join('');
+  }
+  // What it checked in your own numbers to answer ("Spending on Dining out, Jun 2026 to Aug 2026").
+  function lookupsHTML(list) {
+    if (!list || !list.length) return '';
+    return '<p class="fin-ask-lookups">' + Hub.icons.search + '<span>Looked up: ' + list.map(esc).join(' · ') + '</span></p>';
   }
   function sourcesHTML(sources) {
     sources = (sources || []).filter(function (s) { return /^https?:\/\//.test(s.url); });
@@ -184,7 +196,7 @@
     if (input) { input.value = ''; grow(input); }
     drawAsk();
     Hub.api('fin-advice-ask', { body: { question: q, history: history } }).then(function (r) {
-      turn.a = r.answer; turn.sources = r.sources; data.asksLeft = r.asksLeft;
+      turn.a = r.answer; turn.sources = r.sources; turn.lookups = r.lookups; data.asksLeft = r.asksLeft;
     }, function (e) {
       turn.error = e.message;
     }).then(function () {
@@ -194,11 +206,112 @@
   }
   function grow(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight + 2, 320) + 'px'; }
 
+  /* ---------- About you two ---------- */
+  function aboutFilled(d) { return !!(d.facts && d.facts.aboutUs && d.facts.aboutUs.filled); }
+  // Unfilled: an invitation near the top. Filled: a short summary near the bottom.
+  function aboutHTML(d) {
+    if (!aboutFilled(d)) {
+      return '<section class="fin-card fin-found fin-about-ask"><div class="fin-found-text">' + Hub.icons.sparkle +
+        '<span><b>Tell the advice about you two.</b> Ages, pay, your 401(k) match and what’s coming up. The checks and briefing then get specific: match you’re missing, Roth or traditional, room left this year. About two minutes.</span></div>' +
+        '<div class="hub-actions"><button class="btn btn-primary btn-sm" type="button" data-profile-open>Fill it in</button></div></section>';
+    }
+    var a = d.facts.aboutUs, bits = [];
+    a.people.forEach(function (p) {
+      var x = [p.name + (p.age ? ', ' + p.age : '')];
+      if (p.workRetirementPlan) x.push(p.workRetirementPlan + (p.matchLeftUnclaimedAYear > 0 ? ' (missing some match)' : p.matchLeftUnclaimedAYear === 0 && p.employerMatchAYear ? ' (full match)' : ''));
+      bits.push(x.join(' · '));
+    });
+    if (a.filingStatus) bits.push(a.filingStatus);
+    if (a.state) bits.push(a.state);
+    if (a.estimatedFederalBracket) bits.push('About the ' + a.estimatedFederalBracket + ' federal bracket');
+    var who = d.profile && d.profile.updatedBy ? (d.people.filter(function (p) { return p.email === d.profile.updatedBy; })[0] || {}).name : '';
+    return '<section class="fin-card fin-about"><div class="fin-card-head"><h2>About you two</h2>' +
+      '<button class="btn btn-ghost btn-sm" type="button" data-profile-open>' + Hub.icons.edit + 'Edit</button></div>' +
+      '<ul class="fin-about-list">' + bits.map(function (b) { return '<li>' + esc(b) + '</li>'; }).join('') + '</ul>' +
+      (d.profile && d.profile.updatedAt ? '<p class="fin-muted fin-about-when">Updated ' + esc(new Date(d.profile.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })) + (who ? ' by ' + esc(who) : '') + '</p>' : '') +
+    '</section>';
+  }
+
+  function options(table, value, blank) {
+    return (blank != null ? '<option value="">' + esc(blank) + '</option>' : '') + Object.keys(table).map(function (k) {
+      return '<option value="' + esc(k) + '"' + (k === value ? ' selected' : '') + '>' + esc(table[k]) + '</option>';
+    }).join('');
+  }
+  var CONTRIB = { traditional: 'Traditional (pre-tax)', roth: 'Roth', both: 'Some of each', unsure: 'Not sure' };
+  var YESNO = { yes: 'Yes', no: 'No', unsure: 'Not sure' };
+  var IRAS = { none: 'None', roth: 'Roth IRA', traditional: 'Traditional IRA', both: 'Both' };
+  function val(v) { return v == null ? '' : esc(String(v)); }
+
+  function personFields(person, x) {
+    var hasPlan = x.plan && x.plan !== 'none';
+    return '<fieldset class="fin-about-person" data-person="' + esc(person.email) + '"><legend>' + esc(person.name) + '</legend>' +
+      '<div class="cf-row"><label class="field"><span>Birth year</span><input class="input" name="birthYear" inputmode="numeric" maxlength="4" placeholder="1995" value="' + val(x.birthYear) + '" /></label>' +
+      '<label class="field"><span>Yearly pay before taxes</span><input class="input" name="income" inputmode="decimal" placeholder="0" value="' + (x.income != null ? esc(Fin.moneyInput(x.income)) : '') + '" /></label></div>' +
+      '<label class="field"><span>Retirement plan at work</span><select name="plan">' + options(data.profileOptions.plans, x.plan, 'Not set') + '</select></label>' +
+      '<div class="fin-about-plan"' + (hasPlan ? '' : ' hidden') + '>' +
+        '<p class="fin-about-line">The employer puts in <input class="input fin-pct" name="matchRate" inputmode="decimal" aria-label="Match percentage" placeholder="100" value="' + val(x.matchRate) + '" />% of what ' + esc(person.name) + ' puts in, up to <input class="input fin-pct" name="matchUpTo" inputmode="decimal" aria-label="Up to this percent of pay" placeholder="4" value="' + val(x.matchUpTo) + '" />% of pay.</p>' +
+        '<p class="fin-muted fin-about-hint">No match? Put 0 in both. The formula is in the benefits portal, often written as “100% up to 4%” or “50% up to 6%”.</p>' +
+        '<div class="cf-row"><label class="field"><span>' + esc(person.name) + ' puts in (% of pay)</span><input class="input" name="contribPct" inputmode="decimal" placeholder="6" value="' + val(x.contribPct) + '" /></label>' +
+        '<label class="field"><span>As</span><select name="contribType">' + options(CONTRIB, x.contribType, 'Not set') + '</select></label></div>' +
+      '</div>' +
+      '<div class="cf-row"><label class="field"><span>Health plan allows an HSA</span><select name="hsa">' + options(YESNO, x.hsa, 'Not set') + '</select></label>' +
+      '<label class="field"><span>IRA</span><select name="ira">' + options(IRAS, x.ira, 'Not set') + '</select></label></div>' +
+      '<label class="field"><span>Put into an IRA so far for ' + esc(String(data.referenceYear)) + '</span><input class="input" name="iraThisYear" inputmode="decimal" placeholder="0" value="' + (x.iraThisYear != null ? esc(Fin.moneyInput(x.iraThisYear)) : '') + '" /></label>' +
+    '</fieldset>';
+  }
+
+  function openProfile() {
+    if (!data) return;
+    var pr = data.profile || {}, people = data.people || [], o = data.profileOptions;
+    var body = Fin.openDrawer('About you two',
+      '<p class="fin-muted">What the accounts can’t show. Both of you see this, and it goes to Claude with your numbers so the advice fits you. Leave out anything you’d rather not say.</p>' +
+      '<form class="fin-tx-form fin-about-form" data-profile-form novalidate>' +
+        '<fieldset><legend>Your household</legend>' +
+          '<div class="cf-row"><label class="field"><span>State</span><select name="state">' + options(o.states, pr.state, 'Not set') + '</select></label>' +
+          '<label class="field"><span>Taxes filed as</span><select name="filing">' + options(o.filing, pr.filing, 'Not set') + '</select></label></div>' +
+          '<div class="cf-row"><label class="field"><span>Kids</span><input class="input" name="kids" inputmode="numeric" maxlength="2" placeholder="0" value="' + val(pr.kids) + '" /></label>' +
+          '<label class="field"><span>Investing ups and downs</span><select name="risk">' + options(o.risk, pr.risk, 'Not set') + '</select></label></div>' +
+          '<label class="field"><span>Plans in the next few years</span><textarea name="plans" rows="2" maxlength="300" placeholder="Buying a house in about two years, a baby, a new car…">' + val(pr.plans) + '</textarea></label>' +
+        '</fieldset>' +
+        people.map(function (p) { return personFields(p, (pr.people || {})[p.email] || {}); }).join('') +
+        '<p class="cf-error" role="alert" hidden></p>' +
+        '<div class="fin-drawer-actions"><button class="btn btn-primary btn-sm" type="submit">' + Hub.icons.check + 'Save</button></div>' +
+      '</form>');
+    var form = $('[data-profile-form]', body);
+    form.addEventListener('change', function (e) {
+      if (e.target.name !== 'plan') return;
+      $('.fin-about-plan', e.target.closest('fieldset')).hidden = !e.target.value || e.target.value === 'none';
+    });
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var err = $('.cf-error', form), el = form.elements;
+      function money(v) { var c = Fin.parseMoney(v); if (c != null && isNaN(c)) throw new Error('Enter amounts like 65000.'); return c == null ? null : c / 100; }
+      function n(v) { v = String(v || '').replace(/[%\s,]/g, ''); if (!v) return null; if (isNaN(+v)) throw new Error('Enter numbers only, like 4 or 6.5.'); return +v; }
+      var out;
+      try {
+        out = { state: el.state.value || null, filing: el.filing.value || null, kids: n(el.kids.value), risk: el.risk.value || null, plans: el.plans.value, people: {} };
+        Hub.$$('[data-person]', form).forEach(function (fs) {
+          var q = function (name) { return fs.querySelector('[name="' + name + '"]'); };
+          var plan = q('plan').value;
+          var x = { birthYear: n(q('birthYear').value), income: money(q('income').value), plan: plan || null, hsa: q('hsa').value || null, ira: q('ira').value || null, iraThisYear: money(q('iraThisYear').value) };
+          if (plan && plan !== 'none') Object.assign(x, { matchRate: n(q('matchRate').value), matchUpTo: n(q('matchUpTo').value), contribPct: n(q('contribPct').value), contribType: q('contribType').value || null });
+          out.people[fs.getAttribute('data-person')] = x;
+        });
+      } catch (ex) { err.textContent = ex.message; err.hidden = false; return; }
+      var btn = $('[type=submit]', form); btn.disabled = true; err.hidden = true;
+      Hub.api('fin-profile', { body: out }).then(function (d) {
+        data = d; Fin.closeDrawer(); Fin.rerender();
+        Hub.toast(d.briefing ? 'Saved. The checks use it now, and the next briefing will too.' : 'Saved');
+      }).catch(function (ex) { err.textContent = ex.message; err.hidden = false; btn.disabled = false; });
+    });
+  }
+  Fin.openProfile = openProfile;
+
   function render(view) {
     view.innerHTML = banner() + '<p class="hub-loading">Working through your numbers…</p>';
     load().then(function (d) {
       if (!Fin.at('advice')) return;
-      view.innerHTML = banner() + briefingHTML(d) + askHTML(d) + cardsHTML(d.cards, d.briefing) + factsHTML(d.facts);
+      view.innerHTML = banner() + (aboutFilled(d) ? '' : aboutHTML(d)) + briefingHTML(d) + askHTML(d) + cardsHTML(d.cards, d.briefing) + (aboutFilled(d) ? aboutHTML(d) : '') + factsHTML(d.facts);
       var input = $('#fin-ask-q', view);
       if (input) grow(input);
       // A briefing a month: write one when there's none yet or it's from an earlier month.
@@ -229,6 +342,7 @@
     if (!Fin.at('advice')) return;
     var b = e.target.closest('[data-advice-refresh]');
     if (b && $('#view').contains(b)) return refresh(b);
+    if (e.target.closest('[data-profile-open]') && $('#view').contains(e.target)) return openProfile();
     var idea = e.target.closest('[data-ask-idea]');
     if (idea) return ask(idea.textContent);
     var about = e.target.closest('[data-ask-about]');

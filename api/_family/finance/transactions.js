@@ -10,7 +10,7 @@
 
 import { readSecure, updateSecure } from './vault.js';
 import { txPath, familyDay, addMonths, canSee, updateState, ACCOUNT_TYPES } from './data.js';
-import { payeeKey, ruleFor, applyRule } from './categorize.js';
+import { payeeKey, ruleFor, applyRule, isGeneric } from './categorize.js';
 import { randomId } from '../recipes.js';
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
@@ -93,19 +93,44 @@ export async function editTransactions({ edits, rule }, state, viewer) {
     if (e.cat !== undefined && e.cat !== null && !cats.has(e.cat)) throw fail(400, 'Unknown category.');
     (byMonth[e.month] = byMonth[e.month] || []).push(e);
   }
-  const learned = {}; // merchant key -> category, for the payee memory
+  // Picking a category, or confirming one ("Looks right", Done), teaches
+  // the payee memory: merchant key -> { cat, name }.
+  const learned = {};
+  const learn = (t, cat) => { const k = payeeKey(t.raw || t.name); if (k && cat) learned[k] = { cat, name: t.name }; };
+  const edited = new Set();
   for (const [m, list] of Object.entries(byMonth)) {
     await updateMonth(m, txs => {
       for (const e of list) {
         const t = txs.find(x => x.id === e.id);
         if (!t || !visible.has(t.acct)) throw fail(404, 'That transaction wasn’t found.');
-        if (e.cat !== undefined) { t.cat = e.cat; t.catSrc = 'user'; t.reviewed = true; learned[payeeKey(t.raw || t.name)] = e.cat; }
+        edited.add(t.id);
+        if (e.cat !== undefined) { t.cat = e.cat; t.catSrc = 'user'; t.reviewed = true; learn(t, e.cat); }
         if (e.note !== undefined) t.note = String(e.note || '').slice(0, 500);
         if (e.hidden !== undefined) t.hidden = !!e.hidden;
-        if (e.reviewed !== undefined) { t.reviewed = !!e.reviewed; if (t.cat) learned[payeeKey(t.raw || t.name)] = t.cat; }
+        if (e.reviewed !== undefined) { t.reviewed = !!e.reviewed; if (t.reviewed && e.cat === undefined) learn(t, t.cat); }
       }
       return txs;
     });
+  }
+
+  // The same merchant's other transactions still waiting for review (the
+  // last three months) are sorted the same way now, rather than asking
+  // again. Payment apps and checks are left: one name, many purposes.
+  let sortedToo = 0;
+  const teach = Object.keys(learned).filter(k => !isGeneric(k));
+  if (teach.length) {
+    const cur = familyDay().slice(0, 7);
+    for (const m of [cur, addMonths(cur, -1), addMonths(cur, -2)]) {
+      await updateMonth(m, txs => {
+        for (const t of txs) {
+          if (edited.has(t.id) || t.reviewed !== false || t.hidden || !visible.has(t.acct) || t.catSrc === 'user' || t.catSrc === 'rule') continue;
+          const l = learned[payeeKey(t.raw || t.name)];
+          if (!l || isGeneric(payeeKey(t.raw || t.name))) continue;
+          t.cat = l.cat; t.catSrc = 'learned'; t.reviewed = true; sortedToo++;
+        }
+        return txs;
+      });
+    }
   }
 
   let ruleSaved = null;
@@ -127,11 +152,17 @@ export async function editTransactions({ edits, rule }, state, viewer) {
     }
   }
 
-  return updateState(s => {
+  const saved = await updateState(s => {
     if (ruleSaved) s.rules = (s.rules || []).filter(r => r.text !== ruleSaved.text).concat(ruleSaved);
     s.payees = s.payees || {};
-    for (const [k, cat] of Object.entries(learned)) if (k && s.payees[k]) s.payees[k] = { ...s.payees[k], cat, reviewed: true };
+    // Remembered even when Plaid (not Claude) picked it: from now on the
+    // family's answer beats Plaid's for this merchant (categorize.js).
+    for (const [k, l] of Object.entries(learned)) {
+      const prev = s.payees[k] || {};
+      s.payees[k] = { name: prev.name || String(l.name || '').slice(0, 60), cat: l.cat, reviewed: true, src: 'user' };
+    }
   });
+  return { state: saved, sortedToo };
 }
 
 /* ---------- hand-added transactions (accounts kept by hand only) ---------- */

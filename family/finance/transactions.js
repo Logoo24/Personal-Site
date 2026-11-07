@@ -149,7 +149,7 @@
     var counted = shown.filter(function (t) { return !isTransfer(t) && !t.hidden && !t.pending; });
     var inn = counted.filter(function (t) { return t.amt > 0; }).reduce(function (m, t) { return m + t.amt; }, 0);
     var out = counted.filter(function (t) { return t.amt < 0; }).reduce(function (m, t) { return m - t.amt; }, 0);
-    $('[data-totals]', view).innerHTML = f.review ? '<span class="fin-muted">' + Hub.plural(shown.length, 'transaction') + ' to look over. Pick a category, or tap “Looks right”.</span>'
+    $('[data-totals]', view).innerHTML = f.review ? '<span class="fin-muted">' + Hub.plural(shown.length, 'transaction') + ' to look over. Pick a category, or tap “Looks right”. Each answer is remembered for that merchant.</span>'
       : '<div class="fin-split"><span>In <b>' + Fin.amt(inn) + '</b></span><span>Out <b>' + Fin.amt(out) + '</b></span><span>Net <b>' + Fin.amt(inn - out, { sign: true }) + '</b></span>' +
         '<span class="fin-muted fin-tx-note">Transfers, pending and hidden aren’t counted.</span></div>';
     var box = $('[data-list]', view);
@@ -184,6 +184,13 @@
   }
 
   /* ---------- one transaction ---------- */
+  // Any money in or out can be followed on the Recurring tab, except moves
+  // between our own accounts and pending charges.
+  function trackable(t) {
+    var c = (Fin.data.categories || []).filter(function (x) { return x.id === t.cat; })[0];
+    return !t.pending && t.amt && !(c && c.kind === 'transfer') && !!Fin.trackRecurring;
+  }
+
   function find(id) {
     var lists = [reviewCache || []].concat(Object.keys(cache).map(function (k) { return cache[k].map(function (t) { return Object.assign({ month: k }, t); }); }));
     for (var i = 0; i < lists.length; i++) for (var j = 0; j < lists[i].length; j++) if (lists[i][j].id === id) return lists[i][j];
@@ -208,11 +215,12 @@
         // One button: saves any change, and marks a transaction waiting for
         // review as looked at (so "it's right as it is" is just Done).
         '<div class="fin-drawer-actions"><button class="btn btn-primary btn-sm" type="submit">' + Hub.icons.check + 'Done</button>' +
+          (trackable(t) ? '<button class="btn btn-ghost btn-sm" type="button" data-track-rc>' + Fin.icon('repeat') + 'Track as recurring</button>' : '') +
           (String(t.id).indexOf('m_') === 0 ? '<button class="btn btn-danger btn-sm" type="button" data-del-tx>' + Hub.icons.trash + 'Delete</button>' : '') + '</div>' +
       '</form>' +
       '<dl class="fin-facts">' +
         '<div><dt>On the statement</dt><dd>' + esc(t.raw || t.name) + '</dd></div>' +
-        (t.catSrc ? '<div><dt>Sorted by</dt><dd>' + esc({ plaid: 'Plaid', auto: 'Built-in rules', rule: 'Your rule', ai: 'Claude', user: 'You' }[t.catSrc] || t.catSrc) + '</dd></div>' : '') +
+        (t.catSrc ? '<div><dt>Sorted by</dt><dd>' + esc({ plaid: 'Plaid', auto: 'Built-in rules', rule: 'Your rule', ai: 'Claude', user: 'You', learned: 'What you picked before' }[t.catSrc] || t.catSrc) + '</dd></div>' : '') +
         (t.pair ? '<div><dt>Transfer</dt><dd>Matched with the same amount in another of your accounts</dd></div>' : '') +
       '</dl>');
     var form = $('[data-txform]', body), el = form.elements;
@@ -228,10 +236,16 @@
       $$('button', form).forEach(function (b) { b.disabled = true; });
       Hub.api('fin-tx-edit', { body: payload }).then(function (data) {
         Fin.invalidateTx(); Fin.closeDrawer(); Fin.apply(data);
-        Hub.toast(payload.rule ? 'Saved, and the rule is set' : 'Saved');
+        Hub.toast((payload.rule ? 'Saved, and the rule is set' : 'Saved') + alsoSorted(data, name));
       }).catch(function (e) { Hub.toast(e.message, true); $$('button', form).forEach(function (b) { b.disabled = false; }); });
     }
     form.addEventListener('submit', function (e) { e.preventDefault(); save(); });
+    var track = $('[data-track-rc]', body);
+    if (track) track.addEventListener('click', function () {
+      track.disabled = true;
+      Fin.closeDrawer();
+      Fin.trackRecurring(t.id, t.month).catch(function (e) { Hub.toast(e.message, true); });
+    });
     var del = $('[data-del-tx]', body);
     if (del) del.addEventListener('click', function () {
       Hub.confirm({ title: 'Delete this transaction?', danger: true, confirm: 'Delete', body: '<p>' + (t.adjusted ? 'The account’s balance goes back to what it was before.' : 'It comes off the list.') + '</p>' }).then(function (yes) {
@@ -241,6 +255,13 @@
         }).catch(function (e) { Hub.toast(e.message, true); });
       });
     });
+  }
+
+  // Answers teach the merchant (api/_family/finance/transactions.js), and the
+  // same merchant's other transactions waiting for review are sorted too.
+  function alsoSorted(data, name) {
+    var n = data && data.sortedToo;
+    return n ? '. ' + (n === 1 ? '1 more' : n + ' more') + (name ? ' from ' + name : ' like it') + ' sorted too' : '';
   }
 
   /* ---------- review queue: quick edits, saved together ---------- */
@@ -259,7 +280,7 @@
     queue = {};
     return Hub.api('fin-tx-edit', { body: { edits: edits } }).then(function (data) {
       Fin.invalidateTx(); Fin.apply(data);
-      Hub.toast(Hub.plural(edits.length, 'transaction') + ' saved');
+      Hub.toast(Hub.plural(edits.length, 'transaction') + ' saved' + alsoSorted(data));
     }).catch(function (e) { Hub.toast(e.message, true); Fin.rerender(); });
   }
   window.addEventListener('beforeunload', function () { if (Object.keys(queue).length) flush(); });

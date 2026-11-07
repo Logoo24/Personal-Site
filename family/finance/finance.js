@@ -201,7 +201,8 @@
       return p ? p.name : 'Someone';
     },
     rerender: function () { show(current()); },
-    menu: menu
+    menu: menu,
+    icon: icon
   };
 
   /* ---------- drop-down menus ---------- */
@@ -399,7 +400,7 @@
     var d = Fin.data;
     var counts = {
       transactions: d.toReview || 0,
-      recurring: (d.recurring || []).filter(function (r) { return r.status === 'detected' && !r.ended; }).length,
+      recurring: (d.recurring || []).filter(function (r) { return (r.status === 'detected' && !r.ended) || r.priceAlert; }).length,
       accounts: (d.items || []).filter(function (i) { return i.status === 'reconnect'; }).length
     };
     $$('[data-badge]').forEach(function (b) {
@@ -407,7 +408,7 @@
       b.hidden = !n;
       b.textContent = !n ? '' : id === 'accounts' ? '!' : n;
       b.classList.toggle('warn', id === 'accounts');
-      b.title = id === 'transactions' ? Hub.plural(n, 'transaction') + ' to look over' : id === 'recurring' ? Hub.plural(n, 'regular charge') + ' to confirm' : Hub.plural(n, 'bank') + ' to reconnect';
+      b.title = id === 'transactions' ? Hub.plural(n, 'transaction') + ' to look over' : id === 'recurring' ? Hub.plural(n, 'recurring item') + ' to look at' : Hub.plural(n, 'bank') + ' to reconnect';
     });
     var dot = function (id, on) { var x = $('[data-dot="' + id + '"]'); if (x) x.hidden = !on; };
     dot('transactions', counts.transactions > 0);

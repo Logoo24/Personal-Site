@@ -137,13 +137,15 @@
       out.push('<button class="fin-alert" type="button" data-alert-score>' + Hub.icons.plus + '<span>Time for this month’s credit score (last one: ' +
         esc(new Date(last.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })) + ')</span>' + Hub.icons.right + '</button>');
     }
+    // A subscription or bill whose price changed (until someone taps "Got it").
     (F.data.recurring || []).filter(function (r) {
-      if (!r.priceUp || r.status === 'ignored' || r.ended) return false;
+      if (!r.priceAlert) return false;
       var a = r.acct && F.data.accounts.filter(function (x) { return x.id === r.acct; })[0];
       return !a || F.matches(a);
     }).forEach(function (r) {
-      out.push('<button class="fin-alert fin-alert--up" type="button" data-alert-rc="' + esc(r.id) + '">' + Hub.icons.up + '<span>' + esc(r.name) + ' went up from ' +
-        Fin.amt(r.priceUp.from, { cents: true }) + ' to ' + Fin.amt(r.priceUp.to, { cents: true }) + '</span>' + Hub.icons.right + '</button>');
+      var up = r.priceChange.to > r.priceChange.from;
+      out.push('<button class="fin-alert' + (up ? ' fin-alert--up' : '') + '" type="button" data-alert-rc="' + esc(r.id) + '">' + (up ? Hub.icons.up : Hub.icons.check) + '<span>' + esc(r.name) + ' went ' + (up ? 'up' : 'down') + ' from ' +
+        Fin.amt(r.priceChange.from, { cents: true }) + ' to ' + Fin.amt(r.priceChange.to, { cents: true }) + '</span>' + Hub.icons.right + '</button>');
     });
     // One card, a row each, instead of a stack of separate bars.
     return out.length ? '<section class="fin-card fin-attn"><div class="fin-card-head"><h2>Needs attention</h2><span class="fin-muted">' + out.length + '</span></div>' +
