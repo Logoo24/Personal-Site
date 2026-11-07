@@ -122,6 +122,23 @@
     return '<span class="fin-cat-ic" style="--c:' + l.color + '" aria-hidden="true">' + l.icon + '</span>';
   }
 
+  // A linked bank's logo (fin-logo, from Plaid). Its initials show until the
+  // logo has loaded, and stay if there's none (the listeners below).
+  function bankIcon(instId, text, cls) {
+    return '<span class="fin-acct-icon' + (cls ? ' ' + cls : '') + '" aria-hidden="true">' +
+      (instId ? '<img class="fin-logo" src="/api/family?r=fin-logo&amp;inst=' + encodeURIComponent(instId) + '" alt="" loading="lazy" decoding="async" />' : '') +
+      '<span>' + text + '</span></span>';
+  }
+  document.addEventListener('load', function (e) {
+    var img = e.target;
+    if (img && img.classList && img.classList.contains('fin-logo')) img.parentNode.classList.add('has-logo');
+  }, true);
+  document.addEventListener('error', function (e) {
+    var img = e.target;
+    if (img && img.classList && img.classList.contains('fin-logo')) img.remove();
+  }, true);
+  function instOf(itemId) { var it = (Fin.data.items || []).filter(function (i) { return i.id === itemId; })[0]; return it && it.instId; }
+
   // Bank descriptions as people would write them: "TRANSFER TO SAVINGS" ->
   // "Transfer to Savings", reference numbers ("1023774", "#4471") dropped.
   // For showing only; the raw text stays on the drawer's "On the statement".
@@ -157,7 +174,7 @@
   var Fin = window.Fin = {
     data: null,
     person: 'all',
-    TYPES: TYPES, CAT_GROUPS: CAT_GROUPS, catLook: catLook, catIcon: catIcon, niceName: niceName, money: money, amt: amt, amtText: amtText, amountsHidden: function () { return document.body.classList.contains('fin-hidden'); }, moneyInput: moneyInput, parseMoney: parseMoney, signed: signed, sideOf: sideOf,
+    TYPES: TYPES, CAT_GROUPS: CAT_GROUPS, catLook: catLook, catIcon: catIcon, niceName: niceName, bankIcon: bankIcon, instOf: instOf, money: money, amt: amt, amtText: amtText, amountsHidden: function () { return document.body.classList.contains('fin-hidden'); }, moneyInput: moneyInput, parseMoney: parseMoney, signed: signed, sideOf: sideOf,
     dayKey: dayKey, monthKey: monthKey, monthDate: monthDate, ago: ago,
     tab: function (id, render) { renderers[id] = render; },
     // Calls a route that answers with a fresh summary, then redraws.
@@ -278,6 +295,44 @@
     $('#drawer').classList.remove('open'); $('#backdrop').classList.remove('open');
     $('#drawer').setAttribute('aria-hidden', 'true');
     if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
+  }
+
+  // Phones: a sheet (the More sheet, or the drawer under 600px) follows a
+  // finger dragging its top edge down, and closes if let go far enough down
+  // or flicked. Only the grab handle and head start a drag, so the sheet's
+  // own content still scrolls.
+  function swipeToClose(sheet, isSheet, close) {
+    var grab = document.createElement('div');
+    grab.className = 'fin-grab';
+    grab.setAttribute('aria-hidden', 'true');
+    sheet.insertBefore(grab, sheet.firstChild);
+    var y0 = null, t0 = 0, dy = 0;
+    function start(e) {
+      if (!isSheet() || e.target.closest('button, a, input, select, textarea')) return;
+      y0 = e.touches[0].clientY; t0 = Date.now(); dy = 0;
+      sheet.style.transition = 'none';
+    }
+    function move(e) {
+      if (y0 == null) return;
+      dy = Math.max(0, e.touches[0].clientY - y0);
+      sheet.style.transform = 'translateY(' + dy + 'px)';
+      if (dy > 4) e.preventDefault();
+    }
+    function end() {
+      if (y0 == null) return;
+      var fast = dy > 30 && dy / Math.max(1, Date.now() - t0) > 0.6;
+      y0 = null;
+      sheet.style.transition = '';
+      sheet.style.transform = '';
+      if (dy > 90 || fast) close();
+    }
+    [grab, sheet.querySelector('.fin-side-head, .cal-drawer-head')].forEach(function (h) {
+      if (!h) return;
+      h.addEventListener('touchstart', start, { passive: true });
+      h.addEventListener('touchmove', move, { passive: false });
+      h.addEventListener('touchend', end);
+      h.addEventListener('touchcancel', end);
+    });
   }
 
   function current() {
@@ -480,6 +535,8 @@
     $('#backdrop').addEventListener('click', closeDrawer);
     $('#side-close').innerHTML = Hub.icons.x;
     $('#side-close').addEventListener('click', closeSide);
+    swipeToClose($('#side'), function () { return document.body.classList.contains('fin-side-open'); }, closeSide);
+    swipeToClose($('#drawer'), function () { return $('#drawer').classList.contains('open') && matchMedia('(max-width: 600px)').matches; }, closeDrawer);
     $('#side-backdrop').addEventListener('click', closeSide);
     $('#showing').addEventListener('click', openSide);
     document.addEventListener('keydown', function (e) {

@@ -34,13 +34,15 @@
 //   POST   fin-credit-read (image body) -> a score read from a screenshot (nothing saved)
 //   POST   fin-recurring {action, ...}  -> scan for recurring money, or confirm /
 //                                          dismiss / edit / add / delete one
+//   GET    fin-logo&inst=               -> a linked bank's logo (PNG), for banks the viewer can see
 //   GET    fin-cron                     -> the daily job (Vercel Cron, CRON_SECRET)
 
 import { vaultReady, readSecure } from './vault.js';
 import { loadState, loadSnapshots, visibleAccounts, visibleSnapshots, peopleList, rememberViewer, familyDay, canSee, ACCOUNT_TYPES } from './data.js';
 import { snapshotNeeded, snapshotToday, applyBackfill } from './snapshots.js';
 import { saveAccount, setBalance, deleteAccount } from './accounts.js';
-import { plaidConfigured } from './plaid.js';
+import { plaidConfigured, institutionLogo } from './plaid.js';
+import { updateSecure } from './vault.js';
 import { newLinkToken, linkBank, reconnected, removeBank, syncAll, HOLDINGS } from './sync.js';
 import { monthList, reviewList, editTransactions, addManual, deleteManual, exportCsv, recentAndReview, reportData } from './transactions.js';
 import { scanRecurring, visibleRecurring, upcoming, changeRecurring } from './recurring.js';
@@ -98,7 +100,7 @@ async function summary(user, viewer, state, snaps) {
     credit: visibleCredit(state, viewer),
     creditModels: MODELS,
     creditBureaus: BUREAUS,
-    items: items.map(({ id, inst, status, error, lastSync, owner, private: p, historyComplete, createdAt }) => ({ id, inst, status, error, lastSync, owner, private: !!p, historyComplete: !!historyComplete, createdAt })),
+    items: items.map(({ id, inst, instId, status, error, lastSync, owner, private: p, historyComplete, createdAt }) => ({ id, inst, instId: instId || null, status, error, lastSync, owner, private: !!p, historyComplete: !!historyComplete, createdAt })),
     itemsUsed: state.itemsUsed || 0,
     itemsMax: 10,
     lastSync: lastSyncOf(items)
@@ -113,6 +115,27 @@ async function status(viewer) {
     reconnect: items.filter(i => i.status === 'reconnect').length,
     lastSync: lastSyncOf(items)
   };
+}
+
+// A bank's logo, asked of Plaid once and kept (encrypted, like everything
+// under finance/) in logos.json. Only for a bank the viewer can see, so the
+// other spouse's "Only me" bank isn't given away. No logo: a 404, and the
+// page shows the bank's initials instead.
+const LOGOS = 'finance/logos.json';
+async function logo(state, viewer, inst) {
+  const none = () => new Response('No logo', { status: 404, headers: { 'Cache-Control': 'private, max-age=86400' } });
+  if (!/^ins_\w{1,40}$/.test(inst) || !visibleItems(state, viewer).some(i => i.instId === inst)) return none();
+  let entry = ((await readSecure(LOGOS, { etag: false }).catch(() => null)) || { data: {} }).data[inst];
+  if (!entry && plaidConfigured()) {
+    let found = { logo: null, color: null };
+    try { found = await institutionLogo(inst); } catch (e) { return none(); } // try again another day
+    entry = { logo: found.logo, color: found.color, at: new Date().toISOString() };
+    await updateSecure(LOGOS, d => { d[inst] = entry; }, () => ({}));
+  }
+  if (!entry || !entry.logo) return none();
+  return new Response(Buffer.from(entry.logo, 'base64'), {
+    headers: { 'Content-Type': 'image/png', 'Cache-Control': 'private, max-age=604800', 'X-Content-Type-Options': 'nosniff' }
+  });
 }
 
 async function body(request) {
@@ -171,6 +194,7 @@ export async function financeRoute(request, url, user, r) {
       return { ...(await summary(user, viewer, await syncAll({ live: !!live }))), synced: true };
     }
     case 'GET fin-holdings': return holdings(await loadState(), viewer);
+    case 'GET fin-logo': return logo(await loadState(), viewer, q('inst'));
 
     case 'GET fin-transactions': return monthList(q('month'), await loadState(), viewer);
     case 'GET fin-review': return reviewList(await loadState(), viewer);

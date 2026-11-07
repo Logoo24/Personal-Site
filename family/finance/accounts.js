@@ -43,7 +43,7 @@
     var tags = (a.private ? '<span class="fin-tag" title="Only you can see this account">' + Hub.icons.lock + 'Only me</span>' : '') +
       (a.inNetWorth === false ? '<span class="fin-tag">Not counted</span>' : '');
     return '<li><button class="fin-acct" type="button" data-acct="' + esc(a.id) + '">' +
-      '<span class="fin-acct-icon" aria-hidden="true">' + esc(initials(a)) + '</span>' +
+      Fin.bankIcon(a.src === 'plaid' ? Fin.instOf(a.itemId) : null, esc(initials(a))) +
       '<span class="fin-acct-main"><span class="fin-acct-name">' + esc(nameOf(a)) + tags + '</span><span class="fin-acct-sub">' + esc(subLine(a)) + '</span></span>' +
       '<span class="fin-acct-right"><span class="fin-acct-bal">' + Fin.amt(a.balance, { cents: a.type === 'cash' || a.type === 'credit' }) + '</span>' +
       (right ? '<span class="fin-acct-sub">' + esc(right) + '</span>' : '') + '</span>' +
@@ -108,7 +108,7 @@
         var state = it.status === 'reconnect' ? '<span class="fin-status fin-status--bad">' + Hub.icons.x + 'Needs you to sign in again</span>'
           : it.status === 'error' ? '<span class="fin-status fin-status--warn">Couldn’t sync (' + esc(it.error || 'error') + ')</span>'
           : '<span class="fin-status">' + Hub.icons.check + (it.lastSync ? 'Synced ' + Fin.ago(it.lastSync) : 'Waiting for first sync') + (it.historyComplete ? '' : ' · history still loading') + '</span>';
-        return '<li class="fin-bank"><span class="fin-acct-icon" aria-hidden="true">' + Hub.icons.bank + '</span>' +
+        return '<li class="fin-bank">' + Fin.bankIcon(it.instId, Hub.icons.bank) +
           '<span class="fin-acct-main"><span class="fin-acct-name">' + esc(it.inst) + (it.private ? '<span class="fin-tag">' + Hub.icons.lock + 'Only me</span>' : '') + '</span>' +
           '<span class="fin-acct-sub">' + Hub.plural(n, 'account') + ' · ' + esc(Fin.ownerName(it.owner)) + '</span>' + state + '</span>' +
           '<span class="fin-bank-actions">' +

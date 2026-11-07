@@ -123,6 +123,13 @@ export async function institutionName(id) {
   } catch (e) { return ''; }
 }
 
+// The bank's logo (a base64 PNG) and brand color, when Plaid has them.
+export async function institutionLogo(id) {
+  const r = await plaid('/institutions/get_by_id', { institution_id: id, country_codes: ['US'], options: { include_optional_metadata: true } });
+  const inst = r.institution || {};
+  return { logo: inst.logo || null, color: /^#[0-9a-f]{6}$/i.test(inst.primary_color || '') ? inst.primary_color : null };
+}
+
 export async function removeItem(accessToken) {
   await plaid('/item/remove', { access_token: accessToken });
 }
