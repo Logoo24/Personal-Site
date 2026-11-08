@@ -26,8 +26,9 @@
   Fin.reports = REPORTS;
   Fin.currentReport = function () { return ui.report; };
   var TIMELESS = { bills: 1, debt: 1, investments: 1, review: 1 };
-  var PERIODS = [['3', 'Last 3 months'], ['6', 'Last 6 months'], ['12', 'Last 12 months'], ['ytd', 'This year'], ['ly', 'Last year'], ['24', 'Last 24 months']];
-  var ui = { report: 'cashflow', period: '12', cat: null, extra: 20000, strategy: 'avalanche', review: null };
+  // '1' is this month, 'lm' last month; 'custom' is ui.from to ui.to (months).
+  var PERIODS = [['1', 'This month'], ['lm', 'Last month'], ['3', 'Last 3 months'], ['6', 'Last 6 months'], ['12', 'Last 12 months'], ['ytd', 'This year'], ['ly', 'Last year'], ['24', 'Last 24 months'], ['custom', 'Custom range…']];
+  var ui = { report: 'cashflow', period: '12', from: null, to: null, cat: null, extra: 20000, strategy: 'avalanche', review: null };
   var data = null, loadedAt = 0, loading = null, holdingsP = null;
   var fmt = function (v) { return Fin.money(v); }, axis = function (v) { return Fin.money(v, { compact: true }); };
 
@@ -57,12 +58,38 @@
   function partialAt(months) { return months.indexOf(Fin.data.today.slice(0, 7)); }
   function titlesFor(months) { var p = partialAt(months); return months.map(function (m, i) { return monthLabel(m, true) + (i === p ? ' (so far)' : ''); }); }
   function fullMonths(months) { var f = months.filter(function (m) { return m !== Fin.data.today.slice(0, 7); }); return f.length ? f : months; }
+  function allMonths() { return data ? data.months : allMonthsFromSnapshots(); }
   function periodMonths(p) {
-    var all = data ? data.months : allMonthsFromSnapshots(), cur = Fin.data.today.slice(0, 7), y = cur.slice(0, 4);
+    var all = allMonths(), cur = Fin.data.today.slice(0, 7), y = cur.slice(0, 4);
     p = p || ui.period;
     if (p === 'ytd') return all.filter(function (m) { return m.slice(0, 4) === y; });
     if (p === 'ly') return all.filter(function (m) { return m.slice(0, 4) === String(+y - 1); });
+    if (p === 'lm') return all.slice(-2, -1);
+    if (p === 'custom') {
+      var r = customRange();
+      return all.filter(function (m) { return m >= r[0] && m <= r[1]; });
+    }
     return all.slice(-Number(p));
+  }
+  // The custom range, filled in from whatever was showing when it was picked.
+  function customRange() {
+    var all = allMonths();
+    if (!ui.from || all.indexOf(ui.from) < 0) ui.from = all[Math.max(0, all.length - 3)];
+    if (!ui.to || all.indexOf(ui.to) < 0) ui.to = all[all.length - 1];
+    if (ui.from > ui.to) { var t = ui.from; ui.from = ui.to; ui.to = t; }
+    return [ui.from, ui.to];
+  }
+  function periodLabel() {
+    if (ui.period !== 'custom') return PERIODS.filter(function (p) { return p[0] === ui.period; })[0][1];
+    var r = customRange();
+    return r[0] === r[1] ? monthLabel(r[0], true) : monthLabel(r[0], true) + ' to ' + monthLabel(r[1], true);
+  }
+  function rangeRow() {
+    var r = customRange(), all = allMonths().slice().reverse();
+    // "Oct 2026": short enough for two side by side on a phone.
+    var opts = function (v) { return all.map(function (m) { return '<option value="' + m + '"' + (m === v ? ' selected' : '') + '>' + esc(Fin.monthDate(m).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })) + '</option>'; }).join(''); };
+    return '<div class="fin-range-row"><label for="rp-from">From</label><select id="rp-from" data-from>' + opts(r[0]) + '</select>' +
+      '<label for="rp-to">to</label><select id="rp-to" data-to>' + opts(r[1]) + '</select></div>';
   }
   function previousMonths(months) {
     var i = data.months.indexOf(months[0]);
@@ -194,7 +221,10 @@
       return d === 0 ? 'same as before' : (d > 0 ? 'up ' : 'down ') + Math.abs(d) + '%';
     };
     box.innerHTML = card('Spending by category', '<div data-c="cats"></div>',
-      '<span class="fin-muted">' + Fin.amt(total) + ' total' + (prevN ? ' · changes are a month’s average against the ' + (prevN === months.length ? 'period before' : Hub.plural(prevN, 'month') + ' before') : '') + '</span>');
+      '<span class="fin-muted">' + Fin.amt(total) + ' total' + (!prevN ? ''
+        : months.length === 1 && partialAt(months) === 0 ? ' · this month so far, against all of last month'
+        : months.length === 1 ? ' · changes are against the month before'
+        : ' · changes are a month’s average against the ' + (prevN === months.length ? 'period before' : Hub.plural(prevN, 'month') + ' before')) + '</span>');
     FinCharts.hbars($('[data-c="cats"]', box), {
       rows: list.map(function (e) { var c = vs(e[0], e[1]); return { key: e[0], label: catName(e[0] || null), value: e[1], sub: Math.round(e[1] / total * 100) + '%' + (c ? ' · ' + c : '') }; }),
       attr: 'data-trend', format: fmt, color: 'var(--fc-1)', ariaLabel: 'Spending by category, largest first, with the change against the period before'
@@ -276,6 +306,8 @@
     (Fin.data.snapshots.monthly || []).forEach(function (e) { byM[e.m] = e; });
     var cur = Fin.data.today.slice(0, 7);
     var cols = months.filter(function (m) { return m !== cur; }).filter(function (m) { return byM[m]; });
+    // Just this month: start from last month's end, so there's a change to show.
+    if (!cols.length && months.length) { var pd = Fin.monthDate(months[0]); pd.setMonth(pd.getMonth() - 1); if (byM[Fin.monthKey(pd)]) cols = [Fin.monthKey(pd)]; }
     var labels = cols.map(function (m) { return monthLabel(m); }).concat('Now');
     var titles = cols.map(function (m) { return 'End of ' + monthLabel(m, true); }).concat('Today');
     function value(a, m) { if (m === 'now') return a.balance || 0; var e = byM[m]; return e && e.b[a.id] != null ? e.b[a.id] : null; }
@@ -300,7 +332,7 @@
   /* ---------- 7. bills and subscriptions ---------- */
   function bills(box) {
     var list = (Fin.data.recurring || []).filter(function (r) {
-      if (r.dir !== 'out' || r.status === 'ignored' || r.ended) return false;
+      if (r.dir !== 'out' || !Fin.rcLive(r)) return false;
       var a = r.acct && Fin.data.accounts.filter(function (x) { return x.id === r.acct; })[0];
       return !a || Fin.matches(a);
     }).sort(function (a, b) { return b.monthly - a.monthly; });
@@ -489,7 +521,7 @@
           (TIMELESS[ui.report] ? '' : '<select class="fin-period" data-period aria-label="Period">' + PERIODS.map(function (p) { return '<option value="' + p[0] + '"' + (p[0] === ui.period ? ' selected' : '') + '>' + p[1] + '</option>'; }).join('') + '</select>') +
           '<button class="btn btn-ghost btn-sm" type="button" data-print>' + Hub.icons.print + 'Print</button>' +
         '</div>' +
-      '</div>' + printHead() + '<div class="fin-report" data-report-box><p class="hub-loading">Adding things up…</p></div>';
+      '</div>' + (!TIMELESS[ui.report] && ui.period === 'custom' ? rangeRow() : '') + printHead() + '<div class="fin-report" data-report-box><p class="hub-loading">Adding things up…</p></div>';
     Fin.menu($('.fin-report-menu', view), {
       id: 'report-menu', label: 'Report', ariaLabel: 'Reports', change: 'Choose another report',
       options: REPORTS, value: ui.report,
@@ -506,7 +538,7 @@
   // Only on paper: which report, period and person this is, and when it was printed.
   function printHead() {
     var name = REPORTS.filter(function (r) { return r[0] === ui.report; })[0][1];
-    var period = TIMELESS[ui.report] ? '' : PERIODS.filter(function (p) { return p[0] === ui.period; })[0][1];
+    var period = TIMELESS[ui.report] ? '' : periodLabel();
     var who = ($('#person .fin-menu-v') || {}).textContent || '';
     var printed = 'Printed ' + new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     return '<div class="fin-print-head"><h2>' + esc(name) + '</h2><p>' + esc([period, who, printed].filter(Boolean).join(' · ')) + '</p></div>';
@@ -528,7 +560,15 @@
   });
   document.addEventListener('change', function (e) {
     if (!Fin.at('reports')) return;
-    if (e.target.matches('[data-period]')) { ui.period = e.target.value; return Fin.rerender(); }
+    if (e.target.matches('[data-period]')) {
+      // Custom starts from what was on screen.
+      if (e.target.value === 'custom') { var was = periodMonths(); if (was.length) { ui.from = was[0]; ui.to = was[was.length - 1]; } }
+      ui.period = e.target.value;
+      return Fin.rerender();
+    }
+    // Picking a From after To (or the other way round) moves the other end.
+    if (e.target.matches('[data-from]')) { ui.from = e.target.value; if (ui.to < ui.from) ui.to = ui.from; return Fin.rerender(); }
+    if (e.target.matches('[data-to]')) { ui.to = e.target.value; if (ui.from > ui.to) ui.from = ui.to; return Fin.rerender(); }
     if (e.target.matches('[data-pick-cat]')) { ui.cat = e.target.value; return Fin.rerender(); }
     if (e.target.matches('[data-pick-review]')) { ui.review = e.target.value; return Fin.rerender(); }
     if (e.target.matches('[data-extra]')) { ui.extra = +e.target.value; return Fin.rerender(); }

@@ -34,7 +34,7 @@
 //   DELETE fin-credit&id=               -> delete one
 //   POST   fin-credit-read (image body) -> a score read from a screenshot (nothing saved)
 //   POST   fin-recurring {action, ...}  -> scan for recurring money, track a transaction's merchant ({action: track, tx, month}), or confirm /
-//                                          dismiss / edit / add / delete one
+//                                          dismiss / cancel / edit / add / delete one
 //   GET    fin-logo&inst=               -> a linked bank's logo (PNG), for banks the viewer can see
 //   GET    fin-cron                     -> the daily job (Vercel Cron, CRON_SECRET)
 

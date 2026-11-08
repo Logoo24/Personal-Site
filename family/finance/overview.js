@@ -137,9 +137,18 @@
       out.push('<button class="fin-alert" type="button" data-alert-score>' + Hub.icons.plus + '<span>Time for this month’s credit score (last one: ' +
         esc(new Date(last.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })) + ')</span>' + Hub.icons.right + '</button>');
     }
+    // Something marked canceled that charged again.
+    (F.data.recurring || []).filter(function (r) {
+      if (!r.chargedAgain) return false;
+      var a = r.acct && F.data.accounts.filter(function (x) { return x.id === r.acct; })[0];
+      return !a || F.matches(a);
+    }).forEach(function (r) {
+      out.push('<button class="fin-alert fin-alert--up" type="button" data-alert-rc="' + esc(r.id) + '">' + Hub.icons.up + '<span>' + esc(r.name) + ' charged ' +
+        Fin.amt(r.last || r.amount, { cents: true }) + ' after you canceled it</span>' + Hub.icons.right + '</button>');
+    });
     // A subscription or bill whose price changed (until someone taps "Got it").
     (F.data.recurring || []).filter(function (r) {
-      if (!r.priceAlert) return false;
+      if (!r.priceAlert || r.status === 'detected') return false;
       var a = r.acct && F.data.accounts.filter(function (x) { return x.id === r.acct; })[0];
       return !a || F.matches(a);
     }).forEach(function (r) {

@@ -16,7 +16,7 @@
 
 import { readMonth, visibleTx, isTransferCat } from './transactions.js';
 import { visibleAccounts, familyDay, addMonths } from './data.js';
-import { visibleRecurring, CADENCES } from './recurring.js';
+import { visibleRecurring, isLive, CADENCES } from './recurring.js';
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 const usd = c => Math.round(c) / 100; // cents -> dollars with cents
@@ -169,7 +169,7 @@ async function spending(input, { state, viewer, month }) {
 /* ---------- recurring ---------- */
 function recurring(input, { state, viewer }) {
   const kind = ['subscription', 'bill', 'income'].includes(input.kind) ? input.kind : 'all';
-  const list = visibleRecurring(state, viewer).filter(r => r.status !== 'ignored' && !r.ended)
+  const list = visibleRecurring(state, viewer).filter(isLive)
     .filter(r => kind === 'all' || (kind === 'income' ? r.dir === 'in' : r.dir === 'out' && r.kind === kind));
   return {
     label: kind === 'all' ? 'Your recurring bills, subscriptions and income' : kind === 'income' ? 'Your regular income' : `Your ${kind}s`,

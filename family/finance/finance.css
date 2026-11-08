@@ -200,13 +200,14 @@
 .fin-note { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; color: var(--text-muted); margin-top: 0.75rem; }
 .fin-note .fin-dash { width: 18px; border-top: 2px dashed var(--text-muted); }
 
-/* Hide amounts: blurred, not removed, so the layout doesn't jump. */
-.fin-hidden .fin-amt, .fin-hidden .fc-val { filter: blur(7px); user-select: none; }
+/* Hide amounts: blurred, not removed, so the layout doesn't jump. The blur
+   grows with the text (em), so a big balance is as unreadable as a small one. */
+.fin-hidden .fin-amt, .fin-hidden .fc-val { filter: blur(max(7px, 0.55em)); user-select: none; }
 /* Chart text uses the page's own SVG blur (#fin-blur in index.html):
    older Safari ignores CSS filter functions on SVG elements. */
 .fin-hidden svg .fc-val { filter: url(#fin-blur); }
 /* Money boxes (balances, budgets, the past-months grid) too, until tapped into. */
-.fin-hidden input[inputmode="decimal"]:not(:focus) { filter: blur(5px); }
+.fin-hidden input[inputmode="decimal"]:not(:focus) { filter: blur(max(6px, 0.45em)); }
 
 /* ---------- setup / empty state ---------- */
 .fin-setup { max-width: 760px; }
@@ -346,7 +347,24 @@
 .fin-budget-cols { align-items: start; }
 .fin-budget-cols .fin-card-head p, .fin-budget-cols + * .fin-card-head p { margin-top: 0.15rem; }
 /* Recurring: what the scan found, to confirm in one go. */
-.fin-found { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1.25rem; background: var(--hub-finance-bg); border-color: transparent; }
+.fin-found { display: grid; gap: 1rem; background: var(--hub-finance-bg); border-color: transparent; }
+.fin-found-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1.25rem; }
+.fin-found-head > .btn svg { width: 15px; height: 15px; }
+/* "Review and confirm": the found items, each with its answers. */
+.fin-rv-list { background: var(--hub-surface); border-radius: 12px; padding: 0.15rem 1rem; }
+.fin-rv-acts { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0 0 0.85rem 3.25rem; }
+.fin-rv-acts .btn svg { width: 14px; height: 14px; }
+/* Phones: no icon (more room for the name), and the answers in one row of
+   equal buttons. */
+@media (max-width: 520px) {
+  .fin-rv-list { padding: 0.1rem 0.8rem; }
+  .fin-rv .fin-acct { grid-template-columns: minmax(0, 1fr) auto; gap: 0.6rem; }
+  .fin-rv .fin-acct > .fin-cat-ic, .fin-rv .fin-acct > .fin-acct-icon { display: none; }
+  .fin-rv .fin-acct-main > .fin-acct-sub { white-space: normal; }
+  .fin-rv-acts { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0.4rem; padding-left: 0; }
+  .fin-rv-acts .btn { justify-content: center; padding-left: 0.3rem; padding-right: 0.3rem; font-size: 0.8rem; white-space: nowrap; }
+  .fin-rv-acts .btn svg { display: none; }
+}
 .fin-found-text { display: flex; gap: 0.6rem; align-items: flex-start; flex: 1 1 18rem; font-size: 0.92rem; }
 .fin-found-text svg { width: 18px; height: 18px; flex: none; margin-top: 0.1rem; color: var(--hub-finance); }
 .fin-alert { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid var(--line); background: var(--hub-surface); font: 600 0.92rem var(--sans); color: var(--text); text-align: left; cursor: pointer; }
@@ -449,8 +467,8 @@
 .fin-up-day li { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
 .fin-up-day small, .fin-acct-bal small { font-weight: 500; color: var(--text-muted); font-size: 0.75rem; }
 @media (max-width: 520px) { .fin-up-day { grid-template-columns: minmax(0, 1fr); gap: 0.35rem; } }
-.fin-rc-ask { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; padding: 0 0 0.8rem 3.25rem; font-size: 0.86rem; }
-.fin-rc-ask .btn svg { width: 14px; height: 14px; }
+/* Amounts that change (rent, power): a dashed "Varies" tag. */
+.fin-tag--varies { border-style: dashed; border-color: color-mix(in srgb, var(--hub-finance) 55%, transparent); color: var(--hub-finance); }
 .fin-tag--up { border-color: color-mix(in srgb, var(--fin-bad) 45%, transparent); color: var(--fin-bad); }
 .fin-tag--up svg { width: 11px; height: 11px; }
 .fin-tag--down { border-color: color-mix(in srgb, var(--fin-good) 45%, transparent); color: var(--fin-good); }
@@ -474,7 +492,11 @@
 .fin-alert--split:hover { border-color: var(--line); }
 .fin-alert-main { display: flex; align-items: center; gap: 0.6rem; flex: 1; min-width: 0; padding: 0.3rem 0; background: none; border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .fin-alert-main:hover { color: var(--accent); }
-.fin-alert--split > .btn { flex: none; }
+.fin-alert--split > .btn, .fin-alert-btns { flex: none; }
+.fin-alert-btns { display: flex; gap: 0.35rem; }
+@media (max-width: 520px) { .fin-alert--split:has(.fin-alert-btns) { flex-wrap: wrap; } .fin-alert-btns { margin-left: auto; } }
+.fin-rc-canceled { display: flex; gap: 0.55rem; align-items: flex-start; padding: 0.7rem 0.85rem; border-radius: 12px; background: var(--bg-alt); font-size: 0.88rem; color: var(--text-soft); }
+.fin-rc-canceled svg { width: 15px; height: 15px; flex: none; margin-top: 0.15rem; color: var(--fin-good); }
 .fin-alert--up .fin-alert-main svg { color: var(--hub-danger); }
 .fin-rc-price { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; justify-content: space-between; padding: 0.7rem 0.85rem; border-radius: 12px; background: color-mix(in srgb, var(--fin-bad) 9%, var(--hub-surface)); font-size: 0.9rem; font-weight: 600; }
 /* A changing bill's last months, as small bars. */
@@ -504,6 +526,10 @@
 .fin-report-menu .fin-menu-list { left: 0; right: auto; width: 21rem; }
 .fin-period { padding: 0.5rem 0.7rem; width: auto !important; min-width: 11rem; }
 .fin-report-pick-slot { display: contents; }
+/* Custom range: From and To months, on their own row under the bar. */
+.fin-range-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.5rem; margin-top: 0.75rem; font-size: 0.9rem; color: var(--text-soft); }
+.fin-range-row select { padding: 0.45rem 0.6rem; width: auto; min-width: 8.5rem; }
+@media (max-width: 560px) { .fin-range-row { justify-content: stretch; } .fin-range-row select { flex: 1; min-width: 0; } }
 .fc-bar--partial { opacity: 0.45; }
 .fc-hrow--link { cursor: pointer; border-radius: 8px; margin: -0.3rem -0.4rem; padding: 0.3rem 0.4rem; }
 .fc-hrow--link:hover, .fc-hrow--link:focus-visible { background: var(--bg-alt); outline: none; }

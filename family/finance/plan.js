@@ -55,7 +55,7 @@
   function fixedBills() {
     var by = {};
     (Fin.data.recurring || []).forEach(function (r) {
-      if (r.dir === 'out' && r.status !== 'ignored' && !r.ended && r.cat) by[r.cat] = (by[r.cat] || 0) + (r.monthly || 0);
+      if (r.dir === 'out' && Fin.rcLive(r) && r.cat) by[r.cat] = (by[r.cat] || 0) + (r.monthly || 0);
     });
     return by;
   }

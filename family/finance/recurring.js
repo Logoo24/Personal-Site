@@ -8,8 +8,12 @@
      month (rent, power, gas), shown as "usually about" with how much
      of this month's is paid so far.
    - Regular income.
-   Plus what's coming up (card and loan due dates too). Found items
-   can be confirmed or dismissed; any can be renamed or corrected.
+   Plus what's coming up (card and loan due dates too). What the scan
+   finds waits in "Review and confirm" (each with its amount, and
+   "Varies" on ones that change) until someone confirms it, marks it
+   canceled or dismisses it; only confirmed ones are in the lists and
+   totals. Any item can be renamed, corrected or marked canceled; a
+   canceled one that charges again shows as an alert.
    ============================================================ */
 (function () {
   'use strict';
@@ -17,7 +21,7 @@
   var CADENCES = [['weekly', 'Every week'], ['biweekly', 'Every 2 weeks'], ['semimonthly', 'Twice a month'], ['monthly', 'Every month'], ['bimonthly', 'Every 2 months'], ['quarterly', 'Every 3 months'], ['yearly', 'Every year']];
   var KIND = { subscription: 'Subscription', bill: 'Bill', paycheck: 'Paycheck', income: 'Income', due: 'Payment due' };
   var scanned = false;
-  var reviewing = false;   // asking "Is this regular?" one item at a time
+  var reviewing = false;   // the found items' list is open
   var showMonth = false;   // "Coming up" for 30 days instead of 7
 
   function cadenceLabel(c) { var x = CADENCES.filter(function (k) { return k[0] === c; })[0]; return x ? x[1] : c; }
@@ -40,7 +44,9 @@
     var a = r.acct && acctOf(r.acct);
     return a ? Fin.matches(a) : true;
   }
-  function active(r) { return r.status !== 'ignored' && !r.ended; }
+  // In the lists and totals: confirmed (or added by hand) and still paid.
+  function listed(r) { return Fin.rcLive(r) && r.status !== 'detected'; }
+  function varies(r) { return r.pattern === 'month' || r.variable; }
 
   // When it comes, in words: "Every month on the 8th", "Changes each month,
   // in 2 payments around the 3rd and 15th", "Every 2 weeks · next Fri, Nov 14".
@@ -84,36 +90,58 @@
     return (r.variable ? '<small>about </small>' : '') + v;
   }
 
-  function row(r) {
+  // One item as a tappable row (opens it): name and tags, when it comes,
+  // the amount on the right. review: shown in the review list, where the
+  // kind (Subscription, Bill...) leads the line under the name.
+  function rowButton(r, review) {
     var a = r.acct && acctOf(r.acct);
-    var tags = (r.status === 'detected' ? '<span class="fin-tag fin-tag--review">Found</span>' : '') +
+    var tags = (varies(r) ? '<span class="fin-tag fin-tag--varies" title="The amount changes from ' + (r.pattern === 'month' ? 'month to month' : 'time to time') + '">Varies</span>' : '') +
       (r.status === 'manual' ? '<span class="fin-tag">Added by hand</span>' : '') +
       (r.priceAlert ? '<span class="fin-tag fin-tag--' + (r.priceChange.to > r.priceChange.from ? 'up' : 'down') + '">' + (r.priceChange.to > r.priceChange.from ? Hub.icons.up + 'Went up' : 'Went down') + '</span>' : '') +
-      (r.ended ? '<span class="fin-tag">Stopped?</span>' : '');
-    var sub = [r.ended ? 'last seen ' + day(r.lastDate) : when(r), a ? (a.nick || a.name) : '', r.person ? Fin.ownerName(r.person) : ''].filter(Boolean).join(' · ');
+      (r.chargedAgain ? '<span class="fin-tag fin-tag--up">Charged again</span>' : r.status === 'canceled' ? '<span class="fin-tag">Canceled</span>' : '') +
+      (r.ended && r.status !== 'canceled' ? '<span class="fin-tag">Stopped?</span>' : '');
+    var sub = [review ? KIND[r.kind] : '',
+      r.status === 'canceled' && r.canceledOn ? 'canceled ' + day(r.canceledOn, { month: 'short', day: 'numeric', year: 'numeric' }) : r.ended ? 'last seen ' + day(r.lastDate) : when(r),
+      a ? (a.nick || a.name) : '', r.person ? Fin.ownerName(r.person) : ''].filter(Boolean).join(' · ');
     var right = r.pattern === 'month' ? (r.low && r.high && r.high - r.low >= 500 ? '<span class="fin-acct-sub fin-rc-range">' + money(r.low) + '–' + money(r.high) + '</span>' : '<span class="fin-acct-sub">a month</span>')
       : r.cadence !== 'monthly' ? '<span class="fin-acct-sub">' + Fin.amt(r.monthly) + ' a month</span>' : '';
-    return '<li class="fin-rc-li"><button class="fin-acct" type="button" data-rc="' + esc(r.id) + '">' +
+    return '<button class="fin-acct" type="button" data-rc="' + esc(r.id) + '">' +
       (r.cat ? Fin.catIcon(r.cat) : '<span class="fin-acct-icon" aria-hidden="true">' + esc(String(r.name || '?').replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || '?') + '</span>') +
       '<span class="fin-acct-main"><span class="fin-acct-name">' + esc(r.name) + tags + '</span><span class="fin-acct-sub">' + esc(sub) + '</span></span>' +
       '<span class="fin-acct-right"><span class="fin-acct-bal' + (r.dir === 'in' ? ' fin-tx-amt is-in' : '') + '">' + amountHTML(r) + '</span>' + right + '</span>' +
-      monthProgress(r) +
-    '</button>' +
-    (r.status === 'detected' && reviewing ? '<div class="fin-rc-ask"><span class="fin-muted">Is this a regular ' + (r.dir === 'in' ? 'deposit' : 'charge') + '?</span><button class="btn btn-ghost btn-sm" type="button" data-rc-yes="' + esc(r.id) + '">' + Hub.icons.check + 'Yes</button><button class="btn btn-ghost btn-sm" type="button" data-rc-no="' + esc(r.id) + '">No</button></div>' : '') +
-    '</li>';
+      (review ? '' : monthProgress(r)) +
+    '</button>';
+  }
+  function row(r) { return '<li class="fin-rc-li">' + rowButton(r) + '</li>'; }
+
+  // What the scan found and nobody has looked at yet. "Review and confirm"
+  // opens the list: each with its amount and three answers. Until then
+  // they're left out of the lists and totals below.
+  function foundCard(items) {
+    var found = items.filter(function (r) { return r.status === 'detected' && !r.ended; });
+    if (!found.length) { reviewing = false; return ''; }
+    var deposits = found.some(function (r) { return r.dir === 'in'; });
+    var what = found.length === 1 ? (found[0].dir === 'in' ? 'possible regular deposit' : 'possible recurring charge') : deposits ? 'possible recurring charges and deposits' : 'possible recurring charges';
+    // Biggest first, so rent and the paycheck come before a $2.99 app.
+    found.sort(function (a, b) { return (b.monthly || 0) - (a.monthly || 0); });
+    return '<section class="fin-card fin-found' + (reviewing ? ' is-open' : '') + '"><div class="fin-found-head"><div class="fin-found-text">' + Hub.icons.sparkle +
+      '<span><b>Found ' + found.length + ' ' + what + '</b>' +
+      (reviewing ? '. Confirm the real ones, mark any you’ve already canceled, and dismiss the rest.' : '. They’re left out of the lists below until you look them over.') + '</span></div>' +
+      '<button class="btn ' + (reviewing ? 'btn-ghost' : 'btn-primary') + ' btn-sm" type="button" data-rc-review aria-expanded="' + reviewing + '">' + (reviewing ? 'Close' : Hub.icons.check + 'Review and confirm') + '</button></div>' +
+      (reviewing ? '<ul class="fin-accts fin-rv-list">' + found.map(function (r) {
+        return '<li class="fin-rv">' + rowButton(r, true) +
+          '<div class="fin-rv-acts"><button class="btn btn-primary btn-sm" type="button" data-rc-yes="' + esc(r.id) + '">' + Hub.icons.check + 'Confirm</button>' +
+            (r.dir === 'out' ? '<button class="btn btn-ghost btn-sm" type="button" data-rc-cancel="' + esc(r.id) + '">Canceled</button>' : '') +
+            '<button class="btn btn-ghost btn-sm" type="button" data-rc-no="' + esc(r.id) + '">Not recurring</button></div></li>';
+      }).join('') + '</ul>' : '') + '</section>';
   }
 
-  // What the scan found and nobody has confirmed yet: confirm the lot in one
-  // tap, or go through them one by one (each row then asks "Is this regular?").
-  function foundCard(live) {
-    var found = live.filter(function (r) { return r.status === 'detected'; });
-    if (!found.length) { reviewing = false; return ''; }
-    var what = found.filter(function (r) { return r.dir === 'in'; }).length ? 'regular charges and deposits' : 'regular charges';
-    return '<section class="fin-card fin-found"><div class="fin-found-text">' + Hub.icons.sparkle +
-      '<span><b>Found ' + Hub.plural(found.length, 'item') + '</b> that look like ' + what + '. ' +
-      (reviewing ? 'Confirm or dismiss each one below.' : 'Confirm them all, or go through them one by one.') + '</span></div>' +
-      '<div class="hub-actions"><button class="btn btn-primary btn-sm" type="button" data-rc-all>' + Hub.icons.check + 'Confirm all</button>' +
-        '<button class="btn btn-ghost btn-sm" type="button" data-rc-review>' + (reviewing ? 'Done reviewing' : 'Review one by one') + '</button></div></section>';
+  // Canceled, then charged again: "Still have it" or "Got it".
+  function againAlert(r) {
+    return '<div class="fin-alert fin-alert--split fin-alert--up"><button class="fin-alert-main" type="button" data-rc="' + esc(r.id) + '">' + Hub.icons.up + '<span>' +
+      esc(r.name) + ' charged ' + Fin.amt(r.last || r.amount, { cents: true }) + ' on ' + esc(day(r.lastDate, { month: 'short', day: 'numeric' })) + ', after you marked it canceled on ' + esc(day(r.canceledOn, { month: 'short', day: 'numeric' })) + '.</span></button>' +
+      '<span class="fin-alert-btns"><button class="btn btn-ghost btn-sm" type="button" data-rc-still="' + esc(r.id) + '">Still have it</button>' +
+      '<button class="btn btn-ghost btn-sm" type="button" data-rc-recancel="' + esc(r.id) + '">Got it</button></span></div>';
   }
 
   function section(title, note, items, total, about) {
@@ -147,14 +175,17 @@
 
   function render(view) {
     var items = (Fin.data.recurring || []).filter(shown);
-    var live = items.filter(active);
+    var live = items.filter(listed);
     var subs = live.filter(function (r) { return r.dir === 'out' && r.kind === 'subscription'; });
     var bills = live.filter(function (r) { return r.dir === 'out' && r.kind !== 'subscription'; });
     var income = live.filter(function (r) { return r.dir === 'in'; });
     var sum = function (l) { return l.reduce(function (m, r) { return m + (r.monthly || 0); }, 0); };
-    var stopped = items.filter(function (r) { return r.ended && r.status !== 'ignored'; });
+    var stopped = items.filter(function (r) { return r.ended && r.status !== 'ignored' && r.status !== 'canceled'; });
     var ignored = items.filter(function (r) { return r.status === 'ignored'; });
-    var alerts = live.filter(function (r) { return r.priceAlert; });
+    var canceled = items.filter(function (r) { return r.status === 'canceled'; });
+    var notPaying = sum(canceled.filter(function (r) { return !r.chargedAgain; }));
+    var alerts = items.filter(function (r) { return r.priceAlert && r.status !== 'detected'; });
+    var again = canceled.filter(function (r) { return r.chargedAgain; });
     // Fixed bills first (by date), then the ones that change, biggest first.
     bills.sort(function (a, b) { return (a.pattern === 'month') - (b.pattern === 'month') || (a.pattern === 'month' ? b.amount - a.amount : (a.nextDate || '') < (b.nextDate || '') ? -1 : 1); });
     var byDate = function (a, b) { return (a.nextDate || '9') < (b.nextDate || '9') ? -1 : 1; };
@@ -167,12 +198,12 @@
         (income.length ? '<span>Regular income <b>' + Fin.amt(sum(income)) + '</b> a month</span>' : '') + '</div>' +
         '<div class="hub-actions">' + (Fin.data.recent && Fin.data.recent.length ? '<button class="btn btn-ghost btn-sm" type="button" data-rc-scan>' + Hub.icons.refresh + 'Look again</button>' : '') +
         '<button class="btn btn-primary btn-sm" type="button" data-rc-add>' + Hub.icons.plus + 'Add a bill or income</button></div></div>' +
-      (alerts.length ? '<div class="fin-alerts">' + alerts.map(function (r) {
+      (alerts.length || again.length ? '<div class="fin-alerts">' + again.map(againAlert).join('') + alerts.map(function (r) {
         var up = r.priceChange.to > r.priceChange.from;
         return '<div class="fin-alert fin-alert--split' + (up ? ' fin-alert--up' : '') + '"><button class="fin-alert-main" type="button" data-rc="' + esc(r.id) + '">' + (up ? Hub.icons.up : Hub.icons.check) + '<span>' + priceText(r) + '</span></button>' +
           '<button class="btn btn-ghost btn-sm" type="button" data-rc-seen="' + esc(r.id) + '">Got it</button></div>';
       }).join('') + '</div>' : '') +
-      foundCard(live) +
+      foundCard(items) +
       '<section class="fin-card"><div class="fin-card-head"><h2>Coming up</h2><span class="fin-muted">The next ' + (showMonth ? 30 : 7) + ' days</span></div>' + upcomingHTML(items, showMonth ? 30 : 7) +
         '<button class="fin-link" type="button" data-rc-days>' + (showMonth ? 'Just the next 7 days' : 'Show the next 30 days') + '</button></section>' +
       (items.length ? '' : '<div class="fin-soon"><h2>Nothing found yet</h2><p>Subscriptions show up here after two or three charges at the same price. Bills that change, like power or rent, after about three months. You can add anything by hand, or tap a transaction and choose “Track as recurring”.</p></div>') +
@@ -180,7 +211,8 @@
       section('Bills', 'Fixed ones, and ones that change from month to month.', bills, sum(bills), bills.some(function (r) { return r.variable; })) +
       section('Income', '', income, sum(income)) +
       (items.length ? '<p class="fin-muted fin-rc-tip">Something missing? Tap one of its transactions and choose “Track as recurring”.</p>' : '') +
-      (stopped.length ? '<details class="fin-card fin-hidden-accts"><summary>' + stopped.length + (stopped.length === 1 ? ' seems' : ' seem') + ' to have stopped</summary><ul class="fin-accts">' + stopped.map(row).join('') + '</ul></details>' : '') +
+      (canceled.length ? '<details class="fin-card fin-hidden-accts"' + (again.length ? ' open' : '') + '><summary>Canceled (' + canceled.length + ')' + (notPaying ? ' · ' + Fin.amt(notPaying) + ' a month you’re no longer paying' : '') + '</summary><ul class="fin-accts">' + canceled.map(row).join('') + '</ul></details>' : '') +
+      (stopped.length ? '<details class="fin-card fin-hidden-accts"><summary>' + stopped.length + (stopped.length === 1 ? ' seems' : ' seem') + ' to have stopped</summary><p class="fin-muted fin-rc-note">No charge lately. Open one to mark it canceled, or leave it: it comes back if it’s charged again.</p><ul class="fin-accts">' + stopped.map(row).join('') + '</ul></details>' : '') +
       (ignored.length ? '<details class="fin-card fin-hidden-accts"><summary>' + ignored.length + ' marked not recurring</summary><ul class="fin-accts">' + ignored.map(row).join('') + '</ul></details>' : '');
 
     Fin.ensureRecurring();
@@ -228,6 +260,8 @@
         '<span class="fin-muted">' + esc(when(r, true)) + (month && r.low && r.high && r.high - r.low >= 500 ? ' · ' + money(r.low) + '–' + money(r.high) + ' most months' : '') +
           (!month && r.cadence !== 'monthly' ? ' · ' + Fin.amt(r.monthly) + ' a month' : '') + ' · ' + Fin.amt(r.monthly * 12) + ' a year</span></div>' +
       (r.priceAlert ? '<div class="fin-rc-price"><span>' + priceText(r) + '</span><button class="btn btn-ghost btn-sm" type="button" data-rc-seen>Got it</button></div>' : '') +
+      (r.chargedAgain ? '<div class="fin-rc-price"><span>Charged ' + Fin.amt(r.last || r.amount, { cents: true }) + ' on ' + esc(day(r.lastDate, { month: 'short', day: 'numeric' })) + ', after you marked it canceled on ' + esc(day(r.canceledOn, { month: 'short', day: 'numeric' })) + '.</span><button class="btn btn-ghost btn-sm" type="button" data-rc-recancel>Got it</button></div>'
+        : r.status === 'canceled' ? '<p class="fin-rc-canceled">' + Hub.icons.check + '<span>Marked canceled on ' + esc(day(r.canceledOn, { month: 'long', day: 'numeric', year: 'numeric' })) + '. It’s left out of the totals and “Coming up”, and you’ll see an alert here if it’s charged again.</span></p>' : '') +
       (month ? (monthProgress(r, true) ? '<div class="fin-rc-now">' + monthProgress(r, true) + '</div>' : '') + historyHTML(r) : '') +
       '<form class="fin-tx-form" data-rcform>' +
         '<label class="field"><span>Name</span><input class="input" name="name" maxlength="60" value="' + esc(r.name) + '" /></label>' +
@@ -236,13 +270,15 @@
         (manual ? '<label class="field"><span>Next date</span><input class="input" type="date" name="nextDate" value="' + esc(r.nextDate || Fin.data.today) + '" /></label>' : '') +
         (r.dir === 'in' ? '<label class="field"><span>Whose</span><select name="person">' + people.map(function (p) { return '<option value="' + esc(p[0]) + '"' + ((r.person || '') === p[0] ? ' selected' : '') + '>' + esc(p[1]) + '</option>'; }).join('') + '</select></label>' : '') +
         '<label class="field"><span>Note</span><input class="input" name="note" maxlength="300" value="' + esc(r.note || '') + '" placeholder="Optional" /></label>' +
-        '<div class="fin-drawer-actions"><button class="btn btn-primary btn-sm" type="submit">Save</button>' +
+        '<div class="fin-drawer-actions"><button class="btn btn-primary btn-sm" type="submit">' + (r.status === 'detected' ? Hub.icons.check + 'Confirm' : 'Save') + '</button>' +
           (r.status === 'ignored' ? '<button class="btn btn-ghost btn-sm" type="button" data-rc-restore>Put it back</button>'
+            : r.status === 'canceled' ? '<button class="btn btn-ghost btn-sm" type="button" data-rc-restore>Still have it</button>'
             : manual ? '<button class="btn btn-danger btn-sm" type="button" data-rc-del>' + Hub.icons.trash + 'Delete</button>'
-            : '<button class="btn btn-ghost btn-sm" type="button" data-rc-ignore>Not recurring</button>') + '</div>' +
+            : (r.dir === 'out' ? '<button class="btn btn-ghost btn-sm" type="button" data-rc-cancel>Mark canceled</button>' : '') +
+              '<button class="btn btn-ghost btn-sm" type="button" data-rc-ignore>Not recurring</button>') + '</div>' +
       '</form>' +
       '<dl class="fin-facts">' +
-        (r.nextDate && !r.ended && !month ? '<div><dt>Next</dt><dd>' + esc(day(r.nextDate, { weekday: 'long', month: 'long', day: 'numeric' })) + '</dd></div>' : '') +
+        (r.nextDate && Fin.rcLive(r) && !month ? '<div><dt>Next</dt><dd>' + esc(day(r.nextDate, { weekday: 'long', month: 'long', day: 'numeric' })) + '</dd></div>' : '') +
         (r.lastDate ? '<div><dt>Last paid</dt><dd>' + esc(day(r.lastDate, { month: 'long', day: 'numeric', year: 'numeric' })) + (r.last ? ', ' + Fin.amt(r.last, { cents: true }) : '') + '</dd></div>' : '') +
         prices.map(function (p, i) { return '<div><dt>' + (i ? 'Before that' : 'Price now') + '</dt><dd>' + Fin.amt(p.amount, { cents: true }) + ', since ' + esc(day(p.since, { month: 'long', year: 'numeric' })) + '</dd></div>'; }).join('') +
         (r.count && !month ? '<div><dt>Seen</dt><dd>' + esc(Hub.plural(r.count, 'time')) + ' in the last 14 months</dd></div>' : '') +
@@ -266,7 +302,11 @@
     var ig = $('[data-rc-ignore]', body);
     if (ig) ig.addEventListener('click', function () { act(r.id, 'ignore').then(function () { Fin.closeDrawer(); Hub.toast('Marked not recurring'); }).catch(function (e) { Hub.toast(e.message, true); }); });
     var re = $('[data-rc-restore]', body);
-    if (re) re.addEventListener('click', function () { act(r.id, 'restore').then(function () { Fin.closeDrawer(); Hub.toast('Put back'); }).catch(function (e) { Hub.toast(e.message, true); }); });
+    if (re) re.addEventListener('click', function () { var was = r.status; act(r.id, 'restore').then(function () { Fin.closeDrawer(); Hub.toast(was === 'canceled' ? 'Back on the list' : 'Put back'); }).catch(function (e) { Hub.toast(e.message, true); }); });
+    var cn = $('[data-rc-cancel]', body);
+    if (cn) cn.addEventListener('click', function () { act(r.id, 'cancel').then(function () { Fin.closeDrawer(); Hub.toast('Marked canceled'); }).catch(function (e) { Hub.toast(e.message, true); }); });
+    var rc = $('[data-rc-recancel]', body);
+    if (rc) rc.addEventListener('click', function () { act(r.id, 'cancel').then(function () { Hub.toast('Got it'); }).catch(function (e) { Hub.toast(e.message, true); }); });
     var del = $('[data-rc-del]', body);
     if (del) del.addEventListener('click', function () {
       Hub.confirm({ title: 'Delete “' + r.name + '”?', danger: true, confirm: 'Delete' }).then(function (yes) {
@@ -324,18 +364,23 @@
   document.addEventListener('click', function (e) {
     var view = $('#view');
     if (!view || !view.contains(e.target) || !Fin.at('recurring')) return;
-    var t = e.target.closest('[data-rc],[data-rc-yes],[data-rc-no],[data-rc-scan],[data-rc-add],[data-rc-all],[data-rc-review],[data-rc-days],[data-rc-seen]');
+    var t = e.target.closest('[data-rc],[data-rc-yes],[data-rc-no],[data-rc-cancel],[data-rc-still],[data-rc-recancel],[data-rc-scan],[data-rc-add],[data-rc-review],[data-rc-days],[data-rc-seen]');
     if (!t) return;
-    if (t.hasAttribute('data-rc-all')) {
-      t.disabled = true;
-      Fin.save('fin-recurring', { body: { action: 'confirm-all' } }).then(function () { reviewing = false; Hub.toast('All confirmed'); })
-        .catch(function (er) { Hub.toast(er.message, true); t.disabled = false; });
+    // A one-tap answer: its row's buttons wait until the page redraws.
+    function answer(id, action, msg) {
+      var li = t.closest('li,.fin-alert');
+      $$('button', li || t).forEach(function (b) { b.disabled = true; });
+      act(id, action).then(function () { if (msg) Hub.toast(msg); })
+        .catch(function (er) { Hub.toast(er.message, true); $$('button', li || t).forEach(function (b) { b.disabled = false; }); });
     }
-    else if (t.hasAttribute('data-rc-seen')) { t.disabled = true; act(t.getAttribute('data-rc-seen'), 'price-ok').catch(function (er) { Hub.toast(er.message, true); t.disabled = false; }); }
+    if (t.hasAttribute('data-rc-seen')) answer(t.getAttribute('data-rc-seen'), 'price-ok');
     else if (t.hasAttribute('data-rc-review')) { reviewing = !reviewing; Fin.rerender(); }
     else if (t.hasAttribute('data-rc-days')) { showMonth = !showMonth; Fin.rerender(); }
-    else if (t.hasAttribute('data-rc-yes')) act(t.getAttribute('data-rc-yes'), 'confirm').then(function () { Hub.toast('Got it'); }).catch(function (er) { Hub.toast(er.message, true); });
-    else if (t.hasAttribute('data-rc-no')) act(t.getAttribute('data-rc-no'), 'ignore').then(function () { Hub.toast('Marked not recurring'); }).catch(function (er) { Hub.toast(er.message, true); });
+    else if (t.hasAttribute('data-rc-yes')) answer(t.getAttribute('data-rc-yes'), 'confirm', 'Confirmed');
+    else if (t.hasAttribute('data-rc-cancel')) answer(t.getAttribute('data-rc-cancel'), 'cancel', 'Marked canceled');
+    else if (t.hasAttribute('data-rc-no')) answer(t.getAttribute('data-rc-no'), 'ignore', 'Marked not recurring');
+    else if (t.hasAttribute('data-rc-still')) answer(t.getAttribute('data-rc-still'), 'restore', 'Back on the list');
+    else if (t.hasAttribute('data-rc-recancel')) answer(t.getAttribute('data-rc-recancel'), 'cancel', 'Got it');
     else if (t.hasAttribute('data-rc-scan')) scan(t);
     else if (t.hasAttribute('data-rc-add')) addForm();
     else openItem(t.getAttribute('data-rc'));

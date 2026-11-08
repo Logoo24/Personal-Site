@@ -176,6 +176,8 @@
     person: 'all',
     TYPES: TYPES, CAT_GROUPS: CAT_GROUPS, catLook: catLook, catIcon: catIcon, niceName: niceName, bankIcon: bankIcon, instOf: instOf, money: money, amt: amt, amtText: amtText, amountsHidden: function () { return document.body.classList.contains('fin-hidden'); }, moneyInput: moneyInput, parseMoney: parseMoney, signed: signed, sideOf: sideOf,
     dayKey: dayKey, monthKey: monthKey, monthDate: monthDate, ago: ago,
+    // A recurring item still being paid: not dismissed, canceled or stopped.
+    rcLive: function (r) { return r.status !== 'ignored' && r.status !== 'canceled' && !r.ended; },
     tab: function (id, render) { renderers[id] = render; },
     // Calls a route that answers with a fresh summary, then redraws.
     save: function (r, opts) {
@@ -400,7 +402,7 @@
     var d = Fin.data;
     var counts = {
       transactions: d.toReview || 0,
-      recurring: (d.recurring || []).filter(function (r) { return (r.status === 'detected' && !r.ended) || r.priceAlert; }).length,
+      recurring: (d.recurring || []).filter(function (r) { return (r.status === 'detected' && !r.ended) || r.priceAlert || r.chargedAgain; }).length,
       accounts: (d.items || []).filter(function (i) { return i.status === 'reconnect'; }).length
     };
     $$('[data-badge]').forEach(function (b) {

@@ -19,7 +19,10 @@
 // banking words dropped ("SPOTIFY P2C4F81A9E" and "SPOTIFY P8D2..." are one).
 // The family confirms or dismisses what's found, can add their own (rent by
 // check), and can ask for any transaction's merchant to be tracked ("Track
-// as recurring", a pinned item: always shown, from whatever's there). A scan
+// as recurring", a pinned item: always shown, from whatever's there). A
+// subscription or bill they've stopped paying can be marked canceled
+// (canceledOn): it leaves the totals and "Coming up", and if it's charged
+// again more than 3 days later, chargedAgain says so. A scan
 // keeps those decisions, names, amounts and "whose" choices; it refreshes
 // the numbers. Scans match items to last time's by shared transactions
 // (txIds), then by key, so a price change or a sliding window keeps the id.
@@ -28,7 +31,7 @@
 //   cat, acct, kind: subscription|bill|paycheck|income, cadence, amount
 //   (cents, positive: the price now, or the usual month), variable, last,
 //   lastDate, nextDate, days (usual days of the month), count, ended,
-//   status: detected|confirmed|ignored|manual, txIds, priceChange { from,
+//   status: detected|confirmed|ignored|canceled|manual, canceledOn, txIds, priceChange { from,
 //   to, date }, prices [{ amount, since }], (month) low, high, parts,
 //   thisMonth, thisMonthCount, thisMonthKey, history [{ m, total }],
 //   custom fields... }
@@ -41,6 +44,8 @@ import { financeEmails } from '../session.js';
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
 const SCAN_MONTHS = 14;
+// Still being paid: not dismissed, not canceled, not stopped.
+export const isLive = r => r.status !== 'ignored' && r.status !== 'canceled' && !r.ended;
 export const CADENCES = {
   weekly: { days: 7, perMonth: 52 / 12, min: 4, grace: 14, window: [5, 9], label: 'Every week' },
   biweekly: { days: 14, perMonth: 26 / 12, min: 3, grace: 24, window: [12, 16], label: 'Every 2 weeks' },
@@ -378,7 +383,7 @@ function monthItem(g, m, base, today) {
 
 // Reads the last 14 months, finds the series and merges them into
 // state.recurring, keeping the family's decisions and edits.
-const USER_FIELDS = ['status', 'customName', 'customAmount', 'customCadence', 'person', 'note', 'priceSeen', 'pinned'];
+const USER_FIELDS = ['status', 'canceledOn', 'customName', 'customAmount', 'customCadence', 'person', 'note', 'priceSeen', 'pinned'];
 export async function scanRecurring() {
   const today = familyDay(), cur = today.slice(0, 7);
   const months = [];
@@ -474,7 +479,10 @@ export function view(r, today) {
   } else if (r.status === 'manual' || r.customCadence) v.nextDate = r.nextDate && r.nextDate > addDays(today, -1) ? r.nextDate : nextAfter(v, addDays(today, -1));
   v.monthly = Math.round(v.amount * cadenceOrMonthly(cadence).perMonth);
   // A price change worth mentioning: in the last 90 days, and not yet seen.
-  v.priceAlert = !!(r.priceChange && r.priceSeen !== r.priceChange.date && !r.ended && r.status !== 'ignored' && gap(r.priceChange.date, today) <= 90);
+  v.priceAlert = !!(r.priceChange && r.priceSeen !== r.priceChange.date && isLive(r) && gap(r.priceChange.date, today) <= 90);
+  // Canceled, then charged again (a few days' grace for a charge that was
+  // already on its way when it was canceled).
+  v.chargedAgain = !!(r.status === 'canceled' && r.canceledOn && r.lastDate && gap(r.canceledOn, r.lastDate) > 3);
   return v;
 }
 
@@ -492,7 +500,7 @@ export function upcoming(state, viewer, days = 30) {
   const today = familyDay(), end = addDays(today, days);
   const out = [];
   for (const r of visibleRecurring(state, viewer)) {
-    if (r.status === 'ignored' || r.ended) continue;
+    if (!isLive(r)) continue;
     const entry = { id: r.id, name: r.name, dir: r.dir, kind: r.kind, acct: r.acct, status: r.status, variable: r.variable };
     if (r.pattern === 'month') {
       for (const d of monthDue(r, today, end)) out.push({ ...entry, ...d });
@@ -521,7 +529,7 @@ export function upcoming(state, viewer, days = 30) {
 }
 
 /* ---------- the family's changes ---------- */
-// input: { action: confirm|ignore|restore|edit|add|delete|price-ok|confirm-all, id, ...fields }
+// input: { action: confirm|ignore|cancel|restore|edit|add|delete|price-ok, id, ...fields }
 export function changeRecurring(input, state, viewer) {
   input = input || {};
   const cats = new Set((state.categories || []).map(c => c.id));
@@ -563,17 +571,21 @@ export function changeRecurring(input, state, viewer) {
       s.recurring.push(r);
       return;
     }
-    // Everything found that the viewer can see, confirmed in one save.
-    if (input.action === 'confirm-all') {
-      for (const x of s.recurring) if (visible.has(x.id) && x.status === 'detected' && !x.ended) x.status = 'confirmed';
-      return;
-    }
     const r = s.recurring.find(x => x.id === input.id);
     if (!r || !visible.has(r.id)) throw fail(404, 'That wasn’t found.');
     switch (input.action) {
-      case 'confirm': r.status = 'confirmed'; break;
-      case 'ignore': r.status = 'ignored'; delete r.pinned; break;
-      case 'restore': r.status = 'detected'; break;
+      case 'confirm': r.status = 'confirmed'; delete r.canceledOn; break;
+      case 'ignore': r.status = 'ignored'; delete r.pinned; delete r.canceledOn; break;
+      // Canceled today. Again on one that was charged after canceling:
+      // "Got it", counting from today.
+      case 'cancel':
+        if (r.dir !== 'out') throw fail(400, 'Only charges can be canceled.');
+        if (r.status === 'manual') throw fail(400, 'One you added can just be deleted.');
+        r.status = 'canceled'; r.canceledOn = today;
+        break;
+      // Back from canceled ("Still have it"): confirmed. Back from "Not
+      // recurring": found again, to confirm.
+      case 'restore': r.status = r.status === 'canceled' ? 'confirmed' : 'detected'; delete r.canceledOn; break;
       case 'price-ok': if (r.priceChange) r.priceSeen = r.priceChange.date; break;
       case 'delete':
         if (r.status !== 'manual') throw fail(400, 'Only ones you added can be deleted. Use “Not recurring” instead.');

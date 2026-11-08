@@ -35,7 +35,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { readSecure, writeSecure, updateSecure } from './vault.js';
 import { visibleAccounts, familyDay, addMonths, loadSnapshots, peopleList, canSee } from './data.js';
 import { reportData } from './transactions.js';
-import { visibleRecurring } from './recurring.js';
+import { visibleRecurring, isLive } from './recurring.js';
 import { visibleGoals } from './plan.js';
 import { HOLDINGS } from './sync.js';
 import { YEAR, LIMITS, FIGURES, REFERENCE, FILING } from './knowledge.js';
@@ -118,7 +118,7 @@ export async function computeFacts(state, viewer) {
   const hasPaycheck = data.rows.some(r => r.c === 'paycheck');
 
   // Recurring: subscriptions and recent price rises.
-  const rec = visibleRecurring(state, viewer).filter(r => r.status !== 'ignored' && !r.ended && r.dir === 'out');
+  const rec = visibleRecurring(state, viewer).filter(r => isLive(r) && r.dir === 'out');
   const subs = rec.filter(r => r.kind === 'subscription');
 
   // Budgets this month and last.
