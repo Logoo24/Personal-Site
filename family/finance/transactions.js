@@ -56,6 +56,9 @@
     return Hub.api('fin-review').then(function (d) { reviewCache = d.transactions; return d.transactions; });
   }
   Fin.invalidateTx = function () { cache = {}; reviewCache = null; everyMonth = null; };
+  // Reports' "move to another category" drawer shares the month cache and the category list.
+  Fin.txMonth = load;
+  Fin.catOptions = catOptions;
 
   function filtered(list) {
     var q = f.q.trim().toLowerCase();

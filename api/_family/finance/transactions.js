@@ -265,7 +265,9 @@ export async function reportData(state, viewer, n = 24) {
       r.n++;
       byCat.set(k, r);
       if (isTransferCat(state, t.cat)) continue;
-      const mk = t.acct + '|' + t.name;
+      // Per category too, so a merchant split across two (Costco: groceries
+      // and gas) counts in each, and Category trend's merchant list is exact.
+      const mk = t.acct + '|' + t.name + '|' + (t.cat || '');
       const mm = byMerch.get(mk) || { m, a: t.acct, name: t.name, c: t.cat || null, i: 0, o: 0, n: 0, last: t.date };
       if (t.amt > 0) mm.i += t.amt; else mm.o -= t.amt;
       mm.n++;

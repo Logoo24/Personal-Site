@@ -123,12 +123,13 @@
     });
     return by;
   }
-  function merchantsIn(months) {
+  // byCat: a merchant in two categories is two entries (Category trend).
+  function merchantsIn(months, byCat) {
     var set = {}, by = {};
     months.forEach(function (m) { set[m] = 1; });
     data.merchants.forEach(function (x) {
       if (!set[x.m] || !acctOk(x.a)) return;
-      var k = x.name;
+      var k = byCat ? x.name + '|' + (x.c || '') : x.name;
       var o = by[k] || (by[k] = { name: x.name, c: x.c, o: 0, i: 0, n: 0, last: x.last });
       o.o += x.o; o.i += x.i; o.n += x.n;
       if (x.last > o.last) o.last = x.last;
@@ -243,21 +244,89 @@
     var avg3 = per.map(function (v, i) { var s = per.slice(Math.max(0, i - 2), i + 1); return Math.round(s.reduce(function (a, b) { return a + b; }, 0) / s.length); });
     var mean = per.reduce(function (a, b) { return a + b; }, 0) / per.length;
     var maxI = per.indexOf(Math.max.apply(null, per));
-    var merch = merchantsIn(months).filter(function (x) { return (x.c || '') === ui.cat && x.o > 0; }).sort(function (a, b) { return b.o - a.o; }).slice(0, 8);
+    var merch = merchantsIn(months, true).filter(function (x) { return (x.c || '') === ui.cat && x.o > 0; }).sort(function (a, b) { return b.o - a.o; }).slice(0, 8);
     box.innerHTML = '<div class="fin-report-pick"><label class="field"><span>Category</span><select data-pick-cat>' + choices.map(function (e) {
       return '<option value="' + esc(e[0]) + '"' + (e[0] === ui.cat ? ' selected' : '') + '>' + esc(catName(e[0] || null)) + '</option>';
     }).join('') + '</select></label></div>' +
       '<div class="fin-row fin-row--3">' + tile('A month, on average', Fin.amt(mean)) + tile('Highest month', Fin.amt(per[maxI]), esc(monthLabel(months[maxI], true))) +
         tile('This month so far', Fin.amt(per[per.length - 1]), months[months.length - 1] === Fin.data.today.slice(0, 7) ? 'and counting' : '') + '</div>' +
       card(catName(ui.cat || null) + ' each month', '<div data-c="trend"></div>') +
-      (merch.length ? card('Where it went', '<div data-c="merch"></div>') : '');
+      (merch.length ? card('Where it went', '<p class="fin-muted fin-flow-note">Tap a merchant to see its transactions, or to move them to another category.</p><div data-c="merch"></div>') : '');
     FinCharts.bars($('[data-c="trend"]', box), {
       labels: months.map(function (m) { return monthLabel(m); }), titles: titlesFor(months), partial: partialAt(months),
       series: [{ name: catName(ui.cat || null), color: 'var(--fc-1)', values: per }],
       line: { name: '3-month average', color: 'var(--text)', values: avg3 },
       format: fmt, axisFormat: axis, height: 260, ariaLabel: catName(ui.cat || null) + ' spending each month, with a 3-month average'
     });
-    if (merch.length) FinCharts.hbars($('[data-c="merch"]', box), { rows: merch.map(function (x) { return { label: x.name, value: x.o, sub: Hub.plural(x.n, 'visit') }; }), format: fmt, color: 'var(--fc-1)', ariaLabel: 'Biggest merchants in this category' });
+    if (merch.length) FinCharts.hbars($('[data-c="merch"]', box), { rows: merch.map(function (x) { return { key: x.name, label: x.name, value: x.o, sub: Hub.plural(x.n, 'visit') }; }), attr: 'data-merch', format: fmt, color: 'var(--fc-1)', ariaLabel: 'Biggest merchants in this category. Tap one to see or move its transactions' });
+  }
+
+  // A merchant under "Where it went": its transactions in this category and
+  // period, all ticked, to move to another category at once (untick any that
+  // belong where they are), with an optional "Always put X here" rule. The
+  // months come from the report's own merchant totals, so only those load.
+  function openMerchant(name) {
+    var months = periodMonths(), from = ui.cat || null, set = {};
+    data.merchants.forEach(function (x) {
+      if (x.name === name && (x.c || null) === from && acctOk(x.a) && months.indexOf(x.m) >= 0) set[x.m] = 1;
+    });
+    var nice = Fin.niceName(name);
+    var body = Fin.openDrawer(nice, '<p class="hub-loading">Loading its transactions…</p>');
+    Promise.all(Object.keys(set).map(function (m) {
+      return Fin.txMonth(m).then(function (list) { return list.map(function (t) { return Object.assign({ month: m }, t); }); });
+    })).then(function (lists) {
+      var txs = [].concat.apply([], lists).filter(function (t) {
+        return t.name === name && (t.cat || null) === from && !t.hidden && !t.pending && acctOk(t.acct);
+      }).sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; }).slice(0, 500);
+      if (!$('#drawer').classList.contains('open') || $('#drawer-body') !== body) return;
+      if (!txs.length) { body.innerHTML = '<p class="fin-muted">Its transactions have moved since this report loaded.</p>'; return; }
+      var acct = function (id) { var a = Fin.data.accounts.filter(function (x) { return x.id === id; })[0]; return a ? (a.nick || a.name) + (a.mask ? ' ••' + a.mask : '') : 'Account'; };
+      var day = function (d) { return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: d.slice(0, 4) !== Fin.data.today.slice(0, 4) ? 'numeric' : undefined }); };
+      body.innerHTML =
+        '<p class="fin-muted">' + esc(Hub.plural(txs.length, 'transaction') + ' in ' + catName(from) + ', ' + (ui.period === 'custom' ? periodLabel() : periodLabel().charAt(0).toLowerCase() + periodLabel().slice(1))) + '. Untick any that belong where they are.</p>' +
+        '<form class="fin-tx-form" data-mvform>' +
+          '<label class="field"><span>Move to</span><select name="cat">' + Fin.catOptions('', 'Pick a category', true) + '</select></label>' +
+          '<label class="cf-check"><input type="checkbox" name="rule" /> <span>Always put ' + esc(nice) + ' there</span></label>' +
+          (txs.length > 1 ? '<div class="fin-mv-head"><span class="fin-label">Which ones</span><button class="btn btn-ghost btn-sm" type="button" data-mv-all>Untick all</button></div>' : '') +
+          '<ul class="fin-mv-list">' + txs.map(function (t, i) {
+            return '<li><label class="fin-mv"><input type="checkbox" name="tx" value="' + i + '" checked />' +
+              '<span class="fin-mv-main"><span>' + esc(day(t.date)) + '</span><span class="fin-acct-sub">' + esc(acct(t.acct)) + '</span></span>' +
+              '<span class="fin-mv-amt">' + Fin.amt(t.amt, { cents: true, sign: true }) + '</span></label></li>';
+          }).join('') + '</ul>' +
+          // Stays in view at the bottom while a long list scrolls.
+          '<div class="fin-drawer-actions fin-mv-actions"><button class="btn btn-primary btn-sm" type="submit" disabled>' + Hub.icons.check + '<span data-mv-label>Move</span></button></div>' +
+        '</form>';
+      var form = $('[data-mvform]', body), el = form.elements, btn = $('[type="submit"]', form);
+      // The category it's in now can't be picked.
+      $$('option', el.cat).forEach(function (o) { if (o.value && o.value === from) { o.disabled = true; o.textContent += ' (now)'; } });
+      var ticked = function () { return $$('input[name="tx"]', form).filter(function (b) { return b.checked; }).map(function (b) { return txs[+b.value]; }); };
+      var all = $('[data-mv-all]', form);
+      var sync = function () {
+        var n = ticked().length;
+        $('[data-mv-label]', form).textContent = n ? 'Move ' + Hub.plural(n, 'transaction') : 'Tick one to move';
+        btn.disabled = !n || !el.cat.value;
+        if (all) all.textContent = n ? 'Untick all' : 'Tick all';
+      };
+      form.addEventListener('change', sync);
+      if (all) all.addEventListener('click', function () {
+        var on = !ticked().length;
+        $$('input[name="tx"]', form).forEach(function (b) { b.checked = on; });
+        sync();
+      });
+      sync();
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var picked = ticked(), to = el.cat.value;
+        if (!picked.length || !to) return;
+        var payload = { edits: picked.map(function (t) { return { id: t.id, month: t.month, cat: to }; }) };
+        if (el.rule.checked) payload.rule = { id: picked[0].id, month: picked[0].month, cat: to };
+        $$('button, input, select', form).forEach(function (b) { b.disabled = true; });
+        Hub.api('fin-tx-edit', { body: payload }).then(function (d) {
+          Fin.invalidateTx(); Fin.closeDrawer(); Fin.apply(d);
+          Hub.toast('Moved ' + Hub.plural(picked.length, 'transaction') + ' to ' + catName(to) + (payload.rule ? ', and the rule is set' : ''));
+        }).catch(function (err) { Hub.toast(err.message, true); $$('button, input, select', form).forEach(function (b) { b.disabled = false; }); sync(); });
+      });
+    }).catch(function (e) { body.innerHTML = '<p class="fin-muted">Couldn’t load its transactions: ' + esc(e.message) + '</p>'; });
   }
 
   /* ---------- 4. income ---------- */
@@ -552,9 +621,10 @@
   Fin.tab('reports', render);
   document.addEventListener('click', function (e) {
     if (!Fin.at('reports')) return;
-    var t = e.target.closest('[data-trend],[data-strategy] [data-v],[data-print]');
+    var t = e.target.closest('[data-trend],[data-merch],[data-strategy] [data-v],[data-print]');
     if (!t || !$('#view').contains(t)) return;
     if (t.hasAttribute('data-print')) return window.print();
+    if (t.hasAttribute('data-merch')) return openMerchant(t.getAttribute('data-merch'));
     if (t.hasAttribute('data-trend')) { setReport('trend'); ui.cat = t.getAttribute('data-trend'); return Fin.rerender(); }
     if (t.hasAttribute('data-v')) { ui.strategy = t.getAttribute('data-v'); return Fin.rerender(); }
   });

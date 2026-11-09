@@ -536,6 +536,16 @@
 .fin-report > * + * { margin-top: 1.25rem; }
 .fin-report-pick { max-width: 320px; }
 .fin-flow-note { margin: -0.4rem 0 0.9rem; }
+/* Category trend: a merchant's transactions, ticked to move to another category. */
+.fin-mv-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: -0.5rem; }
+.fin-mv-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.fin-mv-actions { position: sticky; bottom: -2rem; margin: -0.9rem 0 -2rem; padding: 0.8rem 0 2rem; background: var(--hub-surface); box-shadow: 0 -1px 0 var(--line); }
+.fin-mv-list li { border-bottom: 1px solid var(--line); }
+.fin-mv { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.75rem; padding: 0.6rem 0.1rem; cursor: pointer; }
+.fin-mv input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
+.fin-mv-main { display: grid; min-width: 0; font-size: 0.92rem; }
+.fin-mv-amt { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.92rem; }
+@media (pointer: coarse) { .fin-mv input { width: 22px; height: 22px; } }
 .fin-table-wrap { overflow-x: auto; }
 .fin-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .fin-table th, .fin-table td { padding: 0.55rem 0.6rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
