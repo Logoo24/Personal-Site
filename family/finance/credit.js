@@ -105,7 +105,8 @@
     view.innerHTML =
       (reminder ? '<div class="fin-alerts"><button class="fin-alert" type="button" data-score-add="' + esc(me) + '">' + Hub.icons.plus + '<span>' + esc(reminder) + ' Add it now, typed or from a screenshot.</span>' + Hub.icons.right + '</button></div>' : '') +
       '<div class="fin-row">' + shown.map(personCard).join('') + '</div>' +
-      '<section class="fin-card"><div class="fin-card-head"><h2>Over time</h2></div><div data-credit-chart></div></section>' +
+      '<section class="fin-card"><div class="fin-card-head"><h2>Over time</h2>' +
+        '<button class="btn btn-ghost btn-sm" type="button" data-score-paste="' + esc(shown.length === 1 ? shown[0].email : me) + '">' + Hub.icons.list + 'Paste a history</button></div><div data-credit-chart></div></section>' +
       utilization() +
       (hist.length ? '<section class="fin-card"><div class="fin-card-head"><h2>Every score</h2>' + (hist.length > 5 ? '<span class="fin-muted">' + (allScores ? hist.length : 'The latest 5 of ' + hist.length) + '</span>' : '') + '</div>' +
         '<div class="fin-table-wrap"><table class="fin-table fin-scores"><thead><tr><th>Date</th><th>Whose</th><th class="num">Score</th><th>Model</th><th>From</th></tr></thead><tbody>' +
@@ -130,7 +131,8 @@
     var m = document.createElement('div');
     m.className = 'hub-modal';
     m.innerHTML = '<div class="hub-modal-box cal-form" role="dialog" aria-modal="true" aria-labelledby="cs-title"><h3 id="cs-title">' + (entry ? 'Edit score' : 'Add a credit score') + '</h3>' +
-      (entry ? '' : '<label class="fin-shot"><input type="file" accept="image/*" data-shot hidden />' + Hub.icons.image + '<span><b>Read it from a screenshot</b><small>Of your bank or card app, or Credit Karma. The picture isn’t kept.</small></span></label>') +
+      (entry ? '' : '<label class="fin-shot"><input type="file" accept="image/*" data-shot hidden />' + Hub.icons.image + '<span><b>Read it from a screenshot</b><small>Of your bank or card app, or Credit Karma. The picture isn’t kept.</small></span></label>' +
+        '<button class="fin-shot fin-shot--paste" type="button" data-to-paste>' + Hub.icons.list + '<span><b>Paste your whole history</b><small>Every past score at once, copied from Credit Karma, your bank or a spreadsheet.</small></span></button>') +
       '<form novalidate><p class="fin-muted" data-shot-note hidden></p>' +
       '<div class="cf-row"><label class="field"><span>Whose</span><select name="person">' + people().map(function (p) { return '<option value="' + esc(p.email) + '">' + esc(p.name) + '</option>'; }).join('') + '</select></label>' +
       '<label class="field"><span>Score</span><input class="input" name="score" inputmode="numeric" placeholder="740" maxlength="3" /></label></div>' +
@@ -157,6 +159,9 @@
     m.addEventListener('click', function (e) { if (e.target === m) close(); });
     $('[data-cancel]', m).addEventListener('click', close);
     document.addEventListener('keydown', onKey);
+
+    var toPaste = $('[data-to-paste]', m);
+    if (toPaste) toPaste.addEventListener('click', function () { var who = el.person.value; close(); pasteForm(who); });
 
     var shot = $('[data-shot]', m);
     if (shot) shot.addEventListener('change', function () {
@@ -190,14 +195,112 @@
     el.score.focus();
   }
 
+  /* ---------- paste a whole history: read it, look it over, add it ---------- */
+  // Already saved for this person? Same rule as the server: same date and
+  // score, and the same bureau when both say one.
+  function alreadySaved(person, e) {
+    return scoresOf(person).some(function (c) {
+      return c.date === e.date && c.score === e.score && (!c.bureau || !e.bureau || c.bureau === e.bureau);
+    });
+  }
+
+  function pasteForm(person) {
+    var me = Fin.data.viewer.email, found = [];
+    var m = document.createElement('div');
+    m.className = 'hub-modal';
+    m.innerHTML = '<div class="hub-modal-box cal-form fin-paste" role="dialog" aria-modal="true" aria-labelledby="cp-title"><h3 id="cp-title">Paste a score history</h3>' +
+      '<form novalidate data-step="paste">' +
+        '<p class="fin-muted">Copy your score history from Credit Karma, your bank or card app, or a spreadsheet, and paste it here. Dates and scores are all it needs. Claude reads the text to find the scores; it isn’t kept.</p>' +
+        '<div class="cf-row"><label class="field"><span>Whose</span><select name="person">' + people().map(function (p) { return '<option value="' + esc(p.email) + '">' + esc(p.name) + '</option>'; }).join('') + '</select></label></div>' +
+        '<label class="field"><span>Score history</span><textarea name="text" rows="9" spellcheck="false" placeholder="Nov 3, 2026    742&#10;Oct 27, 2026    739&#10;Oct 20, 2026    741&#10;…"></textarea></label>' +
+        '<label class="cf-check"><input type="checkbox" name="private" /> Only me</label>' +
+        '<p class="cf-error" role="alert" hidden></p>' +
+        '<div class="hub-modal-actions"><button class="btn btn-ghost" type="button" data-cancel>Cancel</button><button class="btn btn-primary" type="submit">Find scores</button></div>' +
+      '</form>' +
+      '<div data-step="review" hidden></div></div>';
+    var form = $('form', m), el = form.elements, review = $('[data-step="review"]', m), err = $('.cf-error', form);
+    el.person.value = person || me;
+    function sync() { el.person.disabled = el.private.checked; if (el.private.checked) el.person.value = me; }
+    el.private.addEventListener('change', sync); sync();
+    function close() { m.remove(); document.removeEventListener('keydown', onKey); }
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    m.addEventListener('click', function (e) { if (e.target === m) close(); });
+    $('[data-cancel]', m).addEventListener('click', close);
+    document.addEventListener('keydown', onKey);
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var text = el.text.value.trim();
+      if (!text) { err.textContent = 'Paste your score history first.'; err.hidden = false; return; }
+      var btn = $('[type=submit]', form);
+      btn.disabled = true; btn.textContent = 'Reading…'; err.hidden = true;
+      Hub.api('fin-credit-paste', { body: { text: text } }).then(function (r) {
+        found = r.entries || [];
+        showReview(r.more || 0);
+      }).catch(function (e2) { err.textContent = e2.message; err.hidden = false; })
+        .then(function () { btn.disabled = false; btn.textContent = 'Find scores'; });
+    });
+
+    function showReview(more) {
+      var who = el.person.value, name = Fin.ownerName(who);
+      var dupes = found.filter(function (e) { return alreadySaved(who, e); }).length;
+      var span = function (d) { return day(d, { month: 'short', year: 'numeric' }); };
+      review.innerHTML =
+        '<p>Found <b>' + Hub.plural(found.length, 'score') + '</b> for ' + esc(name) + ', from ' + esc(span(found[0].date)) + ' to ' + esc(span(found[found.length - 1].date)) + '. Untick any that look wrong.</p>' +
+        (dupes ? '<p class="fin-muted">' + (dupes === found.length ? (dupes === 1 ? 'It’s' : 'They’re all') + ' already saved.' : dupes + (dupes === 1 ? ' is already saved, so it’s' : ' are already saved, so they’re') + ' left unticked.') + '</p>' : '') +
+        (more ? '<p class="fin-muted">Only the latest ' + found.length + ' can be added at once. Paste the older part again after.</p>' : '') +
+        '<div class="fin-table-wrap fin-paste-list"><table class="fin-table fin-paste-table"><thead><tr>' +
+          '<th><input type="checkbox" data-all aria-label="All" /></th><th>Date</th><th class="num">Score</th><th class="fin-paste-mb">Model · bureau</th><th class="fin-paste-from">From</th></tr></thead><tbody>' +
+          // Newest first, like "Every score"; data-i points back into found.
+          // On phones the model and bureau move under the date.
+          found.map(function (e, i) { return i; }).reverse().map(function (i) {
+            var e = found[i], dup = alreadySaved(who, e), mb = [e.model, e.bureau].filter(Boolean).join(' · ');
+            return '<tr' + (dup ? ' class="is-dup"' : '') + '><td><input type="checkbox" data-i="' + i + '"' + (dup ? '' : ' checked') + ' aria-label="' + esc(day(e.date) + ', ' + e.score) + '" /></td>' +
+              '<td>' + esc(day(e.date)) + (mb ? '<span class="fin-paste-sub">' + esc(mb) + '</span>' : '') + (dup ? '<span class="fin-tag">Already saved</span>' : '') + '</td>' +
+              '<td class="num fin-amt">' + e.score + '</td><td class="fin-paste-mb">' + esc(mb || '–') + '</td><td class="fin-paste-from">' + esc(e.source || '–') + '</td></tr>';
+          }).join('') + '</tbody></table></div>' +
+        '<p class="cf-error" role="alert" hidden></p>' +
+        '<div class="hub-modal-actions"><button class="btn btn-ghost" type="button" data-back>Back</button><button class="btn btn-primary" type="button" data-add></button></div>';
+      form.hidden = true; review.hidden = false;
+      var boxes = $$('[data-i]', review), all = $('[data-all]', review), add = $('[data-add]', review);
+      function count() {
+        var n = boxes.filter(function (b) { return b.checked; }).length;
+        add.textContent = n ? 'Add ' + Hub.plural(n, 'score') : 'Nothing ticked';
+        add.disabled = !n;
+        all.checked = n === boxes.length; all.indeterminate = n > 0 && n < boxes.length;
+      }
+      review.addEventListener('change', function (e) {
+        if (e.target === all) boxes.forEach(function (b) { b.checked = all.checked; });
+        count();
+      });
+      $('[data-back]', review).addEventListener('click', function () { review.hidden = true; form.hidden = false; el.text.focus(); });
+      add.addEventListener('click', function () {
+        var entries = boxes.filter(function (b) { return b.checked; }).map(function (b) { return found[Number(b.getAttribute('data-i'))]; });
+        var rerr = $('.cf-error', review);
+        add.disabled = true; add.textContent = 'Adding…';
+        Fin.save('fin-credit-import', { body: { person: el.person.value, private: el.private.checked, entries: entries } }).then(function (r) {
+          close();
+          Hub.toast('Added ' + Hub.plural(r.added || 0, 'score') + (r.skipped ? ' (' + r.skipped + ' already there)' : ''));
+        }).catch(function (e2) { rerr.textContent = e2.message; rerr.hidden = false; count(); });
+      });
+      count();
+      add.focus();
+    }
+
+    document.body.appendChild(m);
+    el.text.focus();
+  }
+
   Fin.tab('credit', render);
   Fin.addScore = function (person) { scoreForm(null, person); };
+  Fin.pasteScores = function (person) { pasteForm(person); };
   Fin.creditBandOf = bandOf;
   document.addEventListener('click', function (e) {
     if (!Fin.at('credit') || !$('#view').contains(e.target)) return;
-    var t = e.target.closest('[data-score-add],[data-score],[data-scores-all]');
+    var t = e.target.closest('[data-score-add],[data-score],[data-scores-all],[data-score-paste]');
     if (!t) return;
     if (t.hasAttribute('data-scores-all')) { allScores = !allScores; Fin.rerender(); }
+    else if (t.hasAttribute('data-score-paste')) pasteForm(t.getAttribute('data-score-paste'));
     else if (t.hasAttribute('data-score-add')) scoreForm(null, t.getAttribute('data-score-add'));
     else scoreForm((Fin.data.credit || []).filter(function (c) { return c.id === t.getAttribute('data-score'); })[0]);
   });

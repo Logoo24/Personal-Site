@@ -33,6 +33,8 @@
 //   POST   fin-credit {...}             -> add / edit a credit score
 //   DELETE fin-credit&id=               -> delete one
 //   POST   fin-credit-read (image body) -> a score read from a screenshot (nothing saved)
+//   POST   fin-credit-paste {text}      -> every dated score in a pasted history (nothing saved)
+//   POST   fin-credit-import {person, private, entries} -> save a reviewed history at once
 //   POST   fin-recurring {action, ...}  -> scan for recurring money, track a transaction's merchant ({action: track, tx, month}), or confirm /
 //                                          dismiss / cancel / edit / add / delete one
 //   GET    fin-logo&inst=               -> a linked bank's logo (PNG), for banks the viewer can see
@@ -48,7 +50,7 @@ import { newLinkToken, linkBank, reconnected, removeBank, syncAll, HOLDINGS } fr
 import { monthList, reviewList, editTransactions, addManual, deleteManual, exportCsv, recentAndReview, reportData } from './transactions.js';
 import { scanRecurring, trackRecurring, visibleRecurring, upcoming, changeRecurring } from './recurring.js';
 import { setBudgets, saveGoal, deleteGoal, visibleGoals } from './plan.js';
-import { visibleCredit, saveCredit, deleteCredit, readScreenshot, MODELS, BUREAUS } from './credit.js';
+import { visibleCredit, saveCredit, deleteCredit, readScreenshot, readHistory, saveCreditHistory, MODELS, BUREAUS } from './credit.js';
 import { advice, askAdvice } from './advice.js';
 import { saveProfile } from './profile.js';
 import { safeEqual } from '../session.js';
@@ -222,6 +224,11 @@ export async function financeRoute(request, url, user, r) {
     case 'DELETE fin-credit': return summary(user, viewer, await deleteCredit(q('id'), viewer));
     case 'POST fin-credit-read':
       return readScreenshot(Buffer.from(await request.arrayBuffer()), (request.headers.get('content-type') || '').split(';')[0]);
+    case 'POST fin-credit-paste': return readHistory((await body(request)).text);
+    case 'POST fin-credit-import': {
+      const r = await saveCreditHistory(await body(request), viewer);
+      return { ...(await summary(user, viewer, r.state)), added: r.added, skipped: r.skipped };
+    }
 
     case 'POST fin-recurring': {
       const input = await body(request);
