@@ -156,7 +156,7 @@ function build() {
   }
   const tpl = fs.readFileSync(TEMPLATE, 'utf8');
   const files = fs.readdirSync(POSTS_SRC).filter(f => f.endsWith('.md'));
-  const posts = [];
+  let posts = [];
   const classes = loadClasses();
 
   // Finds the class a post belongs to by code (or slug, so "mkt353" and
@@ -202,6 +202,10 @@ function build() {
       backLabel: cls ? 'All ' + cls.code + ' posts' : 'All posts',
       urlPath: 'posts/' + slug,
       body: renderMarkdown(parsed.content),
+      // inProgress: true builds the page at its link but leaves it out of
+      // the post lists, the homepage counts and the sitemap (a placeholder
+      // page that something links to by hand, like HUM 202's portfolio hub).
+      inProgress: !!data.inProgress,
       cls
     });
   }
@@ -211,15 +215,18 @@ function build() {
     // rendered markdown body is escaped so quotes can't break attributes.
     let out = tpl;
     for (const [k, v] of Object.entries(post)) {
-      if (k === 'cls') continue;
+      if (k === 'cls' || k === 'inProgress') continue;
       out = out.split('{{' + k + '}}').join(k === 'body' ? String(v) : escapeHtml(v));
     }
     fs.writeFileSync(path.join(ROOT, post.urlPath + '.html'), out);
     console.log('built:', post.urlPath + '.html');
   }
 
-  // Newest first
+  // Newest first. Everything below lists and counts finished posts only;
+  // in-progress pages are built above but stay out of lists and stats.
   posts.sort((a, b) => asDate(b.date).getTime() - asDate(a.date).getTime());
+  const built = posts;
+  posts = posts.filter(p => !p.inProgress);
   const personal = posts.filter(p => !p.cls);
   for (const c of classes) c.posts = posts.filter(p => p.cls === c);
   const activeClasses = classes.filter(c => !c.archived);
@@ -258,7 +265,7 @@ function build() {
       : '        <p>New posts are on the way.</p>';
   injectBetween(path.join(ROOT, 'index.html'), '<!-- RECENT_POSTS_START -->', '<!-- RECENT_POSTS_END -->', recent);
 
-  buildClassPages(classes);
+  buildClassPages(classes, built);
 
   // Homepage stat counters. "My projects" counts the project cards on
   // projects.html so the two pages can't drift apart.
@@ -292,10 +299,38 @@ function postCard(p, prefix) {
 
 // Writes classes/<slug>.html for every class (archived ones too, so old
 // links keep working) and removes pages for classes that no longer exist.
-function buildClassPages(classes) {
+// `built` is every post page written this build, in-progress ones included.
+function buildClassPages(classes, built) {
+  const bySlug = new Map(built.map(p => [p.slug, p]));
+  // A class layout can show any post's details with {{post:<slug>:<field>}}:
+  // href, title, summary, readMinutes, or image / imageAlt (the post's
+  // first picture). The HUM 202 hub's cards use these, so they follow the
+  // posts instead of repeating them.
+  const postField = (classSlug, slug, field) => {
+    const p = bySlug.get(slug);
+    if (!p) {
+      console.warn('class-' + classSlug + '.html refers to a post that does not exist:', slug);
+      return '';
+    }
+    if (field === 'href') return '../posts/' + p.slug + '.html';
+    if (field === 'image' || field === 'imageAlt') {
+      // Already escaped: taken straight from the rendered <img> tag.
+      const m = /<img src="([^"]*)" alt="([^"]*)"/.exec(p.body);
+      if (!m) console.warn('post has no image for class-' + classSlug + '.html:', slug);
+      return m ? m[field === 'image' ? 1 : 2] : '';
+    }
+    if (['title', 'summary', 'readMinutes'].includes(field)) return escapeHtml(p[field]);
+    console.warn('unknown post field in class-' + classSlug + '.html:', field);
+    return '';
+  };
   const tpl = fs.readFileSync(CLASS_TEMPLATE, 'utf8');
   const keep = new Set();
   for (const c of classes) {
+    // A class can have a layout of its own, _src/class-<slug>.html, used
+    // in place of class-template.html (HUM 202's portfolio hub). It takes
+    // the same {{placeholders}}.
+    const own = path.join(ROOT, '_src', 'class-' + c.slug + '.html');
+    const layout = fs.existsSync(own) ? fs.readFileSync(own, 'utf8') : tpl;
     const n = c.posts.length;
     const values = {
       slug: c.slug,
@@ -307,7 +342,7 @@ function buildClassPages(classes) {
       status: c.archived ? 'Past class' : 'Current class',
       count: n + ' post' + (n === 1 ? '' : 's')
     };
-    let out = tpl;
+    let out = layout.replace(/\{\{post:([a-z0-9-]+):(\w+)\}\}/g, (all, slug, field) => postField(c.slug, slug, field));
     for (const [k, v] of Object.entries(values)) out = out.split('{{' + k + '}}').join(escapeHtml(v));
     const list = n
       ? c.posts.map(p => postCard(p, '../')).join('\n\n')

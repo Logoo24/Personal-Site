@@ -8,7 +8,7 @@ readMinutes: 5
 draft: false
 ---
 
-![File:Miranda - The Tempest JWW.jpg](/images/uploads/960px-Miranda_-_The_Tempest_JWW.webp)
+![Miranda by John William Waterhouse](/images/uploads/960px-Miranda_-_The_Tempest_JWW.webp "John William Waterhouse, Miranda - The Tempest, 1916")
 
 Mercy is the turning point of the Tempest. 12 years before the play begins, Prospero's brother Antonio took his dukedom and sent Prospero and his daughter Miranda out to sea in a boat. A storm brings those same men to his island and Prospero has the magic and the opportunity to make them his prisoners. the spirit Ariel tells him that his feelings would soften if he saw how miserable they were, adding, "Mine would, sir, were I human" (5.1.26). Prospero answers, "The rarer action is / In virtue than in vengeance," and has them released (5.1.35-36). He also tells Antonio, the brother who betrayed him, "I do forgive / Thy rankest fault" (5.1.151-152), and he gave a pardon to Caliban (5.1.349-350). Mercy changes Prospero too, because he gives up his magic.(5.1.59-66). In the epilogue he asks the audience for the same mercy he gave: "As you from crimes would pardoned be, / Let your indulgence set me free" (Epilogue 19-20). The play shows that mercy frees the person who gives it as well as the person who receives it.
 

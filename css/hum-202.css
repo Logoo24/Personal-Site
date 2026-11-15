@@ -1,0 +1,60 @@
+/* ===========================================
+   HUM 202 portfolio hub (classes/hum-202.html, built from
+   _src/class-hum-202.html). Only that page loads this file.
+   =========================================== */
+
+/* Hero: text beside a painting, stacking under 900px (hero-content--split). */
+.hum-hero { min-height: auto; padding-top: 8rem; padding-bottom: clamp(1.5rem, 4vw, 3rem); }
+.hum-hero .hero-content--split { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+.hum-hero .hero-title { font-size: clamp(2.3rem, 4.4vw, 3.9rem); margin: 1.1rem 0 1.4rem; }
+.hum-hero .hero-lede { margin-bottom: 0; }
+.hum-hero-img { margin: 0; position: relative; z-index: 2; }
+.hum-hero-img img {
+  display: block; width: 100%; height: auto;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  background: var(--bg-alt);
+}
+.hum-hero-img figcaption { margin-top: 0.65rem; font-size: 0.82rem; line-height: 1.5; color: var(--text-muted); }
+
+/* Sections: heading, one-line description, then a grid of image cards.
+   Cards keep one size across sections (auto-fill), so a two-card section
+   leaves its third column empty rather than stretching. */
+.hum-section { padding: clamp(2rem, 5vw, 3.75rem) 0; }
+.hum-section-head { max-width: 640px; margin-bottom: 1.6rem; }
+.hum-kicker { font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+.hum-section-head h2 { font-size: clamp(1.7rem, 3vw, 2.35rem); margin: 0.35rem 0 0.45rem; }
+.hum-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr)); gap: 1.5rem; }
+
+a.card.hum-card { display: flex; flex-direction: column; padding: 0; }
+.hum-thumb {
+  display: block; width: 100%; height: auto;
+  aspect-ratio: 16 / 10;
+  object-fit: cover; object-position: center;
+  background: var(--bg-deep);
+  border-bottom: 1px solid var(--line);
+  transition: transform .5s var(--ease-out);
+}
+.hum-card:hover .hum-thumb { transform: scale(1.03); }
+.hum-card-body { display: flex; flex-direction: column; flex: 1; padding: 1.35rem 1.5rem 1.4rem; background: var(--bg-alt); position: relative; }
+.hum-card h3 { font-size: 1.25rem; line-height: 1.25; margin: 0.6rem 0 0.5rem; color: var(--text); }
+.hum-card .card-meta { margin-top: auto; padding-top: 1.1rem; }
+.hum-badge {
+  display: inline-block; margin-left: 0.4rem; padding: 0.15rem 0.5rem;
+  border: 1px dashed var(--text-muted); border-radius: 999px;
+  font-size: 0.66rem; letter-spacing: 0.08em; color: var(--text-muted);
+  vertical-align: 1px;
+}
+
+.hum-end { padding-top: 0.5rem; }
+.hum-credit { font-size: 0.85rem; font-style: italic; color: var(--text-muted); margin-bottom: 2rem; }
+
+@media (max-width: 900px) {
+  .hum-hero { padding-top: 6rem; }
+  .hum-hero .hero-content--split { grid-template-columns: 1fr; gap: 2rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hum-thumb { transition: none; }
+  .hum-card:hover .hum-thumb { transform: none; }
+}

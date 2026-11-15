@@ -70,6 +70,7 @@ collections:
       - { label: "Short summary", name: "summary", widget: "string", hint: "1–2 sentences shown on the blog list page and in search engines." }
       - { label: "Reading time (minutes)", name: "readMinutes", widget: "number", default: 4, value_type: "int", min: 1, max: 90 }
       - { label: "Hide as draft", name: "draft", widget: "boolean", default: false, required: false, hint: "Check this to keep a post out of the live site while you finish writing it." }
+      - { label: "In progress", name: "inProgress", widget: "boolean", default: false, required: false, hint: "Puts the page live at its link but keeps it out of post lists, homepage counts and the sitemap (like the HUM 202 portfolio's 19th Century pages). Uncheck it once the page is written." }
       - label: "Body"
         name: "body"
         widget: "markdown"

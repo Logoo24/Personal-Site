@@ -51,6 +51,7 @@ course: "MKT 353"                 # academic posts only: which class
 summary: "..."
 readMinutes: 5
 draft: false
+inProgress: false                 # optional: true = page is built, but left out of post lists, homepage stats and the sitemap
 ---
 ```
 
@@ -58,7 +59,7 @@ draft: false
 
 **Images in posts**: a markdown image's *title* sets its placement — `![alt](/images/uploads/x.webp "left")`, `"right"` or `"center"` (default), optionally with a caption after a colon (`"right: My caption"`; a title with no position word is just a caption). `build.js` (`marked.use` image renderer + `renderMarkdown()`) turns each into `<figure class="post-img post-img--left|right|center">` and lifts it out of its `<p>`; styles are under `.post-img` in `styles.css` (left/right float with text wrapping, un-floated under 560px; headings clear floats). CMS uploads go to `images/uploads/` and are downscaled to WebP on upload (`media_libraries` in `family/manage/config.yml`).
 
-**Classes**: the class list is `_data/classes.json` (`{ classes: [{ code, name, archived }] }`), editable from the CMS → Classes. Slug = `code` lowercased with non-alphanumerics → `-` (`MKT 353` → `mkt-353`), so changing a class's code changes its URL. An academic post's `course` is matched to a class by slug; a class not in the list gets a page anyway (build warns), and an academic post with no `course` goes under "Other classes". `archived: true` moves a class from "Classes" to "Past classes" in the Blog dropdown and labels its page "Past class" — the page and its posts stay live. Class posts' "back" button links to their class page instead of `blog.html`.
+**Classes**: the class list is `_data/classes.json` (`{ classes: [{ code, name, archived }] }`), editable from the CMS → Classes. Slug = `code` lowercased with non-alphanumerics → `-` (`MKT 353` → `mkt-353`), so changing a class's code changes its URL. An academic post's `course` is matched to a class by slug; a class not in the list gets a page anyway (build warns), and an academic post with no `course` goes under "Other classes". `archived: true` moves a class from "Classes" to "Past classes" in the Blog dropdown and labels its page "Past class" — the page and its posts stay live. Class posts' "back" button links to their class page instead of `blog.html`. A class can have its own layout, `_src/class-<slug>.html`, used in place of `class-template.html`; it can show any post's details with `{{post:<slug>:<field>}}` (`href`, `title`, `summary`, `readMinutes`, `image`/`imageAlt` = the post's first picture), and the build warns if a slug doesn't exist. HUM 202 uses this for its graded portfolio hub (`_src/class-hum-202.html`, styles in `css/hum-202.css`): three hand-placed sections of image cards, so a new HUM 202 post needs a card added there. Its two 19th Century pages are `inProgress` placeholders.
 
 **Blog dropdown** (`li.nav-dd` in every page's nav, including `_src/post-template.html`, `_src/class-template.html` and `404.html`): the "Blog" word is a normal link to `blog.html`; the chevron `button.nav-dd-toggle` toggles `.open` (wired in `main.js`), and on desktop hovering also opens it (CSS). In the mobile full-screen menu the list opens inline under Blog. Any new page with a nav needs the same `li.nav-dd` block with the BLOG_MENU markers, and `build.js` must know about it (`ROOT_PAGES`).
 

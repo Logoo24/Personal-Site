@@ -1,15 +1,20 @@
 <!doctype html>
+<!-- HUM 202's own class page layout: build.js uses this in place of
+     class-template.html for classes/hum-202.html. It's a portfolio hub
+     grouped by section rather than a date-sorted feed. Cards pull each
+     post's link, title, summary, read time and first image at build time
+     with {{post:<slug>:<field>}}; to add a page, add a card here. -->
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('lb-theme')||'light')}catch(e){}</script>
-  <title>HUM 202: Searching for Meaning in the Modern World - Logan Randall</title>
-  <meta name="description" content="Weekly notes from HUM 202: Searching for Meaning in the Modern World by Logan Randall." />
+  <title>HUM 202 Portfolio - Logan Randall</title>
+  <meta name="description" content="Logan Randall's HUM 202 portfolio: culture, art and personal application essays from the Early Modern World through the 19th Century." />
   <link rel="canonical" href="https://www.loganbrandall.com/classes/hum-202" />
   <meta name="theme-color" content="#FAFAFA" />
-  <meta property="og:title" content="HUM 202: Searching for Meaning in the Modern World - Logan Randall" />
-  <meta property="og:description" content="Weekly notes from HUM 202: Searching for Meaning in the Modern World by Logan Randall." />
+  <meta property="og:title" content="HUM 202 Portfolio - Logan Randall" />
+  <meta property="og:description" content="Logan Randall's HUM 202 portfolio: culture, art and personal application essays from the Early Modern World through the 19th Century." />
   <meta property="og:url" content="https://www.loganbrandall.com/classes/hum-202" />
   <meta property="og:type" content="website" />
   <!-- OG_IMAGE_START -->
@@ -25,6 +30,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/styles.css" />
+  <link rel="stylesheet" href="../css/hum-202.css" />
 </head>
 <body>
 
@@ -65,54 +71,127 @@
 
   <main id="main">
 
-  <header class="hero" style="min-height: 60vh;">
+  <header class="hero hum-hero">
     <div class="hero-orb one" style="top:30%; right:0; width:300px; height:300px;"></div>
-    <div class="container hero-content">
-      <span class="eyebrow">Class blog · HUM 202</span>
-      <h1 class="hero-title" style="font-size: clamp(2.5rem, 6vw, 5rem);">Searching for Meaning in the Modern World</h1>
-      <p class="hero-lede">
-        Weekly notes and reflections from my HUM 202 class.
-      </p>
-      <div class="class-facts"><span>Current class</span><span>5 posts</span></div>
+    <div class="container hero-content hero-content--split">
+      <div class="hero-text">
+        <span class="eyebrow">HUM 202 Portfolio</span>
+        <h1 class="hero-title">Searching for Meaning in the Modern World</h1>
+        <p class="hero-lede">
+          This portfolio collects my work for HUM 202. It covers the culture and art of the Early Modern World through the 19th Century, along with personal application essays that connect what I studied to my own life.
+        </p>
+        <div class="class-facts"><span>Current class</span><span>Early Modern World to 19th Century</span></div>
+      </div>
+      <figure class="hum-hero-img">
+        <img src="../images/uploads/morse-gallery-of-the-louvre.jpg" width="1600" height="1095" alt="Gallery of the Louvre by Samuel F. B. Morse, a long gallery hung floor to ceiling with paintings while visitors study and copy them" fetchpriority="high" decoding="async" />
+        <figcaption>Samuel F. B. Morse, Gallery of the Louvre, 1831-1833</figcaption>
+      </figure>
     </div>
   </header>
 
-  <section style="padding-top: 0;">
+  <section class="hum-section" aria-labelledby="early-modern">
     <div class="container">
-      <div class="post-list">
-        <a href="../posts/religion-morality-and-choosing-what-s-right.html" class="post-card reveal">
-          <div class="post-meta"><span>October 31, 2026</span><span>6 min read</span></div>
-          <h3>Religion, Morality, and Choosing What’s Right</h3>
-          <p>&quot;Morality means living by a standard of right and wrong and choosing to do right, even when no one is watching&quot;</p>
+      <div class="hum-section-head reveal">
+        <span class="hum-kicker">Part 1</span>
+        <h2 id="early-modern">Early Modern World</h2>
+        <p>The culture and art of the Renaissance, from about 1400 to 1600.</p>
+      </div>
+      <div class="hum-grid">
+        <a href="../posts/the-renaissance-a-cultural-overview.html" class="card hum-card reveal">
+          <img class="hum-thumb" src="/images/uploads/michelangelo-david.jpg" alt="Michelangelo&#39;s David" style="object-position: center 18%;" loading="lazy" decoding="async" />
+          <div class="hum-card-body">
+            <span class="card-tag">Cultural overview</span>
+            <h3>The Renaissance: A Cultural Overview</h3>
+            <p>How Italy&#39;s trade cities, humanism, the Reformation, the printing press and Medici banking turned old ideas into something new, and why the Medici partnership model reminds me of my own work.</p>
+            <div class="card-meta"><span>3 min read</span><span class="card-go">Read →</span></div>
+          </div>
         </a>
-
-        <a href="../posts/ten-renaissance-works-of-art.html" class="post-card reveal">
-          <div class="post-meta"><span>October 12, 2026</span><span>6 min read</span></div>
-          <h3>Ten Renaissance Works of Art</h3>
-          <p>From Brunelleschi&#39;s dome to the Arnolfini Portrait: a close look at ten Renaissance paintings, sculptures and buildings, and what each one says about faith, learning and the people who paid for it.</p>
-        </a>
-
-        <a href="../posts/the-renaissance-a-cultural-overview.html" class="post-card reveal">
-          <div class="post-meta"><span>October 12, 2026</span><span>3 min read</span></div>
-          <h3>The Renaissance: A Cultural Overview</h3>
-          <p>How Italy&#39;s trade cities, humanism, the Reformation, the printing press and Medici banking turned old ideas into something new, and why the Medici partnership model reminds me of my own work.</p>
-        </a>
-
-        <a href="../posts/choosing-mercy-over-justice.html" class="post-card reveal">
-          <div class="post-meta"><span>October 7, 2026</span><span>5 min read</span></div>
-          <h3>Choosing mercy over justice</h3>
-          <p>What Prospero&#39;s choice to forgive in The Tempest taught me about listening before I judge.</p>
-        </a>
-
-        <a href="../posts/loved-or-feared.html" class="post-card reveal">
-          <div class="post-meta"><span>September 25, 2026</span><span>4 min read</span></div>
-          <h3>Loved or Feared?</h3>
-          <p>Comparing Machiavelli&#39;s idea that it&#39;s safer to be feared than loved with two leaders who showed me that the best leadership combines high standards with love.</p>
+        <a href="../posts/ten-renaissance-works-of-art.html" class="card hum-card reveal">
+          <img class="hum-thumb" src="/images/uploads/brunelleschi-florence-cathedral-dome.jpg" alt="Dome of Florence Cathedral (Santa Maria del Fiore)" loading="lazy" decoding="async" />
+          <div class="hum-card-body">
+            <span class="card-tag">Works of art</span>
+            <h3>Ten Renaissance Works of Art</h3>
+            <p>From Brunelleschi&#39;s dome to the Arnolfini Portrait: a close look at ten Renaissance paintings, sculptures and buildings, and what each one says about faith, learning and the people who paid for it.</p>
+            <div class="card-meta"><span>6 min read</span><span class="card-go">Read →</span></div>
+          </div>
         </a>
       </div>
-      <div style="margin-top:3rem;">
-        <a href="../blog.html" class="btn btn-ghost">← Back to the blog</a>
+    </div>
+  </section>
+
+  <section class="hum-section" aria-labelledby="nineteenth-century">
+    <div class="container">
+      <div class="hum-section-head reveal">
+        <span class="hum-kicker">Part 2</span>
+        <h2 id="nineteenth-century">19th Century</h2>
+        <p>The culture and art of the 1800s. These pages are in progress.</p>
       </div>
+      <div class="hum-grid">
+        <a href="../posts/19th-century-a-cultural-overview.html" class="card hum-card reveal">
+          <img class="hum-thumb" src="/images/uploads/turner-rain-steam-and-speed.jpg" alt="Rain, Steam and Speed by J. M. W. Turner, a steam train crossing a bridge through rain and mist" loading="lazy" decoding="async" />
+          <div class="hum-card-body">
+            <span class="card-tag">Cultural overview <span class="hum-badge">In progress</span></span>
+            <h3>19th Century: A Cultural Overview</h3>
+            <p>This page is in progress. Check back soon.</p>
+            <div class="card-meta"><span>Coming soon</span><span class="card-go">View →</span></div>
+          </div>
+        </a>
+        <a href="../posts/19th-century-works-of-art.html" class="card hum-card reveal">
+          <img class="hum-thumb" src="/images/uploads/monet-impression-sunrise.jpg" alt="Impression, Sunrise by Claude Monet, an orange sun rising over a hazy blue harbor with small boats" loading="lazy" decoding="async" />
+          <div class="hum-card-body">
+            <span class="card-tag">Works of art <span class="hum-badge">In progress</span></span>
+            <h3>19th Century Works of Art</h3>
+            <p>This page is in progress. Check back soon.</p>
+            <div class="card-meta"><span>Coming soon</span><span class="card-go">View →</span></div>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="hum-section" aria-labelledby="personal-essays">
+    <div class="container">
+      <div class="hum-section-head reveal">
+        <span class="hum-kicker">Part 3</span>
+        <h2 id="personal-essays">Personal Application Essays</h2>
+        <p>Essays where I apply what I studied to my own life, work and faith.</p>
+      </div>
+      <div class="hum-grid">
+        <a href="../posts/loved-or-feared.html" class="card hum-card reveal">
+          <img class="hum-thumb" src="/images/uploads/Portrait_of_Niccol%25C3%25B2_Machiavelli_by_Santi_di_Tito.webp" alt="Portrait of Niccolò Machiavelli by Santi di Tito" style="object-position: center 22%;" loading="lazy" decoding="async" />
+          <div class="hum-card-body">
+            <span class="card-tag">Personal application</span>
+            <h3>Loved or Feared?</h3>
+            <p>Comparing Machiavelli&#39;s idea that it&#39;s safer to be feared than loved with two leaders who showed me that the best leadership combines high standards with love.</p>
+            <div class="card-meta"><span>4 min read</span><span class="card-go">Read →</span></div>
+          </div>
+        </a>
+        <a href="../posts/choosing-mercy-over-justice.html" class="card hum-card reveal">
+          <img class="hum-thumb" src="/images/uploads/960px-Miranda_-_The_Tempest_JWW.webp" alt="Miranda by John William Waterhouse" loading="lazy" decoding="async" />
+          <div class="hum-card-body">
+            <span class="card-tag">Personal application</span>
+            <h3>Choosing mercy over justice</h3>
+            <p>What Prospero&#39;s choice to forgive in The Tempest taught me about listening before I judge.</p>
+            <div class="card-meta"><span>5 min read</span><span class="card-go">Read →</span></div>
+          </div>
+        </a>
+        <a href="../posts/religion-morality-and-choosing-what-s-right.html" class="card hum-card reveal">
+          <img class="hum-thumb" src="/images/uploads/rexburg-idaho-temple-62899-main.webp" alt="Rexburg Idaho Temple" loading="lazy" decoding="async" />
+          <div class="hum-card-body">
+            <span class="card-tag">Personal application</span>
+            <h3>Religion, Morality, and Choosing What’s Right</h3>
+            <p>&quot;Morality means living by a standard of right and wrong and choosing to do right, even when no one is watching&quot;</p>
+            <div class="card-meta"><span>2 min read</span><span class="card-go">Read →</span></div>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="hum-section hum-end">
+    <div class="container">
+      <p class="hum-credit">Hero image: Wikimedia Commons (public domain).</p>
+      <a href="../blog.html" class="btn btn-ghost">← Back to the blog</a>
     </div>
   </section>
 

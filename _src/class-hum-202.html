@@ -1,0 +1,212 @@
+<!doctype html>
+<!-- HUM 202's own class page layout: build.js uses this in place of
+     class-template.html for classes/hum-202.html. It's a portfolio hub
+     grouped by section rather than a date-sorted feed. Cards pull each
+     post's link, title, summary, read time and first image at build time
+     with {{post:<slug>:<field>}}; to add a page, add a card here. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('lb-theme')||'light')}catch(e){}</script>
+  <title>{{code}} Portfolio - Logan Randall</title>
+  <meta name="description" content="Logan Randall's {{code}} portfolio: culture, art and personal application essays from the Early Modern World through the 19th Century." />
+  <link rel="canonical" href="https://www.loganbrandall.com/classes/{{slug}}" />
+  <meta name="theme-color" content="#FAFAFA" />
+  <meta property="og:title" content="{{code}} Portfolio - Logan Randall" />
+  <meta property="og:description" content="Logan Randall's {{code}} portfolio: culture, art and personal application essays from the Early Modern World through the 19th Century." />
+  <meta property="og:url" content="https://www.loganbrandall.com/classes/{{slug}}" />
+  <meta property="og:type" content="website" />
+  <!-- OG_IMAGE_START -->
+  <!-- OG_IMAGE_END -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231F7A4D'/%3E%3Ctext x='50%25' y='58%25' text-anchor='middle' font-family='-apple-system,Segoe UI,Inter,sans-serif' font-size='15' font-weight='700' fill='%23FAFAFA'%3ELB%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/styles.css" />
+  <link rel="stylesheet" href="../css/hum-202.css" />
+</head>
+<body>
+
+  <a href="#main" class="skip-to-content">Skip to content</a>
+
+  <nav class="nav">
+    <a href="../index.html" class="nav-brand">Logan Randall</a>
+    <ul class="nav-links">
+      <li><a href="../index.html">Home</a></li>
+      <li><a href="../about.html">About</a></li>
+      <li class="nav-dd">
+        <a href="../blog.html">Blog</a>
+        <button class="nav-dd-toggle" aria-expanded="false" aria-label="Blog categories"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="nav-dd-menu">
+          <!-- BLOG_MENU_START -->
+          <!-- BLOG_MENU_END -->
+        </div>
+      </li>
+      <li><a href="../projects.html">Projects</a></li>
+      <li><a href="../resume.html">Resume</a></li>
+    </ul>
+    <div class="nav-right">
+      <span class="theme-toggle-wrap">
+        <button class="theme-toggle" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="moon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="sun" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        </button>
+        <span class="theme-hint"><span class="hint-arrow" aria-hidden="true">↑</span><span class="hint-text">try dark mode!</span></span>
+      </span>
+      <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false">☰</button>
+    </div>
+  </nav>
+
+  <main id="main">
+
+  <header class="hero hum-hero">
+    <div class="hero-orb one" style="top:30%; right:0; width:300px; height:300px;"></div>
+    <div class="container hero-content hero-content--split">
+      <div class="hero-text">
+        <span class="eyebrow">{{code}} Portfolio</span>
+        <h1 class="hero-title">{{heading}}</h1>
+        <p class="hero-lede">
+          This portfolio collects my work for {{code}}. It covers the culture and art of the Early Modern World through the 19th Century, along with personal application essays that connect what I studied to my own life.
+        </p>
+        <div class="class-facts"><span>{{status}}</span><span>Early Modern World to 19th Century</span></div>
+      </div>
+      <figure class="hum-hero-img">
+        <img src="../images/uploads/morse-gallery-of-the-louvre.jpg" width="1600" height="1095" alt="Gallery of the Louvre by Samuel F. B. Morse, a long gallery hung floor to ceiling with paintings while visitors study and copy them" fetchpriority="high" decoding="async" />
+        <figcaption>Samuel F. B. Morse, Gallery of the Louvre, 1831-1833</figcaption>
+      </figure>
+    </div>
+  </header>
+
+  <section class="hum-section" aria-labelledby="early-modern">
+    <div class="container">
+      <div class="hum-section-head reveal">
+        <span class="hum-kicker">Part 1</span>
+        <h2 id="early-modern">Early Modern World</h2>
+        <p>The culture and art of the Renaissance, from about 1400 to 1600.</p>
+      </div>
+      <div class="hum-grid">
+        <a href="{{post:the-renaissance-a-cultural-overview:href}}" class="card hum-card reveal">
+          <img class="hum-thumb" src="{{post:the-renaissance-a-cultural-overview:image}}" alt="{{post:the-renaissance-a-cultural-overview:imageAlt}}" style="object-position: center 18%;" loading="lazy" decoding="async" />
+          <div class="hum-card-body">
+            <span class="card-tag">Cultural overview</span>
+            <h3>{{post:the-renaissance-a-cultural-overview:title}}</h3>
+            <p>{{post:the-renaissance-a-cultural-overview:summary}}</p>
+            <div class="card-meta"><span>{{post:the-renaissance-a-cultural-overview:readMinutes}} min read</span><span class="card-go">Read →</span></div>
+          </div>
+        </a>
+        <a href="{{post:ten-renaissance-works-of-art:href}}" class="card hum-card reveal">
+          <img class="hum-thumb" src="{{post:ten-renaissance-works-of-art:image}}" alt="{{post:ten-renaissance-works-of-art:imageAlt}}" loading="lazy" decoding="async" />
+          <div class="hum-card-body">
+            <span class="card-tag">Works of art</span>
+            <h3>{{post:ten-renaissance-works-of-art:title}}</h3>
+            <p>{{post:ten-renaissance-works-of-art:summary}}</p>
+            <div class="card-meta"><span>{{post:ten-renaissance-works-of-art:readMinutes}} min read</span><span class="card-go">Read →</span></div>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="hum-section" aria-labelledby="nineteenth-century">
+    <div class="container">
+      <div class="hum-section-head reveal">
+        <span class="hum-kicker">Part 2</span>
+        <h2 id="nineteenth-century">19th Century</h2>
+        <p>The culture and art of the 1800s. These pages are in progress.</p>
+      </div>
+      <div class="hum-grid">
+        <a href="{{post:19th-century-a-cultural-overview:href}}" class="card hum-card reveal">
+          <img class="hum-thumb" src="{{post:19th-century-a-cultural-overview:image}}" alt="{{post:19th-century-a-cultural-overview:imageAlt}}" loading="lazy" decoding="async" />
+          <div class="hum-card-body">
+            <span class="card-tag">Cultural overview <span class="hum-badge">In progress</span></span>
+            <h3>{{post:19th-century-a-cultural-overview:title}}</h3>
+            <p>This page is in progress. Check back soon.</p>
+            <div class="card-meta"><span>Coming soon</span><span class="card-go">View →</span></div>
+          </div>
+        </a>
+        <a href="{{post:19th-century-works-of-art:href}}" class="card hum-card reveal">
+          <img class="hum-thumb" src="{{post:19th-century-works-of-art:image}}" alt="{{post:19th-century-works-of-art:imageAlt}}" loading="lazy" decoding="async" />
+          <div class="hum-card-body">
+            <span class="card-tag">Works of art <span class="hum-badge">In progress</span></span>
+            <h3>{{post:19th-century-works-of-art:title}}</h3>
+            <p>This page is in progress. Check back soon.</p>
+            <div class="card-meta"><span>Coming soon</span><span class="card-go">View →</span></div>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="hum-section" aria-labelledby="personal-essays">
+    <div class="container">
+      <div class="hum-section-head reveal">
+        <span class="hum-kicker">Part 3</span>
+        <h2 id="personal-essays">Personal Application Essays</h2>
+        <p>Essays where I apply what I studied to my own life, work and faith.</p>
+      </div>
+      <div class="hum-grid">
+        <a href="{{post:loved-or-feared:href}}" class="card hum-card reveal">
+          <img class="hum-thumb" src="{{post:loved-or-feared:image}}" alt="{{post:loved-or-feared:imageAlt}}" style="object-position: center 22%;" loading="lazy" decoding="async" />
+          <div class="hum-card-body">
+            <span class="card-tag">Personal application</span>
+            <h3>{{post:loved-or-feared:title}}</h3>
+            <p>{{post:loved-or-feared:summary}}</p>
+            <div class="card-meta"><span>{{post:loved-or-feared:readMinutes}} min read</span><span class="card-go">Read →</span></div>
+          </div>
+        </a>
+        <a href="{{post:choosing-mercy-over-justice:href}}" class="card hum-card reveal">
+          <img class="hum-thumb" src="{{post:choosing-mercy-over-justice:image}}" alt="{{post:choosing-mercy-over-justice:imageAlt}}" loading="lazy" decoding="async" />
+          <div class="hum-card-body">
+            <span class="card-tag">Personal application</span>
+            <h3>{{post:choosing-mercy-over-justice:title}}</h3>
+            <p>{{post:choosing-mercy-over-justice:summary}}</p>
+            <div class="card-meta"><span>{{post:choosing-mercy-over-justice:readMinutes}} min read</span><span class="card-go">Read →</span></div>
+          </div>
+        </a>
+        <a href="{{post:religion-morality-and-choosing-what-s-right:href}}" class="card hum-card reveal">
+          <img class="hum-thumb" src="{{post:religion-morality-and-choosing-what-s-right:image}}" alt="{{post:religion-morality-and-choosing-what-s-right:imageAlt}}" loading="lazy" decoding="async" />
+          <div class="hum-card-body">
+            <span class="card-tag">Personal application</span>
+            <h3>{{post:religion-morality-and-choosing-what-s-right:title}}</h3>
+            <p>{{post:religion-morality-and-choosing-what-s-right:summary}}</p>
+            <div class="card-meta"><span>{{post:religion-morality-and-choosing-what-s-right:readMinutes}} min read</span><span class="card-go">Read →</span></div>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="hum-section hum-end">
+    <div class="container">
+      <p class="hum-credit">Hero image: Wikimedia Commons (public domain).</p>
+      <a href="../blog.html" class="btn btn-ghost">← Back to the blog</a>
+    </div>
+  </section>
+
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div>
+        <div class="footer-brand">Logan Randall</div>
+      </div>
+      <ul class="footer-links">
+        <li><a href="../index.html">Home</a></li>
+        <li><a href="../about.html">About</a></li>
+        <li><a href="../blog.html">Blog</a></li>
+        <li><a href="../projects.html">Projects</a></li>
+        <li><a href="../resume.html">Resume</a></li>
+      </ul>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span data-year>2026</span> Logan Randall. All rights reserved.</span>
+      <span class="footer-legal"><a href="/privacy" class="footer-privacy">Privacy</a><a href="/family" class="footer-signin">Sign in</a></span>
+    </div>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
+  <script src="../js/main.js" defer></script>
+</body>
+</html>
