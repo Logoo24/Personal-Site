@@ -53,6 +53,17 @@ export function canSeeFinance(user) {
   return !!(user && user.via === 'google' && user.email && financeEmails().includes(String(user.email).toLowerCase()));
 }
 
+// Who can open Documents (/family/documents): Google sign-ins whose email is
+// in FAMILY_DOCUMENTS_EMAILS, or in FAMILY_FINANCE_EMAILS while that's unset
+// (the same two people). Password sign-ins never count.
+export function documentsEmails() {
+  const own = String(process.env.FAMILY_DOCUMENTS_EMAILS || '').toLowerCase().split(/[\s,]+/).filter(Boolean);
+  return own.length ? own : financeEmails();
+}
+export function canSeeDocuments(user) {
+  return !!(user && user.via === 'google' && user.email && documentsEmails().includes(String(user.email).toLowerCase()));
+}
+
 export function sessionSecret() {
   return process.env.FAMILY_SESSION_SECRET || '';
 }

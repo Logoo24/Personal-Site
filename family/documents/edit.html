@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('lb-theme')||'light')}catch(e){}</script>
+  <title>Add · Documents · Randall Family</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#FAFAFA" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231F7A4D'/%3E%3Cpath d='M8 15 16 8l8 7v9h-5.5v-6h-5v6H8z' fill='%23FAFAFA'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/family/assets/hub.css" />
+  <link rel="stylesheet" href="/family/documents/docs.css" />
+</head>
+<body class="hub">
+  <header class="hub-bar" data-crumbs='[["Documents","/family/documents"]]'></header>
+
+  <main class="hub-main hub-main--narrow">
+    <div class="hub-head">
+      <div>
+        <span class="eyebrow">Documents</span>
+        <h1 style="margin-top:0.8rem" id="heading">Add</h1>
+      </div>
+    </div>
+
+    <form id="form" autocomplete="off" hidden>
+      <div class="dc-seg" id="seg" role="radiogroup" aria-label="What is it?"></div>
+
+      <section class="ed-section">
+        <h2>Photos &amp; files</h2>
+        <p class="ed-hint" id="files-hint"></p>
+        <div id="drive-note"></div>
+        <div class="dc-files" id="files"></div>
+        <div class="dc-drop" id="drop">
+          <p id="drop-text">Drop photos or PDFs here, or</p>
+          <div class="hub-actions">
+            <button class="btn btn-primary btn-sm" type="button" id="take" hidden></button>
+            <button class="btn btn-ghost btn-sm" type="button" id="choose"></button>
+          </div>
+        </div>
+        <input type="file" id="pick" multiple hidden />
+        <input type="file" id="snap" accept="image/*" capture="environment" hidden />
+        <div class="dc-reading" id="reading" hidden aria-live="polite"></div>
+      </section>
+
+      <section class="ed-section dc-fields" id="fields">
+        <h2>Details</h2>
+        <p class="ed-hint">Fill in whatever helps you find it later. Nothing here is required.</p>
+        <div class="ed-grid">
+          <label class="field col-full" data-for="cards other"><span data-label="from">From</span>
+            <input class="input" name="from" list="people" maxlength="200" placeholder="Grandma &amp; Grandpa Jensen" /></label>
+          <label class="field col-full" data-for="cards manuals receipts other"><span data-label="title">Name</span>
+            <input class="input" name="title" maxlength="160" /></label>
+          <label class="field col-half" data-for="receipts"><span>Store</span>
+            <input class="input" name="store" maxlength="120" placeholder="Costco" /></label>
+          <label class="field col-half" data-for="receipts"><span>Total</span>
+            <span class="dc-money"><input class="input" name="total" inputmode="decimal" placeholder="0.00" /></span></label>
+          <label class="field col-half" data-for="manuals receipts"><span>Brand</span>
+            <input class="input" name="brand" maxlength="80" placeholder="Bosch" /></label>
+          <label class="field col-half" data-for="manuals receipts"><span>Model</span>
+            <input class="input" name="model" maxlength="80" placeholder="SHE53C85N" /></label>
+          <div class="field col-full" data-for="cards manuals receipts other"><span class="field-label" data-label="category">Category</span>
+            <div class="dc-catpick" id="cats"></div></div>
+          <div class="field col-half" data-for="cards manuals receipts other"><span class="field-label" data-label="date">Date</span>
+            <div class="dc-date">
+              <input class="input" type="date" id="date-day" aria-label="Date" />
+              <input class="input" type="number" id="date-year" min="1900" max="2100" step="1" inputmode="numeric" placeholder="2025" aria-label="Year" hidden />
+              <button type="button" id="date-mode">Just the year</button>
+            </div></div>
+          <label class="field col-half" data-for="manuals receipts"><span>Warranty until</span>
+            <input class="input" type="date" name="warrantyUntil" /></label>
+          <label class="field col-full" data-for="cards"><span>Gift</span>
+            <input class="input" name="gift" maxlength="300" placeholder="$50, a stand mixer, a quilt…" />
+            <small>What they gave, if anything came with it.</small></label>
+          <label class="field col-full" data-for="cards manuals receipts other"><span data-label="text">Details</span>
+            <textarea name="text" rows="3" data-grow></textarea></label>
+          <label class="dc-check col-full" data-for="cards">
+            <input type="checkbox" name="thanked" />
+            <span><strong>We’ve thanked them</strong><small id="thanked-when">Tick once you’ve sent a note or reached out.</small></span>
+          </label>
+          <label class="field col-full" data-for="cards manuals receipts other"><span>Notes</span>
+            <textarea name="notes" rows="2" data-grow placeholder="Anything to remember about it"></textarea></label>
+        </div>
+        <datalist id="people"></datalist>
+      </section>
+
+      <div class="ed-danger" id="danger" hidden>
+        <p>Deleting removes it for both of you. Its files go to Google Drive’s trash for 30 days.</p>
+        <button class="btn btn-danger btn-sm" type="button" id="delete">Delete</button>
+      </div>
+
+      <div class="ed-savebar">
+        <span class="ed-status" id="status"></span>
+        <a class="btn btn-ghost" id="cancel" href="/family/documents">Cancel</a>
+        <button class="btn btn-primary" type="submit" id="save">Save</button>
+      </div>
+    </form>
+    <p class="hub-loading" id="loading">Loading…</p>
+  </main>
+
+  <script src="/family/assets/hub.js"></script>
+  <script src="/family/documents/docs.js"></script>
+  <script>
+  (function () {
+    var $ = Hub.$, $$ = Hub.$$, esc = Hub.esc, I = Hub.icons;
+    var form = $('#form');
+    var params = new URLSearchParams(location.search);
+    var id = params.get('id');
+    var doc = null, drive = null, collection = 'cards', chosen = false;
+    var files = [], seq = 0, dirty = false, saving = false;
+    var category = '', categoryAuto = false, addingCat = false, knownCats = {};
+    var dateMode = 'day', keepMonth = null, dateAuto = false;
+    var readState = { busy: false, done: false, unavailable: false };
+
+    var NOUN = { cards: 'card', manuals: 'manual', receipts: 'receipt', other: 'document' };
+    var HINTS = {
+      cards: 'Take a picture of the card (the inside, with the message, matters most). Who it’s from and what it says get filled in for you. Just a gift, no card? Skip the photo and fill in the details.',
+      manuals: 'Add the PDF (most makers have one on their website), or photos of the cover and the model sticker.',
+      receipts: 'Snap the receipt, or add the PDF from the email. The store, date and total get filled in for you.',
+      other: 'Add photos or PDFs. Several pages can go on one item.'
+    };
+    var LABELS = {
+      from: { cards: 'From', other: 'From (optional)' },
+      title: { cards: 'Name (optional)', manuals: 'What it’s for', receipts: 'What you bought', other: 'Name' },
+      titleHint: { cards: '', manuals: 'Dishwasher', receipts: 'Washing machine', other: 'Car title' },
+      text: { cards: 'What it says', manuals: 'Summary and key details', receipts: 'Items', other: 'Details' },
+      textHint: { cards: 'The message, word for word', manuals: 'Filter size, serial number, what it covers…', receipts: 'One item per line', other: '' },
+      date: { cards: 'Date', manuals: 'Bought on', receipts: 'Date', other: 'Date' }
+    };
+    var TEXT_FIELDS = ['from', 'title', 'store', 'total', 'brand', 'model', 'gift', 'text', 'warrantyUntil'];
+
+    /* ---------- boxes that grow (as in the cookbook editor) ---------- */
+    function grow(t) { t.style.height = 'auto'; t.style.height = t.scrollHeight + 2 + 'px'; }
+    function growAll() { $$('textarea[data-grow]').forEach(function (t) { if (t.offsetParent) grow(t); }); }
+    form.addEventListener('input', function (e) {
+      if (e.target.matches('textarea[data-grow]')) grow(e.target);
+      e.target.classList.remove('dc-auto');
+      dirty = true;
+    });
+    if ('ResizeObserver' in window) {
+      var widths = new WeakMap();
+      var fit = new ResizeObserver(function (entries) {
+        entries.forEach(function (en) {
+          var w = Math.round(en.contentRect.width);
+          if (widths.get(en.target) === w) return;
+          widths.set(en.target, w);
+          if (en.target.offsetParent) grow(en.target);
+        });
+      });
+      $$('textarea[data-grow]').forEach(function (t) { fit.observe(t); });
+    }
+    if (document.fonts) document.fonts.ready.then(growAll);
+
+    /* ---------- what it is ---------- */
+    $('#seg').innerHTML = Docs.COLLECTIONS.map(function (c) {
+      return '<button type="button" role="radio" class="dc--' + c.id + '" data-c="' + c.id + '">' + I[c.icon] + esc(c.one) + '</button>';
+    }).join('');
+    function setCollection(c, byHand) {
+      collection = c;
+      if (byHand) chosen = true;
+      $$('#seg [data-c]').forEach(function (b) {
+        var on = b.getAttribute('data-c') === c;
+        b.classList.toggle('on', on); b.setAttribute('aria-checked', on);
+      });
+      $('#seg').className = 'dc-seg dc--' + c;
+      $('#fields').className = 'ed-section dc-fields is-' + c;
+      $('#files-hint').textContent = HINTS[c];
+      $$('[data-label]').forEach(function (el) {
+        var k = el.getAttribute('data-label');
+        el.textContent = k === 'category' ? Docs.coll(c).catLabel : (LABELS[k] && LABELS[k][c]) || el.textContent;
+      });
+      form.elements.title.placeholder = LABELS.titleHint[c];
+      form.elements.text.placeholder = LABELS.textHint[c];
+      if (!doc) $('#heading').textContent = Docs.coll(c).add;
+      drawCats();
+      requestAnimationFrame(growAll);
+    }
+    $('#seg').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-c]');
+      if (!b || b.getAttribute('data-c') === collection) return;
+      setCollection(b.getAttribute('data-c'), true);
+      dirty = true;
+    });
+
+    /* ---------- category ---------- */
+    function cap(s) { s = String(s || '').trim(); return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+    function catChoices() {
+      var counts = knownCats[collection] || {}, list = Docs.coll(collection).cats.slice();
+      Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a] || a.localeCompare(b); })
+        .forEach(function (k) { if (list.indexOf(k) < 0) list.push(k); });
+      if (category && list.indexOf(category) < 0) list.push(category);
+      return list;
+    }
+    function drawCats() {
+      $('#cats').innerHTML = catChoices().map(function (t) {
+        return '<button type="button" class="chip' + (t === category ? ' on' : '') + '" data-cat="' + esc(t) + '">' + esc(t) + '</button>';
+      }).join('') + (addingCat
+        ? '<input class="input" id="cat-new" maxlength="40" placeholder="New category" />'
+        : '<button type="button" class="chip chip-new" data-new>' + I.plus + 'Other</button>');
+      if (addingCat) $('#cat-new').focus();
+    }
+    function setCategory(v, auto) {
+      v = cap(v);
+      // "christmas" from the reader is the "Christmas" chip.
+      var match = catChoices().filter(function (t) { return t.toLowerCase() === v.toLowerCase(); })[0];
+      category = match || v;
+      categoryAuto = !!auto;
+      drawCats();
+    }
+    $('#cats').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-cat]');
+      if (b) { var v = b.getAttribute('data-cat'); category = category === v ? '' : v; categoryAuto = false; dirty = true; drawCats(); return; }
+      if (e.target.closest('[data-new]')) { addingCat = true; drawCats(); }
+    });
+    function finishNewCat() {
+      var input = $('#cat-new');
+      if (!input) return;
+      var v = input.value;
+      addingCat = false;
+      if (v.trim()) { setCategory(v); dirty = true; } else drawCats();
+    }
+    $('#cats').addEventListener('keydown', function (e) {
+      if (e.target.id !== 'cat-new') return;
+      if (e.key === 'Enter') { e.preventDefault(); finishNewCat(); }
+      else if (e.key === 'Escape') { addingCat = false; drawCats(); }
+    });
+    $('#cats').addEventListener('focusout', function (e) { if (e.target.id === 'cat-new') setTimeout(finishNewCat, 120); });
+
+    /* ---------- date: a day, or just the year ---------- */
+    function setDateMode(mode) {
+      dateMode = mode;
+      $('#date-day').hidden = mode !== 'day';
+      $('#date-year').hidden = mode !== 'year';
+      $('#date-mode').textContent = mode === 'day' ? 'Just the year' : 'Pick a day';
+    }
+    function setDate(v, auto) {
+      keepMonth = null;
+      dateAuto = !!auto;
+      $('#date-day').value = ''; $('#date-year').value = '';
+      if (/^\d{4}-\d{2}-\d{2}$/.test(v || '')) { setDateMode('day'); $('#date-day').value = v; }
+      else if (/^\d{4}/.test(v || '')) { setDateMode('year'); $('#date-year').value = v.slice(0, 4); if (v.length === 7) keepMonth = v; }
+    }
+    function dateValue() {
+      if (dateMode === 'day') return $('#date-day').value || '';
+      var y = $('#date-year').value.trim();
+      if (!/^\d{4}$/.test(y)) return '';
+      return keepMonth && keepMonth.slice(0, 4) === y ? keepMonth : y;
+    }
+    $('#date-mode').onclick = function () {
+      var cur = dateValue();
+      setDateMode(dateMode === 'day' ? 'year' : 'day');
+      if (dateMode === 'year' && cur) $('#date-year').value = cur.slice(0, 4);
+      if (dateMode === 'day') $('#date-day').value = /^\d{4}-\d{2}-\d{2}$/.test(cur) ? cur : '';
+      dateAuto = false; dirty = true;
+      (dateMode === 'day' ? $('#date-day') : $('#date-year')).focus();
+    };
+    $('#date-day').addEventListener('input', function () { dateAuto = false; });
+    $('#date-year').addEventListener('input', function () { dateAuto = false; keepMonth = null; });
+
+    /* ---------- files ---------- */
+    function canUpload() { return !drive || drive.connected || drive.local; }
+    function drawFiles() {
+      var many = files.length > 1;
+      $('#files').innerHTML = files.map(function (it, i) {
+        var label = it.status === 'preparing' ? 'Getting it ready…' : it.status === 'uploading' ? 'Uploading ' + Math.round((it.progress || 0) * 100) + '%' : it.status === 'error' ? 'Didn’t upload' : '';
+        return '<div class="dc-file' + (it.status === 'error' ? ' is-error' : '') + '" data-key="' + it.key + '" title="' + esc(it.error || it.name) + '">' +
+          (it.preview ? '<img src="' + esc(it.preview) + '" alt="" />' : '<div class="dc-file-ph">' + I.file + esc(it.name) + '</div>') +
+          '<div class="dc-file-tools"><span>' + (many ? '<button type="button" data-move="-1" aria-label="Move earlier">' + I.left + '</button><button type="button" data-move="1" aria-label="Move later">' + I.right + '</button>' : '') + '</span>' +
+            '<button type="button" data-remove aria-label="Remove">' + I.x + '</button></div>' +
+          (label ? '<div class="dc-file-bar">' + esc(label) + (it.status === 'uploading' ? '<i><b style="width:' + Math.round((it.progress || 0) * 100) + '%"></b></i>' : '') + '</div>' : '') +
+        '</div>';
+      }).join('');
+      drawReading();
+    }
+    function itemFor(key) { return files.filter(function (it) { return it.key === key; })[0]; }
+    function progressBar(it) {
+      var el = $('.dc-file[data-key="' + it.key + '"] .dc-file-bar');
+      if (!el) return;
+      var pct = Math.round((it.progress || 0) * 100);
+      el.firstChild.textContent = 'Uploading ' + pct + '%';
+      var b = el.querySelector('b');
+      if (b) b.style.width = pct + '%';
+    }
+
+    function addFiles(list) {
+      list = Array.prototype.slice.call(list || []);
+      if (!list.length) return;
+      if (!canUpload()) return Hub.toast('Google Drive needs to be connected before files can be added.', true);
+      var batch = list.map(function (file) {
+        var it = { key: ++seq, name: file.name || 'file', status: 'preparing', progress: 0, fresh: true };
+        files.push(it);
+        it.prepared = Docs.prepare(file).then(function (p) {
+          it.kind = p.kind; it.read = p.read; it.w = p.w; it.h = p.h; it.pages = p.pages;
+          if (p.thumb) it.preview = URL.createObjectURL(p.thumb);
+          it.status = 'uploading'; drawFiles();
+          return p;
+        });
+        it.done = it.prepared.then(function (p) {
+          return Promise.all([
+            Docs.upload(p.full, Docs.savedName(file, p), function (x) { it.progress = x; progressBar(it); }),
+            p.thumb ? Docs.upload(p.thumb, 'thumb.' + (p.thumb.type === 'image/webp' ? 'webp' : 'jpg')) : null
+          ]);
+        }).then(function (refs) {
+          it.ref = refs[0];
+          it.ref.thumb = refs[1] || null;
+          it.ref.w = it.w; it.ref.h = it.h; it.ref.pages = it.pages;
+          it.status = 'ready';
+          if (files.indexOf(it) < 0) discard([it.ref]); // taken off while it was uploading
+          drawFiles();
+        }).catch(function (e) {
+          it.status = 'error'; it.error = e.message;
+          drawFiles();
+          Hub.toast(e.message, true);
+        });
+        return it;
+      });
+      dirty = true;
+      drawFiles();
+      // Once this batch is drawn, read it, if the details are still empty.
+      Promise.all(batch.map(function (it) { return it.prepared.catch(function () {}); })).then(function () {
+        if (shouldAutoRead()) readNow();
+      });
+    }
+    function discard(refs) {
+      refs = refs.filter(function (r) { return r && r.sig; });
+      if (refs.length) Hub.api('docs-discard', { body: { files: refs } }).catch(function () {});
+    }
+
+    $('#files').addEventListener('click', function (e) {
+      var tile = e.target.closest('.dc-file');
+      if (!tile) return;
+      var it = itemFor(+tile.getAttribute('data-key')), i = files.indexOf(it), b;
+      if (e.target.closest('[data-remove]')) {
+        files.splice(i, 1);
+        if (it.fresh && it.ref) discard([it.ref]);
+      } else if ((b = e.target.closest('[data-move]'))) {
+        var j = i + +b.getAttribute('data-move');
+        if (j < 0 || j >= files.length) return;
+        files.splice(i, 1); files.splice(j, 0, it);
+      } else return;
+      dirty = true;
+      drawFiles();
+    });
+
+    $('#choose').innerHTML = I.image + 'Choose photos or files';
+    $('#take').innerHTML = I.camera + 'Take a photo';
+    $('#take').hidden = !window.matchMedia('(pointer: coarse)').matches;
+    $('#choose').onclick = function () { $('#pick').click(); };
+    $('#take').onclick = function () { $('#snap').click(); };
+    $('#pick').onchange = $('#snap').onchange = function () { addFiles(this.files); this.value = ''; };
+    var drop = $('#drop');
+    ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('is-over'); }); });
+    ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('is-over'); }); });
+    drop.addEventListener('drop', function (e) { addFiles(e.dataTransfer && e.dataTransfer.files); });
+    // A pasted screenshot (an emailed receipt, say) becomes a file.
+    document.addEventListener('paste', function (e) {
+      if (form.hidden || /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+      var list = Array.prototype.slice.call((e.clipboardData && e.clipboardData.files) || []);
+      if (list.length) { e.preventDefault(); addFiles(list); }
+    });
+
+    /* ---------- filling in from the photos ---------- */
+    function hasDetails() {
+      return TEXT_FIELDS.some(function (n) { var el = form.elements[n]; return el && el.value.trim() && !el.classList.contains('dc-auto'); });
+    }
+    function shouldAutoRead() {
+      return !readState.unavailable && !readState.busy && !readState.done && !hasDetails() && files.some(function (it) { return it.read && it.read.length; });
+    }
+    function drawReading() {
+      var el = $('#reading'), noun = NOUN[collection];
+      var fresh = files.some(function (it) { return it.read && it.read.length; });
+      var stored = files.some(function (it) { return !it.fresh && it.ref && Docs.kind(it.ref) === 'image'; });
+      if (readState.unavailable || (!readState.busy && !readState.done && !readState.error && !fresh && !stored)) { el.hidden = true; return; }
+      el.hidden = false;
+      el.className = 'dc-reading' + (readState.busy ? ' is-busy' : readState.error ? ' is-error' : '');
+      el.innerHTML = I.sparkle + '<span>' + (readState.busy ? 'Reading the ' + noun + '…'
+        : readState.error ? esc(readState.error)
+        : readState.done ? 'Filled in from the picture. Check it over and fix anything it got wrong.'
+        : 'Fill in the details from the picture?') + '</span>' +
+        (readState.busy ? '' : '<button class="btn btn-ghost btn-sm" type="button" id="read-btn">' + (readState.done || readState.error ? 'Read it again' : 'Fill it in') + '</button>');
+      var b = $('#read-btn');
+      if (b) b.onclick = function () { readNow(true); };
+    }
+    // Pictures to read: what was just added, or else the photos already saved.
+    function readSources() {
+      var fresh = [];
+      files.forEach(function (it) { if (it.read) fresh = fresh.concat(it.read); });
+      if (fresh.length) return Promise.resolve(fresh.slice(0, 6));
+      var stored = files.filter(function (it) { return !it.fresh && it.ref && Docs.kind(it.ref) === 'image'; }).slice(0, 3);
+      return Promise.all(stored.map(function (it) {
+        return fetch(it.ref.url, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('Couldn’t get the photo.'); return r.blob(); });
+      }));
+    }
+    function readNow(again) {
+      readState = { busy: true };
+      drawReading();
+      readSources().then(function (blobs) { return Docs.read(blobs, chosen ? collection : ''); }).then(function (s) {
+        readState = { done: true };
+        apply(s, again);
+        drawReading();
+      }).catch(function (e) {
+        readState = e.status === 503 ? { unavailable: true } : { error: 'Couldn’t read it: ' + e.message };
+        if (e.status === 503) Hub.toast(e.message, true);
+        drawReading();
+      });
+    }
+    // Fills empty boxes, and ones filled in by an earlier reading. Never
+    // what someone typed.
+    function apply(s, again) {
+      if (!chosen && s.collection) setCollection(s.collection);
+      TEXT_FIELDS.forEach(function (n) {
+        var el = form.elements[n];
+        var v = n === 'total' ? (s.total != null ? (s.total / 100).toFixed(2) : '') : s[n];
+        if (!el || !v) return;
+        if (el.value.trim() && !el.classList.contains('dc-auto')) return;
+        el.value = v;
+        el.classList.add('dc-auto');
+        if (el.matches('textarea')) grow(el);
+      });
+      if (s.category && (!category || categoryAuto)) setCategory(s.category, true);
+      if (s.date && (!dateValue() || dateAuto)) setDate(s.date, true);
+      dirty = true;
+      if (again) Hub.toast('Filled in again from the picture.');
+    }
+
+    /* ---------- filling the form ---------- */
+    function fill(d) {
+      setCollection(d.collection || collection);
+      TEXT_FIELDS.forEach(function (n) {
+        var el = form.elements[n];
+        if (!el) return;
+        el.value = n === 'total' ? (d.total != null ? (d.total / 100).toFixed(2) : '') : d[n] || '';
+      });
+      form.elements.notes.value = d.notes || '';
+      form.elements.thanked.checked = !!d.thanked;
+      if (d.thanked && d.thankedOn) $('#thanked-when').textContent = 'Marked on ' + Docs.dateLabel(d.thankedOn) + '.';
+      setCategory(d.category || '');
+      setDate(d.date || '');
+      files = (d.files || []).map(function (f) {
+        return { key: ++seq, name: f.name, status: 'ready', ref: f, kind: Docs.kind(f), preview: f.thumbUrl || (Docs.kind(f) === 'image' ? f.url : null), fresh: false };
+      });
+      drawFiles();
+    }
+
+    function collect() {
+      var el = form.elements;
+      return {
+        id: doc ? doc.id : undefined,
+        collection: collection,
+        title: el.title.value, from: el.from.value, category: category, date: dateValue(),
+        text: el.text.value, notes: el.notes.value, gift: el.gift.value, thanked: el.thanked.checked,
+        store: el.store.value, total: Docs.parseMoney(el.total.value), brand: el.brand.value, model: el.model.value,
+        warrantyUntil: el.warrantyUntil.value,
+        needsReview: false,
+        files: files.filter(function (it) { return it.status === 'ready' && it.ref; }).map(function (it) { return it.ref; })
+      };
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (saving) return;
+      saving = true;
+      var btn = $('#save');
+      btn.disabled = true;
+      var pending = files.filter(function (it) { return it.status === 'preparing' || it.status === 'uploading'; });
+      btn.textContent = pending.length ? 'Finishing uploads…' : 'Saving…';
+      Promise.all(pending.map(function (it) { return it.done; })).then(function () {
+        if (files.some(function (it) { return it.status === 'error'; })) Hub.toast('Files that didn’t upload are left off.', true);
+        btn.textContent = 'Saving…';
+        return Hub.api('docs-save', { body: collect() });
+      }).then(function (r) {
+        dirty = false;
+        location.href = '/family/documents/item?id=' + encodeURIComponent(r.doc.id);
+      }).catch(function (err) {
+        saving = false;
+        btn.disabled = false; btn.textContent = 'Save';
+        Hub.toast(err.message, true);
+      });
+    });
+    $('#cancel').addEventListener('click', function () {
+      // Uploads that won't be saved go to Drive's trash.
+      discard(files.filter(function (it) { return it.fresh && it.ref; }).map(function (it) { return it.ref; }));
+      dirty = false;
+    });
+    $('#delete').onclick = function () {
+      Hub.confirm({ title: 'Delete “' + doc.name + '”?', confirm: 'Delete', danger: true,
+        body: '<p>This removes it from Documents for both of you.' + (doc.files.length ? ' Its files go to Google Drive’s trash, where they stay for 30 days.' : '') + '</p>' })
+        .then(function (yes) {
+          if (!yes) return;
+          $('#delete').disabled = true;
+          Hub.api('docs-delete', { body: { id: doc.id } }).then(function () {
+            dirty = false; location.href = '/family/documents?c=' + doc.collection;
+          }).catch(function (e) { $('#delete').disabled = false; Hub.toast(e.message, true); });
+        });
+    };
+    window.addEventListener('beforeunload', function (e) {
+      if (dirty && !saving) { e.preventDefault(); e.returnValue = ''; }
+    });
+
+    Hub.ready(function () {
+      var load = id ? Hub.api('docs-get', { query: { id: id } }) : Promise.resolve(null);
+      Promise.all([load, Hub.api('docs-list').catch(function () { return { docs: [], drive: null }; })]).then(function (res) {
+        doc = res[0] && res[0].doc;
+        drive = (res[0] && res[0].drive) || res[1].drive;
+        // Categories and names used before, for the chips and the "From" suggestions.
+        var people = {};
+        res[1].docs.forEach(function (d) {
+          if (d.category) { knownCats[d.collection] = knownCats[d.collection] || {}; knownCats[d.collection][d.category] = (knownCats[d.collection][d.category] || 0) + 1; }
+          if (d.from) people[d.from] = 1;
+        });
+        $('#people').innerHTML = Object.keys(people).sort().map(function (p) { return '<option value="' + esc(p) + '"></option>'; }).join('');
+
+        var start = Docs.COLLECTIONS.some(function (c) { return c.id === params.get('c'); }) ? params.get('c') : null;
+        chosen = !!(doc || start);
+        if (doc) {
+          collection = doc.collection;
+          fill(doc);
+          $('#heading').textContent = 'Edit ' + NOUN[doc.collection];
+          document.title = 'Edit ' + doc.name + ' · Documents · Randall Family';
+          $('#cancel').href = '/family/documents/item?id=' + encodeURIComponent(doc.id);
+          $('#danger').hidden = false;
+          // Opening a "Check details" item to fix it counts as checking it.
+          if (doc.needsReview) $('#status').textContent = 'Saving marks this as checked.';
+        } else {
+          fill({ collection: start || 'cards' });
+          $('#cancel').href = '/family/documents' + (start ? '?c=' + start : '');
+        }
+        $('#drive-note').innerHTML = Docs.driveNote(drive);
+        if (!canUpload()) { $('#drop').hidden = true; }
+        $('#loading').remove();
+        form.hidden = false;
+        growAll();
+        dirty = false;
+      }).catch(function (e) {
+        $('#loading').textContent = e.message;
+      });
+    });
+  })();
+  </script>
+</body>
+</html>

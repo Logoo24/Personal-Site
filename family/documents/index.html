@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('lb-theme')||'light')}catch(e){}</script>
+  <title>Documents · Randall Family</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#FAFAFA" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231F7A4D'/%3E%3Cpath d='M8 15 16 8l8 7v9h-5.5v-6h-5v6H8z' fill='%23FAFAFA'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/family/assets/hub.css" />
+  <link rel="stylesheet" href="/family/documents/docs.css" />
+</head>
+<body class="hub">
+  <header class="hub-bar" data-crumbs='[["Documents","/family/documents"]]'></header>
+
+  <main class="hub-main">
+    <div class="hub-head">
+      <div>
+        <span class="eyebrow">Documents</span>
+        <h1 style="margin-top:0.8rem">Family documents</h1>
+        <p id="count">&nbsp;</p>
+      </div>
+      <div class="hub-actions">
+        <div class="dc-add">
+          <button class="btn btn-primary" type="button" id="add-btn" aria-haspopup="true" aria-expanded="false"></button>
+          <div class="dc-add-menu" id="add-menu" role="menu" hidden></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="drive-note"></div>
+
+    <div class="dc-toolbar">
+      <label class="search"><span data-icon="search"></span><input class="input" type="search" id="q" placeholder="Search names, messages, stores…" autocomplete="off" /></label>
+      <select id="year" aria-label="Year"></select>
+    </div>
+    <div class="chips dc-colls" id="colls"></div>
+    <div class="chips dc-cats" id="cats"></div>
+
+    <div id="list"><p class="hub-loading">Opening the documents…</p></div>
+
+    <div class="dc-storage" id="storage" hidden></div>
+  </main>
+
+  <script src="/family/assets/hub.js"></script>
+  <script src="/family/documents/docs.js"></script>
+  <script>
+  (function () {
+    var $ = Hub.$, esc = Hub.esc, I = Hub.icons;
+    Hub.$$('[data-icon]').forEach(function (el) { el.innerHTML = I[el.getAttribute('data-icon')]; el.style.display = 'contents'; });
+
+    var all = [], drive = null;
+    var params = new URLSearchParams(location.search);
+    var state = { c: params.get('c') || '', cat: params.get('cat') || '', f: params.get('f') || '', y: params.get('y') || '' };
+
+    function keepState() {
+      var q = new URLSearchParams();
+      ['c', 'cat', 'f', 'y'].forEach(function (k) { if (state[k]) q.set(k, state[k]); });
+      history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : ''));
+    }
+
+    /* ---------- "Add" menu ---------- */
+    $('#add-btn').innerHTML = I.plus + 'Add';
+    $('#add-menu').innerHTML = Docs.COLLECTIONS.map(function (c) {
+      return '<a role="menuitem" class="dc--' + c.id + '" href="/family/documents/edit?c=' + c.id + '"><span class="dc-add-icon">' + I[c.icon] + '</span>' + esc(c.add) + '</a>';
+    }).join('') + '<hr /><button type="button" role="menuitem" class="dc--other" id="bulk-btn"><span class="dc-add-icon">' + I.upload + '</span><span>Several at once<small>Each photo or PDF becomes its own item</small></span></button>';
+    $('#add-btn').addEventListener('click', function (e) {
+      e.stopPropagation();
+      var open = $('#add-menu').hidden;
+      $('#add-menu').hidden = !open;
+      this.setAttribute('aria-expanded', open);
+    });
+    document.addEventListener('click', function () { $('#add-menu').hidden = true; $('#add-btn').setAttribute('aria-expanded', 'false'); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') $('#add-menu').hidden = true; });
+
+    /* ---------- filtering ---------- */
+    function inColl(d) { return !state.c || d.collection === state.c; }
+    function yearOf(d) { return d.date ? d.date.slice(0, 4) : ''; }
+    function matches(d, q) {
+      if (!q) return true;
+      return [d.name, d.title, d.from, d.category, d.gift, d.store, d.brand, d.model, d.snippet, Docs.dateLabel(d.date)].join(' ').toLowerCase().indexOf(q) > -1;
+    }
+    function shown() {
+      var q = $('#q').value.trim().toLowerCase();
+      return all.filter(function (d) {
+        if (!inColl(d)) return false;
+        if (state.f === 'thank' && !(d.collection === 'cards' && !d.thanked)) return false;
+        if (state.f === 'review' && !d.needsReview) return false;
+        if (state.cat && d.category !== state.cat) return false;
+        if (state.y && yearOf(d) !== state.y) return false;
+        return matches(d, q);
+      });
+    }
+    function byDate(a, b) {
+      return (b.date || '').localeCompare(a.date || '') || (b.createdAt || '').localeCompare(a.createdAt || '');
+    }
+
+    function renderColls() {
+      var count = function (id) { return all.filter(function (d) { return !id || d.collection === id; }).length; };
+      $('#colls').innerHTML = [{ id: '', label: 'All' }].concat(Docs.COLLECTIONS).map(function (c) {
+        var n = count(c.id);
+        if (c.id && !n && state.c !== c.id) return '';
+        return '<button class="chip' + (state.c === c.id ? ' on' : '') + '" data-c="' + c.id + '">' + (c.icon ? I[c.icon] : '') + esc(c.label) +
+          '<span class="chip-count">' + n + '</span></button>';
+      }).join('');
+    }
+    function renderCats() {
+      var list = all.filter(inColl), counts = {};
+      list.forEach(function (d) { if (d.category) counts[d.category] = (counts[d.category] || 0) + 1; });
+      var cats = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a] || a.localeCompare(b); });
+      var toThank = list.filter(function (d) { return d.collection === 'cards' && !d.thanked; }).length;
+      var review = list.filter(function (d) { return d.needsReview; }).length;
+      var html = [];
+      if (toThank || state.f === 'thank') html.push('<button class="chip chip-flag' + (state.f === 'thank' ? ' on' : '') + '" data-f="thank">' + I.mail + 'Still to thank<span class="chip-count">' + toThank + '</span></button>');
+      if (review || state.f === 'review') html.push('<button class="chip chip-flag' + (state.f === 'review' ? ' on' : '') + '" data-f="review">' + I.sparkle + 'Check details<span class="chip-count">' + review + '</span></button>');
+      if (cats.length > 1 || state.cat) cats.forEach(function (t) {
+        html.push('<button class="chip' + (state.cat === t ? ' on' : '') + '" data-cat="' + esc(t) + '">' + esc(t) + '</button>');
+      });
+      $('#cats').innerHTML = html.join('');
+    }
+    function renderYears() {
+      var years = {};
+      all.filter(inColl).forEach(function (d) { var y = yearOf(d); if (y) years[y] = 1; });
+      var list = Object.keys(years).sort().reverse();
+      if (state.y && !years[state.y]) list.unshift(state.y);
+      $('#year').innerHTML = '<option value="">All years</option>' + list.map(function (y) { return '<option' + (y === state.y ? ' selected' : '') + '>' + y + '</option>'; }).join('');
+      $('#year').hidden = list.length < 2 && !state.y;
+    }
+
+    function emptyState() {
+      var c = state.c ? Docs.coll(state.c) : null;
+      if (!all.length) {
+        return '<div class="hub-empty"><h3>Nothing kept yet</h3><p>Start with a card you’d hate to lose, or the manual for something in the house.</p>' +
+          '<a class="btn btn-primary" href="/family/documents/edit?c=cards">' + I.plus + 'Add a card or gift</a></div>';
+      }
+      if (state.f === 'thank') return '<div class="hub-empty"><h3>Everyone’s been thanked</h3><p>Nice work. Cards and gifts still to thank show up here.</p></div>';
+      if (c && !all.some(inColl)) {
+        return '<div class="hub-empty"><h3>No ' + esc(c.label.toLowerCase()) + ' yet</h3><p>&nbsp;</p><a class="btn btn-primary" href="/family/documents/edit?c=' + c.id + '">' + I.plus + esc(c.add) + '</a></div>';
+      }
+      return '<div class="hub-empty"><h3>No matches</h3><p>Nothing here matches' + ($('#q').value.trim() ? ' “' + esc($('#q').value.trim()) + '”' : ' those filters') + '.</p></div>';
+    }
+
+    function render() {
+      var list = shown();
+      if (!list.length) { $('#list').innerHTML = emptyState(); return; }
+      // Manuals read best A to Z; everything else newest first, by year.
+      if (state.c === 'manuals') {
+        list.sort(function (a, b) { return a.name.localeCompare(b.name); });
+        $('#list').innerHTML = '<div class="dc-grid">' + list.map(Docs.tile).join('') + '</div>';
+        return;
+      }
+      list.sort(byDate);
+      var groups = [], cur = null;
+      list.forEach(function (d) {
+        var y = yearOf(d) || 'No date';
+        if (!cur || cur.y !== y) { cur = { y: y, items: [] }; groups.push(cur); }
+        cur.items.push(d);
+      });
+      var heads = groups.length > 1 || (groups[0] && groups[0].y !== 'No date');
+      $('#list').innerHTML = groups.map(function (g) {
+        return (heads ? '<h2 class="dc-year">' + esc(g.y) + '</h2>' : '') + '<div class="dc-grid">' + g.items.map(Docs.tile).join('') + '</div>';
+      }).join('');
+    }
+    function renderAll() { renderColls(); renderCats(); renderYears(); render(); }
+
+    $('#q').addEventListener('input', render);
+    $('#year').addEventListener('change', function () { state.y = this.value; keepState(); render(); });
+    $('#colls').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-c]');
+      if (!b) return;
+      state.c = b.getAttribute('data-c'); state.cat = ''; state.y = '';
+      if (state.f === 'thank' && state.c && state.c !== 'cards') state.f = '';
+      keepState(); renderAll();
+    });
+    $('#cats').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-cat], [data-f]');
+      if (!b) return;
+      if (b.hasAttribute('data-f')) state.f = state.f === b.getAttribute('data-f') ? '' : b.getAttribute('data-f');
+      else state.cat = state.cat === b.getAttribute('data-cat') ? '' : b.getAttribute('data-cat');
+      keepState(); renderAll();
+    });
+
+    function renderCount() {
+      var toThank = all.filter(function (d) { return d.collection === 'cards' && !d.thanked; }).length;
+      $('#count').textContent = all.length
+        ? [Hub.plural(all.length, 'item') + ' kept', toThank ? Hub.plural(toThank, 'card') + ' still to thank' : ''].filter(Boolean).join(' · ')
+        : 'Cards and gifts, manuals, receipts and papers worth keeping.';
+    }
+
+    /* ---------- where the files are kept ---------- */
+    function renderStorage() {
+      $('#drive-note').innerHTML = Docs.driveNote(drive, 'list');
+      var el = $('#storage');
+      if (!drive || !drive.connected) { el.hidden = true; return; }
+      el.hidden = false;
+      el.innerHTML = '<span>' + I.folder + 'Files are kept in Google Drive' + (drive.email ? ' (' + esc(drive.email) + ')' : '') + ', in “Randall Family Documents”.</span>' +
+        '<span class="push">' + (drive.folderUrl ? '<a href="' + esc(drive.folderUrl) + '" target="_blank" rel="noopener">Open the folder</a>' : '') +
+        (drive.canConnect ? '<button class="link" type="button" id="disconnect">Disconnect</button>' : '') + '</span>';
+      var dis = $('#disconnect');
+      if (dis) dis.onclick = function () {
+        Hub.confirm({ title: 'Disconnect Google Drive?', confirm: 'Disconnect', danger: true,
+          body: '<p>Nothing is deleted: every file stays in your Drive. Until Drive is connected again, photos and files won’t open here and new ones can’t be added. Reconnect with the same Google account to pick them back up.</p>' })
+          .then(function (yes) {
+            if (!yes) return;
+            Hub.api('docs-drive-disconnect', { method: 'POST' }).then(function (r) { drive = r.drive; renderStorage(); Hub.toast('Google Drive disconnected.'); })
+              .catch(function (e) { Hub.toast(e.message, true); });
+          });
+      };
+    }
+
+    /* ---------- several at once ---------- */
+    function bulkDialog() {
+      var m = document.createElement('div');
+      m.className = 'hub-modal';
+      m.innerHTML = '<div class="hub-modal-box dc-bulk" role="dialog" aria-modal="true" aria-labelledby="bulk-title">' +
+        '<h3 id="bulk-title">Add several at once</h3>' +
+        '<p>Choose a stack of photos or PDFs. Each one becomes its own item, filled in from the picture, and marked “Check details” until you’ve looked it over.</p>' +
+        '<label class="field"><span>What are they?</span><select id="bulk-coll">' +
+          Docs.COLLECTIONS.map(function (c) { return '<option value="' + c.id + '">' + esc(c.label) + '</option>'; }).join('') +
+          '<option value="">A mix: let each photo decide</option></select></label>' +
+        '<input type="file" id="bulk-files" accept="image/*,application/pdf" multiple hidden />' +
+        '<ul class="dc-bulk-list" id="bulk-list"></ul><p class="dc-bulk-sum" id="bulk-sum" hidden></p>' +
+        '<div class="hub-modal-actions"><button class="btn btn-ghost" type="button" data-close>Close</button>' +
+        '<button class="btn btn-primary" type="button" id="bulk-pick">' + I.image + 'Choose photos</button></div></div>';
+      document.body.appendChild(m);
+      var added = 0, running = false;
+      var close = function () {
+        if (running && !window.confirm('Some are still being added. Stop and close?')) return;
+        m.remove();
+        if (added) load();
+      };
+      m.querySelector('[data-close]').onclick = close;
+      m.addEventListener('click', function (e) { if (e.target === m && !running) close(); });
+      $('#bulk-pick', m).onclick = function () { $('#bulk-files', m).click(); };
+      $('#bulk-files', m).onchange = function () {
+        var files = Array.prototype.slice.call(this.files || []);
+        this.value = '';
+        if (!files.length) return;
+        var collection = $('#bulk-coll', m).value;
+        $('#bulk-coll', m).disabled = true;
+        $('#bulk-pick', m).disabled = true;
+        running = true;
+        var rows = files.map(function (f) {
+          var li = document.createElement('li');
+          li.innerHTML = '<span class="dc-bulk-ph">' + I.file + '</span><div><strong>' + esc(f.name) + '</strong><span>Waiting…</span></div>';
+          $('#bulk-list', m).appendChild(li);
+          return li;
+        });
+        var queue = files.map(function (f, i) { return { file: f, li: rows[i] }; });
+        var failed = 0;
+        function status(li, text, cls) { li.querySelector('div > span').textContent = text; if (cls) li.className = cls; }
+        function one(job) {
+          var file = job.file, li = job.li, p;
+          status(li, 'Getting it ready…');
+          return Docs.prepare(file).then(function (prep) {
+            p = prep;
+            if (p.thumb) li.firstElementChild.outerHTML = '<img src="' + URL.createObjectURL(p.thumb) + '" alt="" />';
+            status(li, 'Uploading…');
+            return Promise.all([
+              Docs.upload(p.full, Docs.savedName(file, p)),
+              p.thumb ? Docs.upload(p.thumb, 'thumb.' + (p.thumb.type === 'image/webp' ? 'webp' : 'jpg')) : null
+            ]);
+          }).then(function (refs) {
+            var f = refs[0];
+            f.thumb = refs[1]; f.w = p.w; f.h = p.h; f.pages = p.pages;
+            status(li, 'Reading it…');
+            var reading = p.read.length ? Docs.read(p.read, collection).catch(function () { return {}; }) : Promise.resolve({});
+            return reading.then(function (s) {
+              status(li, 'Saving…');
+              var entry = Object.assign({}, s, { collection: collection || s.collection || 'other', needsReview: true, files: [f] });
+              return Hub.api('docs-save', { body: entry });
+            });
+          }).then(function (r) {
+            added++;
+            li.querySelector('strong').textContent = r.doc.name;
+            status(li, 'Added', 'is-done');
+          }).catch(function (e) {
+            failed++;
+            status(li, e.message || 'Couldn’t add this one.', 'is-error');
+          });
+        }
+        // Two at a time.
+        function worker() { var job = queue.shift(); return job ? one(job).then(worker) : Promise.resolve(); }
+        Promise.all([worker(), worker()]).then(function () {
+          running = false;
+          $('#bulk-pick', m).disabled = false;
+          $('#bulk-coll', m).disabled = false;
+          $('#bulk-sum', m).hidden = false;
+          $('#bulk-sum', m).textContent = Hub.plural(added, 'item') + ' added' + (failed ? ', ' + failed + ' couldn’t be' : '') + '. Look for “Check details” in the list to go over each one.';
+          if (added) { state.f = 'review'; state.c = collection; state.cat = ''; state.y = ''; keepState(); }
+        });
+      };
+    }
+    $('#bulk-btn').addEventListener('click', function () {
+      if (drive && !drive.connected && !drive.local) return Hub.toast('Google Drive needs to be connected before files can be added.', true);
+      bulkDialog();
+    });
+
+    /* ---------- loading ---------- */
+    function load() {
+      return Hub.api('docs-list').then(function (data) {
+        all = data.docs;
+        drive = data.drive;
+        renderCount(); renderStorage(); renderAll();
+      }).catch(function (e) {
+        $('#list').innerHTML = '<div class="hub-empty"><h3>Couldn’t open the documents</h3><p>' + esc(e.message) + '</p></div>';
+      });
+    }
+    Hub.ready(function () {
+      Docs.driveReturnMessage();
+      load();
+    });
+  })();
+  </script>
+</body>
+</html>

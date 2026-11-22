@@ -20,15 +20,20 @@
 //                                          only for FAMILY_FINANCE_EMAILS
 //   GET  fin-cron                       -> Finance's daily job (Vercel Cron via
 //                                          /api/finance-cron, CRON_SECRET)
+//   *    docs-*                         -> Documents (api/_family/docs/index.js),
+//                                          only for FAMILY_DOCUMENTS_EMAILS
 //
 // Env: FAMILY_PASSWORD, FAMILY_SESSION_SECRET, GOOGLE_CLIENT_ID,
-// FAMILY_GOOGLE_EMAILS, FAMILY_ADMIN_EMAILS and FAMILY_FINANCE_EMAILS
-// (comma-separated), the Blob store's BLOB_READ_WRITE_TOKEN,
-// ANTHROPIC_API_KEY (recipe import), GOOGLE_CALENDAR_SERVICE_ACCOUNT
-// (calendar editing), and FINANCE_ENCRYPTION_KEY (Finance).
+// FAMILY_GOOGLE_EMAILS, FAMILY_ADMIN_EMAILS, FAMILY_FINANCE_EMAILS and
+// FAMILY_DOCUMENTS_EMAILS (comma-separated), the Blob store's
+// BLOB_READ_WRITE_TOKEN, ANTHROPIC_API_KEY (recipe import, reading
+// documents), GOOGLE_CALENDAR_SERVICE_ACCOUNT (calendar editing),
+// FINANCE_ENCRYPTION_KEY (Finance) and GOOGLE_CLIENT_SECRET (Documents'
+// Google Drive connection).
 
-import { createToken, readSession, sessionCookie, clearedCookie, sessionSecret, safeEqual, isAdmin, canSeeFinance } from './_family/session.js';
+import { createToken, readSession, sessionCookie, clearedCookie, sessionSecret, safeEqual, isAdmin, canSeeFinance, canSeeDocuments } from './_family/session.js';
 import { financeRoute, financeCron } from './_family/finance/index.js';
+import { documentsRoute } from './_family/docs/index.js';
 import { listRecipes, allRecipes, getRecipe, saveRecipe, deleteRecipe, saveMedia, mediaIn, MEDIA_URL } from './_family/recipes.js';
 import { shareRecipe, unshareRecipe } from './_family/share.js';
 import { eventsBetween, CALENDAR_LINKS, canEditCalendar, seriesInfo, changeEvent } from './_family/calendar.js';
@@ -97,12 +102,17 @@ async function route(request) {
   if (r === 'fin-cron' && method === 'GET') return json(await financeCron(request));
 
   const user = await readSession(request);
-  if (r === 'session') return json({ user, admin: isAdmin(user), finance: canSeeFinance(user), googleClientId: process.env.GOOGLE_CLIENT_ID || null, calendar: CALENDAR_LINKS });
+  if (r === 'session') return json({ user, admin: isAdmin(user), finance: canSeeFinance(user), documents: canSeeDocuments(user), googleClientId: process.env.GOOGLE_CLIENT_ID || null, calendar: CALENDAR_LINKS });
   if (!user) return fail(401, 'Please sign in.');
 
   if (r && r.startsWith('fin-')) {
     if (!canSeeFinance(user)) return fail(403, 'Finance is only open to the people it’s set up for.');
     const out = await financeRoute(request, url, user, r);
+    return out instanceof Response ? out : json(out);
+  }
+  if (r && r.startsWith('docs-')) {
+    if (!canSeeDocuments(user)) return fail(403, 'Documents is only open to the people it’s set up for.');
+    const out = await documentsRoute(request, url, user, r);
     return out instanceof Response ? out : json(out);
   }
 

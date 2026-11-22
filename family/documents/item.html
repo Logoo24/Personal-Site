@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('lb-theme')||'light')}catch(e){}</script>
+  <title>Documents · Randall Family</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#FAFAFA" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231F7A4D'/%3E%3Cpath d='M8 15 16 8l8 7v9h-5.5v-6h-5v6H8z' fill='%23FAFAFA'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/family/assets/hub.css" />
+  <link rel="stylesheet" href="/family/documents/docs.css" />
+</head>
+<body class="hub">
+  <header class="hub-bar" data-crumbs='[["Documents","/family/documents"]]'></header>
+
+  <main class="hub-main">
+    <div id="view"><p class="hub-loading">Opening…</p></div>
+  </main>
+
+  <script src="/family/assets/hub.js"></script>
+  <script src="/family/documents/docs.js"></script>
+  <script>
+  (function () {
+    var $ = Hub.$, esc = Hub.esc, I = Hub.icons;
+    var id = new URLSearchParams(location.search).get('id');
+    var doc = null, drive = null, at = 0;
+
+    function backHref() {
+      return '/family/documents' + (doc ? '?c=' + doc.collection : '');
+    }
+
+    /* ---------- photos and files ---------- */
+    function stage() {
+      var files = doc.files;
+      if (!files.length) {
+        var c = Docs.coll(doc.collection);
+        return '<div class="dc-stage"><div class="dc-stage-empty">' + I[doc.gift ? 'gift' : c.icon] + '<p>' +
+          (doc.collection === 'cards' && doc.gift ? 'A gift, recorded without a photo.' : 'No photo or file yet.') + '</p></div></div>';
+      }
+      var f = files[at], k = Docs.kind(f), html;
+      if (k === 'image') {
+        html = '<img src="' + esc(f.url) + '" alt="" data-zoom />';
+      } else {
+        html = '<div class="dc-stage-file">' +
+          (f.thumbUrl ? '<img src="' + esc(f.thumbUrl) + '" alt="" data-open />' : '<span class="dc-big-icon">' + I.file + '</span>') +
+          '<strong>' + esc(f.name) + '</strong><span>' + [k === 'pdf' ? (f.pages ? Hub.plural(f.pages, 'page') : 'PDF') : f.type, Docs.fileSize(f.size)].filter(Boolean).map(esc).join(' · ') + '</span>' +
+          '<button class="btn btn-primary btn-sm" type="button" data-open>' + I.external + (k === 'pdf' ? 'Open PDF' : 'Download') + '</button></div>';
+      }
+      var nav = files.length > 1
+        ? '<button class="dc-nav dc-nav--prev" type="button" data-step="-1" aria-label="Previous">' + I.left + '</button><button class="dc-nav dc-nav--next" type="button" data-step="1" aria-label="Next">' + I.right + '</button>'
+        : '';
+      return '<div class="dc-stage">' + html + nav + '</div>';
+    }
+    function strip() {
+      if (doc.files.length < 2) return '';
+      return '<div class="dc-strip">' + doc.files.map(function (f, i) {
+        return '<button type="button" data-at="' + i + '"' + (i === at ? ' class="on"' : '') + ' aria-label="' + esc(f.name) + '">' +
+          (f.thumbUrl ? '<img src="' + esc(f.thumbUrl) + '" alt="" loading="lazy" />' : I.file) + '</button>';
+      }).join('') + '</div>';
+    }
+    function mediaActions() {
+      if (!doc.files.length) return '';
+      var f = doc.files[at];
+      return '<div class="dc-media-actions">' +
+        '<button class="btn btn-ghost btn-sm" type="button" data-download>' + I.download + 'Download</button>' +
+        (f.driveUrl && drive && drive.mine ? '<a class="btn btn-ghost btn-sm" href="' + esc(f.driveUrl) + '" target="_blank" rel="noopener">' + I.external + 'Open in Google Drive</a>' : '') +
+        '</div>';
+    }
+    function drawMedia() {
+      $('#media').innerHTML = stage() + strip() + mediaActions();
+    }
+
+    /* ---------- details ---------- */
+    function facts() {
+      var rows = [], c = Docs.coll(doc.collection);
+      var add = function (label, value, extra) { if (value) rows.push('<dt>' + esc(label) + '</dt><dd>' + esc(value) + (extra || '') + '</dd>'); };
+      if (doc.title) add('From', doc.from);
+      add(c.catLabel, doc.category);
+      add(doc.collection === 'receipts' || doc.collection === 'manuals' ? 'Bought' : 'Date', Docs.dateLabel(doc.date));
+      add('Gift', doc.gift);
+      add('Store', doc.title ? doc.store : '');
+      add('Total', Docs.money(doc.total));
+      add('Brand', doc.brand);
+      add('Model', doc.model);
+      if (doc.warrantyUntil) {
+        var w = Docs.warranty(doc);
+        add('Warranty until', Docs.dateLabel(doc.warrantyUntil), '<span class="dc-badge' + (w === 'active' ? ' dc-badge--done">Active' : '">Ended') + '</span>');
+      }
+      return rows.length ? '<dl class="dc-facts">' + rows.join('') + '</dl>' : '';
+    }
+    function thankedBox() {
+      if (doc.collection !== 'cards') return '';
+      return doc.thanked
+        ? '<div class="dc-thanked is-done"><p><strong>Thanked</strong>' + (doc.thankedOn ? 'Marked on ' + esc(Docs.dateLabel(doc.thankedOn)) : '') + '</p>' +
+            '<button class="btn btn-ghost btn-sm" type="button" data-thanked="0">Not yet, actually</button></div>'
+        : '<div class="dc-thanked"><p><strong>Not thanked yet</strong>Mark it once you’ve sent a note or reached out' + (doc.from ? ' to ' + esc(doc.from) : '') + '.</p>' +
+            '<button class="btn btn-primary btn-sm" type="button" data-thanked="1">' + I.check + 'We’ve thanked them</button></div>';
+    }
+    function textHeading() {
+      return { cards: 'What it says', manuals: 'Summary', receipts: 'Items', other: 'Details' }[doc.collection];
+    }
+
+    function render() {
+      var c = Docs.coll(doc.collection);
+      document.title = doc.name + ' · Documents · Randall Family';
+      var sub = [];
+      if (!doc.title && doc.collection === 'receipts') sub.push(Docs.money(doc.total), Docs.dateLabel(doc.date));
+      $('#view').innerHTML =
+        '<div class="dc-item dc--' + doc.collection + '">' +
+          '<div class="dc-media" id="media"></div>' +
+          '<div class="dc-details">' +
+            '<a class="dc-eyebrow" href="' + backHref() + '">' + I[c.icon] + esc(c.label) + '</a>' +
+            '<h1 class="dc-title">' + esc(doc.name) + '</h1>' +
+            (sub.filter(Boolean).length ? '<p class="dc-sub">' + esc(sub.filter(Boolean).join(' · ')) + '</p>' : '') +
+            (doc.needsReview ? '<div class="dc-review">' + I.sparkle + '<p>These details were filled in from the picture. Check them over, then mark it done.</p>' +
+              '<a class="btn btn-ghost btn-sm" href="/family/documents/edit?id=' + encodeURIComponent(doc.id) + '">Edit</a>' +
+              '<button class="btn btn-primary btn-sm" type="button" data-reviewed>' + I.check + 'Looks right</button></div>' : '') +
+            thankedBox() +
+            facts() +
+            (doc.text ? '<section class="dc-block"><h2>' + textHeading() + '</h2><div class="dc-text' + (doc.collection === 'cards' ? ' dc-text--card' : '') + '">' + esc(doc.text) + '</div></section>' : '') +
+            (doc.notes ? '<section class="dc-block"><h2>Notes</h2><div class="dc-text">' + esc(doc.notes) + '</div></section>' : '') +
+            '<div class="dc-actions">' +
+              '<a class="btn btn-ghost" href="/family/documents/edit?id=' + encodeURIComponent(doc.id) + '">' + I.edit + 'Edit</a>' +
+              '<button class="btn btn-danger" type="button" data-delete>' + I.trash + 'Delete</button>' +
+            '</div>' +
+            '<p class="dc-byline">Added by ' + esc(doc.createdBy || 'someone') + ' on ' + esc(new Date(doc.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })) +
+              (doc.updatedBy && doc.updatedAt !== doc.createdAt ? ' · last changed by ' + esc(doc.updatedBy) : '') + '</p>' +
+          '</div>' +
+        '</div>';
+      drawMedia();
+    }
+
+    function patch(body, done) {
+      body.id = doc.id;
+      return Hub.api('docs-patch', { body: body }).then(function (r) { doc = r.doc; render(); if (done) Hub.toast(done); })
+        .catch(function (e) { Hub.toast(e.message, true); });
+    }
+
+    /* ---------- full-size photo ---------- */
+    function lightbox() {
+      var images = doc.files.filter(function (f) { return Docs.kind(f) === 'image'; });
+      var i = Math.max(0, images.indexOf(doc.files[at]));
+      var m = document.createElement('div');
+      m.className = 'dc-light';
+      function draw() {
+        var f = images[i];
+        m.innerHTML = '<div class="dc-light-bar">' +
+          '<a href="' + esc(Docs.href(f)) + '" target="_blank" rel="noopener" aria-label="Open the original">' + I.external + '</a>' +
+          '<button type="button" data-x aria-label="Close">' + I.x + '</button></div>' +
+          '<img src="' + esc(f.url) + '" alt="" />' +
+          (images.length > 1 ? '<button class="dc-nav dc-nav--prev" type="button" data-s="-1" aria-label="Previous">' + I.left + '</button><button class="dc-nav dc-nav--next" type="button" data-s="1" aria-label="Next">' + I.right + '</button>' : '');
+      }
+      function close() { m.remove(); document.removeEventListener('keydown', key); }
+      function move(s) { i = (i + s + images.length) % images.length; draw(); }
+      function key(e) {
+        if (e.key === 'Escape') close();
+        else if (e.key === 'ArrowLeft' && images.length > 1) move(-1);
+        else if (e.key === 'ArrowRight' && images.length > 1) move(1);
+      }
+      m.addEventListener('click', function (e) {
+        var s = e.target.closest('[data-s]');
+        if (s) return move(+s.getAttribute('data-s'));
+        if (e.target.closest('[data-x]') || e.target === m) close();
+      });
+      document.addEventListener('keydown', key);
+      draw();
+      document.body.appendChild(m);
+    }
+
+    /* ---------- actions ---------- */
+    $('#view').addEventListener('click', function (e) {
+      var t;
+      if ((t = e.target.closest('[data-step]'))) { at = (at + +t.getAttribute('data-step') + doc.files.length) % doc.files.length; drawMedia(); }
+      else if ((t = e.target.closest('[data-at]'))) { at = +t.getAttribute('data-at'); drawMedia(); }
+      else if (e.target.closest('[data-zoom]')) lightbox();
+      else if (e.target.closest('[data-open]')) Docs.openFile(doc.files[at], false);
+      else if (e.target.closest('[data-download]')) Docs.openFile(doc.files[at], true);
+      else if ((t = e.target.closest('[data-thanked]'))) {
+        t.disabled = true;
+        var yes = t.getAttribute('data-thanked') === '1';
+        patch({ thanked: yes }, yes ? 'Marked as thanked.' : null);
+      }
+      else if ((t = e.target.closest('[data-reviewed]'))) { t.disabled = true; patch({ needsReview: false }, 'Marked as checked.'); }
+      else if (e.target.closest('[data-delete]')) {
+        var n = doc.files.length;
+        Hub.confirm({
+          title: 'Delete “' + doc.name + '”?', confirm: 'Delete', danger: true,
+          body: '<p>This removes it from Documents for both of you.' + (n ? ' Its ' + (n === 1 ? 'file goes' : n + ' files go') + ' to Google Drive’s trash, where ' + (n === 1 ? 'it stays' : 'they stay') + ' for 30 days.' : '') + '</p>'
+        }).then(function (yes) {
+          if (!yes) return;
+          Hub.api('docs-delete', { body: { id: doc.id } }).then(function () { location.href = backHref(); })
+            .catch(function (err) { Hub.toast(err.message, true); });
+        });
+      }
+    });
+    document.addEventListener('keydown', function (e) {
+      if (!doc || doc.files.length < 2 || document.querySelector('.dc-light, .hub-modal') || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { at = (at + (e.key === 'ArrowLeft' ? -1 : 1) + doc.files.length) % doc.files.length; drawMedia(); }
+    });
+
+    Hub.ready(function () {
+      if (!id) { location.href = '/family/documents'; return; }
+      Hub.api('docs-get', { query: { id: id } }).then(function (r) {
+        doc = r.doc; drive = r.drive;
+        render();
+        if (drive && !drive.connected && !drive.local && doc.files.some(function (f) { return f.store === 'drive'; })) {
+          $('#view').insertAdjacentHTML('afterbegin', Docs.driveNote(drive));
+        }
+      }).catch(function (e) {
+        $('#view').innerHTML = '<div class="hub-empty"><h3>Couldn’t open this</h3><p>' + esc(e.message) + '</p><a class="btn btn-ghost" href="/family/documents">Back to Documents</a></div>';
+      });
+    });
+  })();
+  </script>
+</body>
+</html>

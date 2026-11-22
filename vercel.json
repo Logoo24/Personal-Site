@@ -12,6 +12,7 @@
   ],
   "rewrites": [
     { "source": "/api/finance-cron", "destination": "/api/family?r=fin-cron" },
+    { "source": "/api/drive-callback", "destination": "/api/family?r=docs-drive-callback" },
     { "source": "/recipes/:slug/photos/:file", "destination": "/api/recipe?slug=:slug&f=:file" },
     { "source": "/recipes/:slug", "destination": "/api/recipe?slug=:slug" }
   ],
