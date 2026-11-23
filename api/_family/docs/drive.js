@@ -498,9 +498,11 @@ export function connectStart(request, user) {
     response_type: 'code',
     scope: SCOPE,
     access_type: 'offline',
-    prompt: 'consent', // always hands back a refresh token
-    state,
-    ...(user.email ? { login_hint: user.email } : {})
+    // Always ask which Google account (nothing pre-picked: the hub sign-in
+    // may be a work account, and the files belong to whichever is chosen),
+    // and always ask consent, which is what hands back a refresh token.
+    prompt: 'select_account consent',
+    state
   });
   const secure = url.protocol === 'https:' ? '; Secure' : '';
   return new Response(null, {

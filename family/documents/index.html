@@ -307,14 +307,12 @@
         all = data.docs;
         drive = data.drive;
         renderCount(); renderStorage(); renderAll();
+        Docs.driveReturnMessage(drive);
       }).catch(function (e) {
         $('#list').innerHTML = '<div class="hub-empty"><h3>Couldn’t open the documents</h3><p>' + esc(e.message) + '</p></div>';
       });
     }
-    Hub.ready(function () {
-      Docs.driveReturnMessage();
-      load();
-    });
+    Hub.ready(load);
   })();
   </script>
 </body>

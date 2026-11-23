@@ -97,7 +97,7 @@
     var text = drive.broken
       ? (drive.canConnect ? '<strong>Google Drive needs reconnecting.</strong> Until then, photos and files can’t be opened or added. Use the same Google account as before (' + esc(drive.email || 'the one it was set up with') + ').'
         : '<strong>Google Drive needs reconnecting.</strong> Ask Logan to reconnect it. Until then, photos and files can’t be opened or added.')
-      : drive.canConnect ? '<strong>Connect Google Drive to start adding photos and files.</strong> Everything goes into a “Randall Family Documents” folder in your Drive, so it’s yours to keep.'
+      : drive.canConnect ? '<strong>Connect Google Drive to start adding photos and files.</strong> Everything goes into a “Randall Family Documents” folder in the Drive you pick, and belongs to that account, so choose your personal Google account, not a work one.'
       : drive.setUp ? '<strong>Photos and files can be added once Logan connects Google Drive.</strong> You can already record gifts.'
       : '<strong>Google Drive isn’t set up yet</strong> (GOOGLE_CLIENT_SECRET is missing), so photos and files can’t be added. You can already record gifts.';
     return '<div class="dc-note' + (drive.broken ? ' dc-note--warn' : '') + '"><span class="dc-note-icon">' + I.folder + '</span><p>' + text + '</p>' + btn + '</div>';
@@ -106,11 +106,11 @@
     if (e.target.closest('[data-drive-connect]')) location.href = '/api/family?r=docs-drive-connect';
   });
   // Coming back from Google's consent screen (?drive=...).
-  function driveReturnMessage() {
+  function driveReturnMessage(drive) {
     var q = new URLSearchParams(location.search), code = q.get('drive');
     if (!code) return;
     var msg = {
-      connected: ['Google Drive is connected. New photos and files are saved there.', false],
+      connected: ['Google Drive is connected' + (drive && drive.email ? ': files are saved to ' + drive.email + '.' : '. New photos and files are saved there.'), false],
       denied: ['Google Drive wasn’t connected: the permission was declined.', true],
       scope: ['Google Drive wasn’t connected. Tick the box that lets the hub see and save its files, then try again.', true],
       expired: ['That took too long. Try connecting Google Drive again.', true],
