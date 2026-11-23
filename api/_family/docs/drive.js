@@ -283,7 +283,13 @@ export async function startUpload(input) {
     fs.writeFileSync(localPath(id) + '.part', '');
     return { token: pack({ s: 'local', id, n: size, t: type, nm: name, e: expires }), chunk: CHUNK };
   }
-  const session = await withFolders(async folders => {
+  const session = await driveSession(name, type, size);
+  return { token: pack({ s: 'drive', u: session, n: size, t: type, nm: name, e: expires }), chunk: CHUNK };
+}
+
+// A Drive resumable upload into "Hub data"; returns its session address.
+function driveSession(name, type, size) {
+  return withFolders(async folders => {
     const r = await gapi(UPLOAD, {
       method: 'POST', raw: true,
       query: { uploadType: 'resumable', fields: 'id' },
@@ -297,7 +303,36 @@ export async function startUpload(input) {
     }
     return r.headers.get('location');
   });
-  return { token: pack({ s: 'drive', u: session, n: size, t: type, nm: name, e: expires }), chunk: CHUNK };
+}
+
+// Stores a file the server has in hand (a manual it downloaded) in one go:
+// server to Google has no 4.5 MB limit. Returns a signed reference, like an
+// upload from the page.
+export async function storeBytes(bytes, name, type) {
+  name = cleanName(name) || 'file';
+  type = cleanType(type);
+  if (!bytes.length) throw fail(400, 'That file is empty.');
+  if (bytes.length > MAX_FILE) throw fail(413, 'That file is too big (100 MB at most).');
+  const up = { n: bytes.length, t: type, nm: name };
+  if (await backend() === 'local') {
+    const id = randomId(20) + (extOf(name, type) ? '.' + extOf(name, type) : '');
+    fs.mkdirSync(LOCAL_DIR, { recursive: true });
+    fs.writeFileSync(localPath(id), bytes);
+    fs.writeFileSync(localPath(id) + '.type', type);
+    return fileRef('local', id, up);
+  }
+  const session = await driveSession(name, type, bytes.length);
+  const r = await fetch(session, { method: 'PUT', redirect: 'manual', headers: { Authorization: 'Bearer ' + await accessToken(), 'Content-Type': type }, body: bytes });
+  if (r.status !== 200 && r.status !== 201) {
+    console.error('Documents: Drive upload', r.status);
+    throw fail(502, 'Google Drive didn’t take the file. Try again.');
+  }
+  return fileRef('drive', (await r.json()).id, up);
+}
+
+// The view link for a file (fileUrl), for a reference the page just got.
+export function viewUrl(f) {
+  return verifyRef(f) ? fileUrl(f) : null;
 }
 
 // One piece of an upload. Returns { done: false, next } (the byte to send

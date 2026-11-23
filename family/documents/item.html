@@ -91,6 +91,10 @@
         var w = Docs.warranty(doc);
         add('Warranty until', Docs.dateLabel(doc.warrantyUntil), '<span class="dc-badge' + (w === 'active' ? ' dc-badge--done">Active' : '">Ended') + '</span>');
       }
+      if (doc.sourceUrl) {
+        var host = doc.sourceUrl.replace(/^https?:\/\/(www\.)?/i, '').split('/')[0];
+        rows.push('<dt>Online</dt><dd><a class="dc-link" href="' + esc(doc.sourceUrl) + '" target="_blank" rel="noopener">' + esc(host) + ' ↗</a></dd>');
+      }
       return rows.length ? '<dl class="dc-facts">' + rows.join('') + '</dl>' : '';
     }
     function thankedBox() {

@@ -7,6 +7,7 @@
 //   title, date ("YYYY", "YYYY-MM" or "YYYY-MM-DD"), text, notes,
 //   from, gift, thanked, thankedOn (cards; from also for other),
 //   store, total (cents), brand, model, warrantyUntil (receipts/manuals),
+//   sourceUrl (manuals: where the PDF came from),
 //   needsReview (added in a batch and not looked at yet),
 //   files: [{ id, store, type, size, name, w, h, pages, thumb: { id, store },
 //             folder, placed }],
@@ -22,7 +23,7 @@ export const COLLECTIONS = ['cards', 'manuals', 'receipts', 'other'];
 // Fields beyond the common ones (title, category, date, text, notes, files).
 const FIELDS = {
   cards: ['from', 'gift', 'thanked'],
-  manuals: ['brand', 'model', 'warrantyUntil'],
+  manuals: ['brand', 'model', 'warrantyUntil', 'sourceUrl'],
   receipts: ['store', 'total', 'brand', 'model', 'warrantyUntil'],
   other: ['from']
 };
@@ -46,6 +47,15 @@ export function cleanDate(d) {
 }
 const cleanDay = d => (/^\d{4}-\d{2}-\d{2}$/.test(cleanDate(d)) ? cleanDate(d) : '');
 const cap = s => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
+// Only plain web links (the page puts it in an href).
+function cleanUrl(u) {
+  try {
+    const url = new URL(String(u || '').trim());
+    return /^https?:$/.test(url.protocol) && url.href.length <= 600 ? url.href : '';
+  } catch (e) {
+    return '';
+  }
+}
 
 // The files the editor sent: ones the entry already had (matched by id),
 // plus new ones that carry our upload signature. Anything else is dropped.
@@ -92,6 +102,7 @@ function normalize(input, prev) {
     brand: has(c, 'brand') ? line(input.brand, 80) : '',
     model: has(c, 'model') ? line(input.model, 80) : '',
     warrantyUntil: has(c, 'warrantyUntil') ? cleanDay(input.warrantyUntil) : '',
+    sourceUrl: has(c, 'sourceUrl') ? cleanUrl(input.sourceUrl) : '',
     needsReview: !!input.needsReview,
     files: cleanFiles(input.files, prev && prev.files)
   };
@@ -134,6 +145,7 @@ function driveDescription(d) {
   add('Brand', d.brand);
   add('Model', d.model);
   add('Warranty until', d.warrantyUntil);
+  add('Online', d.sourceUrl);
   if (d.text) rows.push('', d.text);
   if (d.notes) rows.push('', 'Notes: ' + d.notes);
   return rows.join('\n').slice(0, 4000);

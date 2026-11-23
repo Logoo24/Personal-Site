@@ -13,6 +13,8 @@
 //   POST docs-discard {files}         -> trash fresh uploads taken off before saving
 //   GET  docs-file&s=&f=&k=[&n=&dl=1] -> the file (Range supported)
 //   POST docs-read    {images: [{type, data}], collection?} -> { suggestion }
+//   POST docs-manual-find  {brand, model, title} -> { candidates: [{url, title, host, size}] }
+//   POST docs-manual-fetch {url, brand, model, title} -> { file, url, host, source, size }
 //   GET  docs-drive-connect           -> Google's consent screen (admins)
 //   GET  docs-drive-callback          -> back from Google (/api/drive-callback)
 //   POST docs-drive-disconnect        -> { drive } (admins)
@@ -21,6 +23,7 @@ import { isAdmin } from '../session.js';
 import { listDocs, docsStatus, getDoc, saveDoc, patchDoc, deleteDoc } from './catalog.js';
 import { driveStatus, startUpload, uploadChunk, discardUploads, serveFile, connectStart, connectFinish, disconnect } from './drive.js';
 import { readDocument } from './reader.js';
+import { findManual, fetchManual } from './manuals.js';
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
 const body = request => request.json().catch(() => ({}));
@@ -57,6 +60,10 @@ export async function documentsRoute(request, url, user, r) {
       return serveFile(url, request);
     case 'POST docs-read':
       return readDocument(await body(request));
+    case 'POST docs-manual-find':
+      return findManual(await body(request));
+    case 'POST docs-manual-fetch':
+      return fetchManual(await body(request));
     case 'GET docs-drive-connect':
       if (!admin) throw fail(403, 'Only an admin can connect Google Drive.');
       return connectStart(request, user);

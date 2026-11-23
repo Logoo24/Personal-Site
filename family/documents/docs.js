@@ -314,6 +314,14 @@
     }
     return next();
   }
+  // The whole stored file as a Blob, in pieces when it's big.
+  function fetchFile(f) {
+    if (f.size) return fetchWhole(f);
+    return fetch(f.url, { credentials: 'same-origin' }).then(function (r) {
+      if (!r.ok) throw new Error('Couldn’t get the file (' + r.status + ').');
+      return r.blob();
+    });
+  }
   function openFile(f, download) {
     if (!f.size || f.size <= DIRECT) {
       if (download) clickLink(href(f, true), f.name);
@@ -335,6 +343,6 @@
     COLLECTIONS: COLLECTIONS, coll: coll,
     dateLabel: dateLabel, money: money, parseMoney: parseMoney, fileSize: fileSize, todayKey: todayKey, warranty: warranty, kind: kind,
     subline: subline, tile: tile, driveNote: driveNote, driveReturnMessage: driveReturnMessage,
-    prepare: prepare, savedName: savedName, upload: upload, read: read, href: href, openFile: openFile
+    prepare: prepare, savedName: savedName, upload: upload, read: read, href: href, openFile: openFile, fetchFile: fetchFile
   };
 })();

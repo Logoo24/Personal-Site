@@ -47,7 +47,8 @@ async function checkUrl(url) {
   if (!addrs.length || addrs.some(a => privateIp(a.address))) throw fail(400, 'That link can’t be imported.');
 }
 
-async function readCapped(res, max) {
+// Also used by Documents to download manuals (docs/manuals.js).
+export async function readCapped(res, max) {
   const reader = res.body.getReader();
   const chunks = [];
   let size = 0;
@@ -61,15 +62,16 @@ async function readCapped(res, max) {
   return Buffer.concat(chunks);
 }
 
-// Follows redirects by hand so every hop gets checked.
-async function get(href, accept) {
+// Follows redirects by hand so every hop gets checked. ms limits each hop,
+// including reading the last one's body.
+export async function get(href, accept, ms = 12000) {
   let url = new URL(href);
   for (let hop = 0; hop < 6; hop++) {
     await checkUrl(url);
     const res = await fetch(url, {
       redirect: 'manual',
       headers: { 'user-agent': UA, accept, 'accept-language': 'en-US,en;q=0.9' },
-      signal: AbortSignal.timeout(12000)
+      signal: AbortSignal.timeout(ms)
     });
     const next = res.status >= 300 && res.status < 400 && res.headers.get('location');
     if (!next) return { res, url };
