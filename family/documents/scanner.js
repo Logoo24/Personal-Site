@@ -22,9 +22,14 @@
     tessLang: 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int',
     pdf: 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js'
   };
-  var PAGE_MAX = 2000;   // longest side of a finished page, in pixels
-  var SHOT_MAX = 3200;   // longest side a shot is worked on at
+  var PAGE_MAX = 2400;   // longest side of a finished page, in pixels
+  var PAGE_MIN = 1700;   // a smaller page (a card, a little booklet) is enlarged to this...
+  var GROW_MAX = 2.5;    // ...but never more than this many times its size in the photo
+  var SHOT_MAX = 4096;   // longest side a shot is worked on at (a 12 MP photo, untouched)
   var PDF_WIDTH = 612;   // points: pages are 8.5 inches wide, as tall as the page is
+  var LIVE_MS = 175;     // how often the live outline looks for the page
+  var LIVE_AT = 360;     // ...and the size of the frame it looks at
+  var SHOT_AT = 800;     // the size a shot is searched at
 
   /* ---------- loading the libraries ---------- */
   var scripts = {};
@@ -65,11 +70,15 @@
 
   /* ---------- geometry ---------- */
   function dist(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]); }
-  // Corners in order: top-left, top-right, bottom-right, bottom-left.
+  // Corners in order: top-left, top-right, bottom-right, bottom-left. Sorted
+  // around their middle first, so even a page turned 45° comes out in order.
   function orderQuad(pts) {
-    var bySum = pts.slice().sort(function (a, b) { return (a[0] + a[1]) - (b[0] + b[1]); });
-    var byDiff = pts.slice().sort(function (a, b) { return (a[1] - a[0]) - (b[1] - b[0]); });
-    return [bySum[0], byDiff[0], bySum[3], byDiff[3]];
+    var cx = 0, cy = 0;
+    pts.forEach(function (p) { cx += p[0] / pts.length; cy += p[1] / pts.length; });
+    var ring = pts.slice().sort(function (a, b) { return Math.atan2(a[1] - cy, a[0] - cx) - Math.atan2(b[1] - cy, b[0] - cx); });
+    var first = 0;
+    ring.forEach(function (p, i) { if (p[0] + p[1] < ring[first][0] + ring[first][1]) first = i; });
+    return ring.slice(first).concat(ring.slice(0, first));
   }
   function fullQuad(w, h) { return [[0, 0], [w, 0], [w, h], [0, h]]; }
   function quadArea(q) {
@@ -77,76 +86,254 @@
     for (var i = 0; i < 4; i++) { var p = q[i], n = q[(i + 1) % 4]; a += p[0] * n[1] - n[0] * p[1]; }
     return Math.abs(a) / 2;
   }
+  // How far apart two outlines are: the most any corner moved.
+  function quadGap(a, b) {
+    var g = 0;
+    for (var i = 0; i < 4; i++) g = Math.max(g, dist(a[i], b[i]));
+    return g;
+  }
+  function scaleQuad(q, s) { return q.map(function (p) { return [p[0] * s, p[1] * s]; }); }
+  // The flattened size of an outline: its longer top/bottom and left/right.
+  function quadSize(q) {
+    return { w: Math.max(dist(q[0], q[1]), dist(q[3], q[2])), h: Math.max(dist(q[0], q[3]), dist(q[1], q[2])) };
+  }
 
-  /* ---------- finding the page in a photo (OpenCV) ---------- */
-  function quadFrom(cv, bin, minArea) {
-    var contours = new cv.MatVector(), hier = new cv.Mat(), best = null, bestArea = 0;
-    cv.findContours(bin, contours, hier, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-    for (var i = 0; i < contours.size(); i++) {
-      var cnt = contours.get(i), area = cv.contourArea(cnt);
-      if (area > minArea && area > bestArea) {
-        var hull = new cv.Mat(), approx = new cv.Mat(), pts = null;
+  /* ---------- finding the page in a photo (OpenCV) ----------
+     Every four-cornered shape the edges (and the bright areas) make is a
+     candidate, and each one has to look like a page lying in the picture:
+     convex, no corner too sharp or too flat, not a sliver, not the frame
+     itself, and, above all, with a real edge running under each side. That
+     last test is what keeps a patch of white table or a lamp's glare from
+     turning into an outline that fills the screen. The best candidate is
+     the largest, best-edged one, preferring the middle of the picture and
+     wherever the page was a moment ago. */
+  var MIN_PAGE = 0.04;   // of the picture: smaller shapes aren't the page
+  var MAX_PAGE = 0.96;   // ...and one this big is the frame, not a page
+  var finder = null;     // the small canvas detect() draws into, kept between calls
+  function finderCanvas(w, h) {
+    if (!finder) {
+      finder = document.createElement('canvas');
+      finder.ctx = finder.getContext('2d', { willReadFrequently: true });
+    }
+    if (finder.width !== w) finder.width = w;
+    if (finder.height !== h) finder.height = h;
+    return finder;
+  }
+  // Four-cornered outlines of every big enough shape in a black and white image.
+  function shapes(cv, bin, W, H, out) {
+    var contours = new cv.MatVector(), hier = new cv.Mat(), hull = new cv.Mat(), approx = new cv.Mat();
+    try {
+      cv.findContours(bin, contours, hier, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+      var n = contours.size(), minArea = W * H * MIN_PAGE;
+      for (var i = 0; i < n; i++) {
+        var cnt = contours.get(i);
         cv.convexHull(cnt, hull);
-        var peri = cv.arcLength(hull, true);
-        for (var eps = 0.02; eps <= 0.1 && !pts; eps += 0.02) {
-          cv.approxPolyDP(hull, approx, eps * peri, true);
-          if (approx.rows === 4) {
-            var d = approx.data32S;
-            pts = [[d[0], d[1]], [d[2], d[3]], [d[4], d[5]], [d[6], d[7]]];
+        // The hull, so a page edge broken by a thumb (or not seen at all
+        // on one side) still closes into the page's shape.
+        if (cv.contourArea(hull) >= minArea) {
+          var peri = cv.arcLength(hull, true);
+          for (var e = 0; e < 3; e++) {
+            cv.approxPolyDP(hull, approx, [0.015, 0.03, 0.045][e] * peri, true);
+            if (approx.rows === 4) {
+              var d = approx.data32S;
+              out.push(orderQuad([[d[0], d[1]], [d[2], d[3]], [d[4], d[5]], [d[6], d[7]]]));
+              break;
+            }
+            if (approx.rows < 4) break;
           }
         }
-        if (!pts) { // no clean four corners: fall back to its bounding box
-          var r = cv.boundingRect(hull);
-          pts = fullQuad(r.width, r.height).map(function (p) { return [p[0] + r.x, p[1] + r.y]; });
-        }
-        best = orderQuad(pts); bestArea = area;
-        hull.delete(); approx.delete();
+        cnt.delete();
       }
-      cnt.delete();
+    } finally {
+      contours.delete(); hier.delete(); hull.delete(); approx.delete();
     }
-    contours.delete(); hier.delete();
-    return best;
   }
-  // The page's four corners in the source's own pixels, or null.
-  function detect(cv, source, w, h, workAt) {
+  // Is it shaped like a page seen through a camera?
+  function pageShaped(q, W, H) {
+    var sign = 0, i;
+    for (i = 0; i < 4; i++) {
+      var a = q[(i + 3) % 4], b = q[i], c = q[(i + 1) % 4];
+      var ux = a[0] - b[0], uy = a[1] - b[1], vx = c[0] - b[0], vy = c[1] - b[1];
+      var lu = Math.hypot(ux, uy), lv = Math.hypot(vx, vy);
+      if (lu < 8 || lv < 8) return false;
+      var cross = ux * vy - uy * vx, s = cross > 0 ? 1 : -1;
+      if (sign && s !== sign) return false; // not convex
+      sign = s;
+      var cos = (ux * vx + uy * vy) / (lu * lv);
+      if (cos > 0.77 || cos < -0.77) return false; // a corner sharper than 40° or flatter than 140°
+    }
+    var top = dist(q[0], q[1]), bottom = dist(q[3], q[2]), left = dist(q[0], q[3]), right = dist(q[1], q[2]);
+    if (Math.min(top, bottom) < Math.max(top, bottom) * 0.45 || Math.min(left, right) < Math.max(left, right) * 0.45) return false;
+    var w = (top + bottom) / 2, h = (left + right) / 2;
+    if (Math.max(w, h) > Math.min(w, h) * 4.5) return false; // a receipt is long, but not a strip
+    var area = quadArea(q) / (W * H);
+    if (area < MIN_PAGE || area > MAX_PAGE) return false;
+    // A side lying along the edge of the picture is the frame, not the
+    // page's edge. One is fine (the page runs off the bottom); two is a
+    // shape made by the frame.
+    var mx = Math.max(3, W * 0.02), my = Math.max(3, H * 0.02), framed = 0;
+    for (i = 0; i < 4; i++) {
+      var p = q[i], n = q[(i + 1) % 4];
+      if ((p[0] < mx && n[0] < mx) || (p[0] > W - mx && n[0] > W - mx) || (p[1] < my && n[1] < my) || (p[1] > H - my && n[1] > H - my)) framed++;
+    }
+    return framed < 2;
+  }
+  // For each side, the share of it with an edge underneath: a strong change
+  // in brightness running the same way as the side, within a few pixels,
+  // and lining up along the side (a straight edge), not scattered about
+  // like the grain of a table or a pile of clutter.
+  function edgeSupport(q, gx, gy, W, H) {
+    var reach = Math.max(2, Math.round(Math.max(W, H) * 0.012)), out = [];
+    for (var i = 0; i < 4; i++) {
+      var a = q[i], b = q[(i + 1) % 4], dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1;
+      var nx = -dy / len, ny = dx / len, steps = Math.max(12, Math.round(len / 3)), ts = [], offs = [];
+      for (var k = 0; k < steps; k++) {
+        var t = 0.08 + 0.84 * (k + 0.5) / steps, px = a[0] + dx * t, py = a[1] + dy * t;
+        for (var o = 0; o <= reach * 2; o++) {
+          var off = (o & 1 ? -1 : 1) * ((o + 1) >> 1); // 0, 1, -1, 2, -2…
+          var x = Math.round(px + nx * off), y = Math.round(py + ny * off);
+          if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1) continue;
+          var j = y * W + x, ex = gx[j], ey = gy[j], across = ex * nx + ey * ny;
+          if (across * across > 400 && across * across > 0.7 * (ex * ex + ey * ey)) { ts.push(t); offs.push(off); break; }
+        }
+      }
+      out.push(straight(ts, offs) / steps);
+    }
+    return out;
+  }
+  // How many of the hits lie on one straight line (fitted twice, the
+  // second time without the strays). The line may lean a little, since the
+  // corners are only roughly placed, and may bow a little (a book's pages).
+  function straight(ts, offs) {
+    var keep = ts.map(function () { return true; }), line = [0, 0];
+    for (var pass = 0; pass < 2; pass++) {
+      var n = 0, st = 0, so = 0, stt = 0, sto = 0;
+      ts.forEach(function (t, i) { if (keep[i]) { n++; st += t; so += offs[i]; stt += t * t; sto += t * offs[i]; } });
+      if (n < 2) return n;
+      var d = n * stt - st * st, slope = d > 1e-9 ? (n * sto - st * so) / d : 0;
+      line = [(so - slope * st) / n, slope];
+      var tol = pass ? 1.6 : 3;
+      keep = ts.map(function (t, i) { return Math.abs(offs[i] - (line[0] + line[1] * t)) <= tol; });
+    }
+    return keep.filter(Boolean).length;
+  }
+  // The share of the inside that looks like paper: pale and without much
+  // colour. A colourful cover still counts as a page when its edges are
+  // clear; this only decides the doubtful shapes, like a patch of a
+  // cluttered table.
+  function paperShare(q, rgba, W, H, light) {
+    var paper = 0, n = 0;
+    for (var v = 0.1; v < 0.95; v += 0.1) {
+      for (var u = 0.1; u < 0.95; u += 0.1) {
+        var tx = q[0][0] + (q[1][0] - q[0][0]) * u, ty = q[0][1] + (q[1][1] - q[0][1]) * u;
+        var bx = q[3][0] + (q[2][0] - q[3][0]) * u, by = q[3][1] + (q[2][1] - q[3][1]) * u;
+        var x = Math.round(tx + (bx - tx) * v), y = Math.round(ty + (by - ty) * v);
+        if (x < 0 || y < 0 || x >= W || y >= H) continue;
+        var j = (y * W + x) * 4, r = rgba[j], g = rgba[j + 1], b = rgba[j + 2];
+        var hi = Math.max(r, g, b), lo = Math.min(r, g, b);
+        n++;
+        if (hi - lo < 45 && hi > light) paper++;
+      }
+    }
+    return n ? paper / n : 0;
+  }
+  // The page's four corners in the source's own pixels, or null. "near" is
+  // an outline (in the same pixels) to prefer: where the page just was.
+  function detect(cv, source, w, h, workAt, near) {
     var s = Math.min(1, (workAt || 640) / Math.max(w, h));
-    var c = document.createElement('canvas');
-    c.width = Math.max(1, Math.round(w * s)); c.height = Math.max(1, Math.round(h * s));
-    c.getContext('2d').drawImage(source, 0, 0, c.width, c.height);
-    var src = cv.imread(c), gray = new cv.Mat(), edges = new cv.Mat(), otsu = new cv.Mat(), k = cv.Mat.ones(5, 5, cv.CV_8U);
+    var W = Math.max(1, Math.round(w * s)), H = Math.max(1, Math.round(h * s));
+    var c = finderCanvas(W, H);
+    c.ctx.drawImage(source, 0, 0, W, H);
+    var src = cv.imread(c), gray = new cv.Mat(), edges = new cv.Mat(), bright = new cv.Mat();
+    var dx = new cv.Mat(), dy = new cv.Mat(), k = cv.Mat.ones(3, 3, cv.CV_8U);
     try {
       cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-      cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0);
-      var minArea = c.width * c.height * 0.15;
-      cv.Canny(gray, edges, 40, 120);
+      var blur = W * H > 300000 ? 7 : 5;
+      cv.GaussianBlur(gray, gray, new cv.Size(blur, blur), 0);
+      cv.Sobel(gray, dx, cv.CV_16S, 1, 0, 3);
+      cv.Sobel(gray, dy, cv.CV_16S, 0, 1, 3);
+      var cands = [];
+      cv.Canny(gray, edges, 20, 60);
+      cv.morphologyEx(edges, edges, cv.MORPH_CLOSE, k);
       cv.dilate(edges, edges, k);
-      var q = quadFrom(cv, edges, minArea);
-      if (!q) {
-        cv.threshold(gray, otsu, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
-        q = quadFrom(cv, otsu, minArea);
-      }
-      return q ? q.map(function (p) { return [p[0] / s, p[1] / s]; }) : null;
+      shapes(cv, edges, W, H, cands);
+      // Bright areas too: a page whose edges are faint is often still the
+      // brightest thing in the picture.
+      cv.threshold(gray, bright, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+      shapes(cv, bright, W, H, cands);
+      var gx = dx.data16S, gy = dy.data16S, best = null, bestScore = 0;
+      var prior = near ? scaleQuad(near, s) : null, diag = Math.hypot(W, H);
+      var light = Math.min(200, cv.mean(gray)[0] + 10);
+      cands.forEach(function (q) {
+        if (!pageShaped(q, W, H)) return;
+        var sup = edgeSupport(q, gx, gy, W, H), sorted = sup.slice().sort(function (a, b) { return b - a; });
+        var mean = (sup[0] + sup[1] + sup[2] + sup[3]) / 4;
+        // Three sides need a clear edge; the fourth may be faint (white
+        // paper on a white table) or hidden by a hand.
+        if (sorted[2] < 0.5 || mean < 0.6) return;
+        var area = quadArea(q) / (W * H), paper = paperShare(q, src.data, W, H, light);
+        // A shape with so-so edges, or a small one, has to look like paper.
+        if ((mean < 0.8 || area < 0.1) && paper < 0.45) return;
+        var score = area * mean * mean * (0.6 + 0.4 * paper);
+        if (!pointInQuad([W / 2, H / 2], q)) score *= 0.6;
+        if (prior && quadGap(q, prior) < diag * 0.1) score *= 1.5;
+        if (score > bestScore) { bestScore = score; best = q; }
+      });
+      return best ? scaleQuad(best, 1 / s) : null;
     } finally {
-      src.delete(); gray.delete(); edges.delete(); otsu.delete(); k.delete();
+      src.delete(); gray.delete(); edges.delete(); bright.delete(); dx.delete(); dy.delete(); k.delete();
     }
   }
-  // The quad flattened into a rectangle.
-  function warp(cv, canvas, q) {
-    var w = Math.max(dist(q[0], q[1]), dist(q[3], q[2])), h = Math.max(dist(q[0], q[3]), dist(q[1], q[2]));
-    var s = Math.min(1, SHOT_MAX / Math.max(w, h));
-    w = Math.max(1, Math.round(w * s)); h = Math.max(1, Math.round(h * s));
-    var src = cv.imread(canvas), dst = new cv.Mat();
-    var from = cv.matFromArray(4, 1, cv.CV_32FC2, [q[0][0], q[0][1], q[1][0], q[1][1], q[2][0], q[2][1], q[3][0], q[3][1]]);
+  // A photo: looked at in some detail first, then more coarsely (where
+  // the paper's own texture or a busy table can hide the page's edges).
+  function findPage(cv, canvas, near) {
+    var w = canvas.width, h = canvas.height;
+    return detect(cv, canvas, w, h, SHOT_AT, near) || detect(cv, canvas, w, h, 480, near);
+  }
+  function pointInQuad(p, q) {
+    var sign = 0;
+    for (var i = 0; i < 4; i++) {
+      var a = q[i], b = q[(i + 1) % 4];
+      var cross = (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]), s = cross > 0 ? 1 : -1;
+      if (sign && s !== sign) return false;
+      sign = s;
+    }
+    return true;
+  }
+  // The quad flattened into a w×h rectangle in one step (cubic, which keeps
+  // the edges of letters crisper than linear), then lightly sharpened.
+  // Only the part of the photo under the quad goes into OpenCV.
+  function warp(cv, canvas, q, w, h) {
+    var xs = q.map(function (p) { return p[0]; }), ys = q.map(function (p) { return p[1]; });
+    var x0 = Math.max(0, Math.floor(Math.min.apply(null, xs)) - 2), y0 = Math.max(0, Math.floor(Math.min.apply(null, ys)) - 2);
+    var x1 = Math.min(canvas.width, Math.ceil(Math.max.apply(null, xs)) + 2), y1 = Math.min(canvas.height, Math.ceil(Math.max.apply(null, ys)) + 2);
+    var part = document.createElement('canvas');
+    part.width = Math.max(1, x1 - x0); part.height = Math.max(1, y1 - y0);
+    part.getContext('2d').drawImage(canvas, x0, y0, part.width, part.height, 0, 0, part.width, part.height);
+    var src = cv.imread(part), dst = new cv.Mat(), soft = new cv.Mat();
+    var from = cv.matFromArray(4, 1, cv.CV_32FC2, [].concat.apply([], q.map(function (p) { return [p[0] - x0, p[1] - y0]; })));
     var to = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, w, 0, w, h, 0, h]);
     var M = cv.getPerspectiveTransform(from, to);
     try {
-      cv.warpPerspective(src, dst, M, new cv.Size(w, h), cv.INTER_LINEAR, cv.BORDER_REPLICATE, new cv.Scalar());
+      cv.warpPerspective(src, dst, M, new cv.Size(w, h), cv.INTER_CUBIC, cv.BORDER_REPLICATE, new cv.Scalar());
+      // Unsharp mask, wider when the page was enlarged (its blur is too).
+      var grow = w / Math.max(1, quadSize(q).w), sigma = Math.min(2.2, Math.max(1, grow));
+      cv.GaussianBlur(dst, soft, new cv.Size(0, 0), sigma);
+      cv.addWeighted(dst, 1.7, soft, -0.7, 0, dst);
       var out = document.createElement('canvas');
       cv.imshow(out, dst);
       return out;
     } finally {
-      src.delete(); dst.delete(); from.delete(); to.delete(); M.delete();
+      src.delete(); dst.delete(); soft.delete(); from.delete(); to.delete(); M.delete(); part.width = part.height = 0;
     }
+  }
+  // How big to make the flattened page(s): pages capped at PAGE_MAX, and a
+  // small one enlarged towards PAGE_MIN so its text isn't a smudge in the PDF.
+  function pageScale(q, spread) {
+    var z = quadSize(q), long = Math.max(spread ? z.w / 2 : z.w, z.h);
+    if (long > PAGE_MAX) return PAGE_MAX / long;
+    if (long < PAGE_MIN) return Math.min(GROW_MAX, PAGE_MIN / long);
+    return 1;
   }
 
   /* ---------- tidying a page ---------- */
@@ -272,7 +459,7 @@
     return new Promise(function (resolveOpen) {
       var shots = [], pages = [], seq = 0;
       var mode = 'auto', filter = 'color';
-      var stream = null, liveTimer = null, liveQuad = null, cropping = null, finished = false;
+      var stream = null, live = null, capturing = false, cropping = null, finished = false;
       var work = Promise.resolve(), ocrQueue = [], ocrBusy = false, ocrBroken = false;
 
       var el = document.createElement('div');
@@ -292,7 +479,7 @@
             '<div class="sc-nocam" hidden><p></p><div class="sc-nocam-btns">' +
               '<button type="button" class="btn btn-primary" data-act="snap">' + I.camera + 'Take a photo</button>' +
               '<button type="button" class="btn btn-ghost" data-act="pick">' + I.image + 'Choose photos</button></div></div>' +
-            '<p class="sc-tip">Fill the screen with the page. For an open book, fit both pages and choose Open book or Auto.</p>' +
+            '<p class="sc-tip">Hold the phone back until the words look sharp. The page doesn’t need to fill the screen.</p>' +
           '</div>' +
           '<div class="sc-controls">' +
             '<button type="button" class="sc-last" data-act="review" aria-label="See the pages"><span class="sc-last-img"></span><b>0</b></button>' +
@@ -355,7 +542,11 @@
       function startCamera() {
         if (stream || finished) return;
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return noCamera('This browser can’t show the camera here. Take each page with the camera app instead.');
-        navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } } })
+        // As many pixels as the camera gives. Asked for as a square, so the
+        // best mode wins whether the browser counts the phone as held
+        // upright or sideways (asking for 3840×2160 on an upright phone can
+        // land on 1080p, as that's "closer" to the sideways numbers).
+        navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 4096 }, height: { ideal: 4096 } } })
           .then(function (s) {
             if (finished || el.querySelector('[data-view="camera"]').hidden) { s.getTracks().forEach(function (t) { t.stop(); }); return; }
             stream = s;
@@ -364,6 +555,7 @@
             $('.sc-nocam').hidden = true;
             $('.sc-shutter').disabled = false;
             $('.sc-tip').hidden = false;
+            keepFocusing(s.getVideoTracks()[0]);
             startOutline();
           })
           .catch(function (e) {
@@ -372,60 +564,196 @@
               : 'The camera isn’t available. Take each page with the camera app instead.');
           });
       }
+      // Where the browser lets us (Chrome on Android), keep the focus
+      // following the page instead of locking at whatever it found first.
+      function keepFocusing(track) {
+        try {
+          var caps = track && track.getCapabilities ? track.getCapabilities() : {};
+          if (caps.focusMode && caps.focusMode.indexOf('continuous') >= 0) track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(function () {});
+        } catch (e) { /* not supported: the camera's own default */ }
+      }
       function stopCamera() {
-        clearInterval(liveTimer); liveTimer = null; liveQuad = null;
+        stopOutline();
         if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
         stream = null;
         video.srcObject = null;
-        var ctx = outline.getContext('2d'); ctx.clearRect(0, 0, outline.width, outline.height);
       }
-      // A live outline of the page it sees, a few times a second.
+
+      /* ----- the live outline -----
+         Looks for the page about six times a second, and glides the green
+         outline towards each new find on every screen frame, so it moves
+         smoothly instead of jumping. A find far from the current outline
+         has to be seen twice in a row before the outline goes there, and a
+         page has to go missing three times running before it fades out:
+         one odd frame (glare, a hand) can't throw it around. */
       function startOutline() {
-        clearInterval(liveTimer);
+        stopOutline();
         opencv().then(function (cv) {
-          if (!stream) return;
-          liveTimer = setInterval(function () {
-            var vw = video.videoWidth, vh = video.videoHeight;
-            if (!vw || !stream) return;
-            try { liveQuad = detect(cv, video, vw, vh, 360); } catch (e) { liveQuad = null; }
-            drawOutline(vw, vh);
-          }, 350);
+          if (!stream || live) return;
+          live = { cv: cv, raf: 0, w: 0, h: 0, lastLook: 0, lastFrame: 0, target: null, shown: null, alpha: 0, misses: 0, maybe: null, seen: 0, drawn: '' };
+          live.raf = requestAnimationFrame(liveFrame);
         }).catch(function () {});
       }
-      function drawOutline(vw, vh) {
-        var r = video.getBoundingClientRect();
-        outline.width = Math.round(r.width * devicePixelRatio); outline.height = Math.round(r.height * devicePixelRatio);
+      function stopOutline() {
+        if (live) cancelAnimationFrame(live.raf);
+        live = null;
+        outline.getContext('2d').clearRect(0, 0, outline.width, outline.height);
+      }
+      function liveFrame(now) {
+        var L = live;
+        if (!L || !stream) return;
+        L.raf = requestAnimationFrame(liveFrame);
+        var vw = video.videoWidth, vh = video.videoHeight;
+        if (!vw) return;
+        if (L.w !== vw || L.h !== vh) { L.w = vw; L.h = vh; L.target = L.shown = L.maybe = null; L.alpha = 0; } // the phone turned
+        if (!capturing && now - L.lastLook >= LIVE_MS) {
+          L.lastLook = now;
+          var q = null;
+          try { q = detect(L.cv, video, vw, vh, LIVE_AT, L.target); } catch (e) { q = null; }
+          follow(L, q, Math.hypot(vw, vh));
+        }
+        glide(L, now);
+        drawOutline(L);
+      }
+      function follow(L, q, diag) {
+        if (!q) {
+          L.maybe = null;
+          if (++L.misses >= 3) L.target = null;
+          return;
+        }
+        L.misses = 0;
+        if (L.target && quadGap(q, L.target) < diag * 0.15) { L.target = q; L.maybe = null; return; }
+        // Somewhere new (or the first sighting): only once it's seen again.
+        if (L.maybe && quadGap(q, L.maybe) < diag * 0.15) {
+          if (++L.seen >= 2) { L.target = q; L.maybe = null; return; }
+        } else L.seen = 1;
+        L.maybe = q;
+      }
+      function glide(L, now) {
+        var dt = L.lastFrame ? Math.min(100, now - L.lastFrame) : 16;
+        L.lastFrame = now;
+        if (L.target) {
+          if (!L.shown || L.alpha < 0.03) L.shown = L.target.map(function (p) { return p.slice(); }); // appears where it is
+          else {
+            var k = 1 - Math.exp(-dt / 85);
+            L.shown.forEach(function (p, i) { p[0] += (L.target[i][0] - p[0]) * k; p[1] += (L.target[i][1] - p[1]) * k; });
+          }
+        }
+        var goal = L.target ? 1 : 0;
+        L.alpha += (goal - L.alpha) * (1 - Math.exp(-dt / (goal ? 90 : 160)));
+        if (Math.abs(goal - L.alpha) < 0.005) L.alpha = goal;
+      }
+      function drawOutline(L) {
+        var r = video.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+        var cw = Math.round(r.width * dpr), ch = Math.round(r.height * dpr);
+        // Redraw only when something on it changed.
+        var key = cw + 'x' + ch + ':' + L.alpha.toFixed(3) + ':' + (L.shown && L.alpha ? L.shown.map(function (p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ') : '');
+        if (key === L.drawn) return;
+        L.drawn = key;
+        if (outline.width !== cw) outline.width = cw;
+        if (outline.height !== ch) outline.height = ch;
         var ctx = outline.getContext('2d');
-        ctx.clearRect(0, 0, outline.width, outline.height);
-        if (!liveQuad) return;
+        ctx.clearRect(0, 0, cw, ch);
+        if (!L.shown || !L.alpha) return;
         // The video is drawn "cover", so map its pixels the same way.
-        var s = Math.max(outline.width / vw, outline.height / vh), ox = (outline.width - vw * s) / 2, oy = (outline.height - vh * s) / 2;
+        var s = Math.max(cw / L.w, ch / L.h), ox = (cw - L.w * s) / 2, oy = (ch - L.h * s) / 2;
+        ctx.globalAlpha = L.alpha;
         ctx.beginPath();
-        liveQuad.forEach(function (p, i) { var x = ox + p[0] * s, y = oy + p[1] * s; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+        L.shown.forEach(function (p, i) { var x = ox + p[0] * s, y = oy + p[1] * s; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
         ctx.closePath();
-        ctx.lineWidth = 3 * devicePixelRatio;
+        ctx.lineWidth = 3 * dpr;
+        ctx.lineJoin = 'round';
         ctx.strokeStyle = '#34D399';
         ctx.fillStyle = 'rgba(52, 211, 153, 0.15)';
         ctx.fill(); ctx.stroke();
+        ctx.globalAlpha = 1;
       }
+
+      /* ----- taking a picture -----
+         Pressing the shutter shakes the phone, so it watches the next few
+         frames (about half a second) and keeps the sharpest one, judged on
+         a patch of the page at full size. The flash comes once it has it. */
       function shoot() {
         var vw = video.videoWidth, vh = video.videoHeight;
-        if (!vw) return;
-        var c = document.createElement('canvas');
-        c.width = vw; c.height = vh;
-        c.getContext('2d').drawImage(video, 0, 0);
-        var f = $('.sc-flash');
-        f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
-        if (navigator.vibrate) navigator.vibrate(15);
-        toBlob(c, 'image/jpeg', 0.92).then(addShot);
+        if (!vw || !stream || capturing) return;
+        capturing = true;
+        var shutter = $('.sc-shutter');
+        shutter.classList.add('busy');
+        var hint = live && live.target ? { quad: live.target.map(function (p) { return p.slice(); }), w: vw, h: vh } : null;
+        sharpestFrame(hint).then(function (c) {
+          if (!c) return;
+          var f = $('.sc-flash');
+          f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
+          if (navigator.vibrate) navigator.vibrate(15);
+          return toBlob(c, 'image/jpeg', 0.95).then(function (b) { c.width = c.height = 0; addShot(b, null, hint); });
+        }).catch(function () {
+          Hub.toast('Couldn’t take that picture. Try again.', true);
+        }).then(function () {
+          capturing = false;
+          shutter.classList.remove('busy');
+        });
+      }
+      function sharpestFrame(hint) {
+        var cv = window.cv && window.cv.Mat ? window.cv : null;
+        var vw = video.videoWidth, vh = video.videoHeight, start = performance.now(), n = 0, bestScore = -1;
+        var best = document.createElement('canvas');
+        best.width = vw; best.height = vh;
+        var bctx = best.getContext('2d');
+        // Judge it in the middle of the page (or of the picture).
+        var cx = vw / 2, cy = vh / 2;
+        if (hint) { cx = 0; cy = 0; hint.quad.forEach(function (p) { cx += p[0] / 4; cy += p[1] / 4; }); }
+        return new Promise(function (resolve) {
+          function look() {
+            if (!stream || video.videoWidth !== vw) return resolve(n ? best : null);
+            var score = 0;
+            if (cv) { try { score = sharpness(cv, cx, cy, vw, vh); } catch (e) { cv = null; } }
+            if (score > bestScore) { bestScore = score; bctx.drawImage(video, 0, 0, vw, vh); }
+            n++;
+            if (!cv || n >= 6 || performance.now() - start > 550) return resolve(best);
+            nextFrame(look);
+          }
+          look();
+        });
+      }
+      function nextFrame(fn) {
+        var done = false, go = function () { if (!done) { done = true; fn(); } };
+        if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(go);
+        else requestAnimationFrame(go);
+        setTimeout(go, 120); // in case no new frame comes
+      }
+      var probe = document.createElement('canvas');
+      // Sharpness: how much the fine detail varies (the variance of the
+      // Laplacian) in a 320px patch of the frame, at full size.
+      function sharpness(cv, cx, cy, vw, vh) {
+        var S = Math.min(320, vw, vh);
+        probe.width = probe.height = S;
+        var sx = Math.max(0, Math.min(vw - S, Math.round(cx - S / 2))), sy = Math.max(0, Math.min(vh - S, Math.round(cy - S / 2)));
+        probe.getContext('2d', { willReadFrequently: true }).drawImage(video, sx, sy, S, S, 0, 0, S, S);
+        var m = cv.imread(probe), g = new cv.Mat(), lap = new cv.Mat(), mean = new cv.Mat(), sd = new cv.Mat();
+        try {
+          cv.cvtColor(m, g, cv.COLOR_RGBA2GRAY);
+          cv.Laplacian(g, lap, cv.CV_32F, 3);
+          cv.meanStdDev(lap, mean, sd);
+          return sd.data64F[0] * sd.data64F[0];
+        } finally {
+          m.delete(); g.delete(); lap.delete(); mean.delete(); sd.delete();
+        }
       }
 
       /* ----- shots and pages ----- */
-      function addShot(blob, forceMode) {
-        var shot = { id: ++seq, blob: blob, mode: forceMode || mode, filter: filter, quad: null, w: 0, h: 0, busy: true };
+      // hint: the live outline when the shutter was pressed, in video pixels.
+      function addShot(blob, forceMode, hint) {
+        var shot = { id: ++seq, blob: blob, mode: forceMode || mode, filter: filter, quad: null, hint: hint || null, w: 0, h: 0, busy: true };
         shots.push(shot);
         drawCounter();
         process(shot);
+      }
+      // The live outline in this working copy's pixels, if the picture is
+      // the frame it was found on.
+      function hintFor(shot, w, h) {
+        var t = shot.hint;
+        if (!t || Math.abs(t.w / t.h - w / h) > 0.01) return null;
+        return scaleQuad(t.quad, w / t.w);
       }
       // Turns a shot into its page(s), one shot at a time (the phone's memory).
       function process(shot) {
@@ -437,22 +765,30 @@
             var canvas = crop(img, 0, 0, img.naturalWidth, img.naturalHeight, SHOT_MAX);
             shot.w = canvas.width; shot.h = canvas.height;
             if (!shot.quad) {
-              var q = null;
-              try { q = detect(cv, canvas, canvas.width, canvas.height, 800); } catch (e) { q = null; }
-              shot.found = !!(q && quadArea(q) > canvas.width * canvas.height * 0.15);
-              shot.quad = shot.found ? q : fullQuad(canvas.width, canvas.height);
+              // What the live outline showed when the shutter was pressed is
+              // what was promised: a sharper look at the photo may fine-tune
+              // those corners, but not jump somewhere else.
+              var hint = hintFor(shot, canvas.width, canvas.height), q = null;
+              try { q = findPage(cv, canvas, hint); } catch (e) { q = null; }
+              if (hint && (!q || quadGap(q, hint) > Math.hypot(canvas.width, canvas.height) * 0.1)) q = hint;
+              shot.found = !!q;
+              shot.quad = q || fullQuad(canvas.width, canvas.height);
             }
-            var flat = warp(cv, canvas, shot.quad);
             // Auto splits a wide page in two (an open book), but not a whole
             // photo where no page was found: that's just a sideways phone.
-            var spread = shot.mode === 'spread' || (shot.mode === 'auto' && shot.found && flat.width > flat.height * 1.2);
+            var z = quadSize(shot.quad);
+            var spread = shot.mode === 'spread' || (shot.mode === 'auto' && shot.found && z.w > z.h * 1.2);
+            var s = pageScale(shot.quad, spread);
+            var flat = warp(cv, canvas, shot.quad, Math.max(1, Math.round(z.w * s)), Math.max(1, Math.round(z.h * s)));
+            canvas.width = canvas.height = 0; // let the phone have the memory back
+            var half = Math.floor(flat.width / 2);
             var parts = spread
-              ? [crop(flat, 0, 0, Math.floor(flat.width / 2), flat.height, PAGE_MAX), crop(flat, Math.floor(flat.width / 2), 0, flat.width - Math.floor(flat.width / 2), flat.height, PAGE_MAX)]
-              : [crop(flat, 0, 0, flat.width, flat.height, PAGE_MAX)];
+              ? [crop(flat, 0, 0, half, flat.height, Infinity), crop(flat, half, 0, flat.width - half, flat.height, Infinity)]
+              : [flat];
             shot.spread = spread;
             return Promise.all(parts.map(function (p) {
               if (shot.filter === 'bw') blackWhite(cv, p); else levels(p);
-              return toBlob(p, 'image/jpeg', shot.filter === 'bw' ? 0.7 : 0.8).then(function (b) { return { blob: b, w: p.width, h: p.height }; });
+              return toBlob(p, 'image/jpeg', shot.filter === 'bw' ? 0.85 : 0.88).then(function (b) { return { blob: b, w: p.width, h: p.height }; });
             }));
           }).then(function (made) {
             // Replace this shot's old pages in place, or add to the end.
@@ -552,7 +888,7 @@
           var ctx = c.getContext('2d');
           ctx.translate(c.width, 0); ctx.rotate(Math.PI / 2);
           ctx.drawImage(img, 0, 0);
-          return toBlob(c, 'image/jpeg', 0.85).then(function (b) {
+          return toBlob(c, 'image/jpeg', 0.92).then(function (b) {
             URL.revokeObjectURL(p.url);
             p.blob = b; p.w = c.width; p.h = c.height; p.url = URL.createObjectURL(b);
             p.lines = null; p.gone = true; // any reading in progress is for the old picture
@@ -758,5 +1094,5 @@
     });
   }
 
-  window.DocScanner = { open: open, _test: { detect: detect, warp: warp, opencv: opencv, buildPdf: buildPdf, tesseract: tesseract } };
+  window.DocScanner = { open: open, _test: { detect: detect, findPage: findPage, warp: warp, pageScale: pageScale, quadSize: quadSize, opencv: opencv, buildPdf: buildPdf, tesseract: tesseract } };
 })();
