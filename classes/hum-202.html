@@ -3,7 +3,9 @@
      class-template.html for classes/hum-202.html. It's a portfolio hub
      grouped by section rather than a date-sorted feed. Cards pull each
      post's link, title, summary, read time and first image at build time
-     with {{post:<slug>:<field>}}; to add a page, add a card here. -->
+     with {{post:<slug>:<field>}}. A new post gets a card under Personal
+     Application Essays on its own (the "unplaced" block there); to show it
+     somewhere else, give it a card of its own in that section. -->
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -184,6 +186,8 @@
             <div class="card-meta"><span>2 min read</span><span class="card-go">Read →</span></div>
           </div>
         </a>
+        <!-- Every HUM 202 post without a card of its own above lands here,
+             oldest first (build.js repeats this block once per post). -->
         <a href="../posts/romantic-nationalism-and-my-family-s-heritage.html" class="card hum-card reveal">
           <img class="hum-thumb" src="/images/uploads/Eug%C3%A8ne_Delacroix_-_Fr%C3%A9d%C3%A9ric_Chopin_-_WGA06194.webp" alt="Portrait of Frédéric Chopin by Eugène Delacroix" style="object-position: center 25%;" loading="lazy" decoding="async" />
           <div class="hum-card-body">

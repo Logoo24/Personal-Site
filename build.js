@@ -342,7 +342,28 @@ function buildClassPages(classes, built) {
       status: c.archived ? 'Past class' : 'Current class',
       count: n + ' post' + (n === 1 ? '' : 's')
     };
-    let out = layout.replace(/\{\{post:([a-z0-9-]+):(\w+)\}\}/g, (all, slug, field) => postField(c.slug, slug, field));
+    // {{#unplaced}}…{{/unplaced}} in a layout is repeated for each of the
+    // class's finished posts that no {{post:<slug>:…}} names, oldest first,
+    // with {{post:*:<field>}} standing for that post. That's how a new post
+    // lands on a hand-laid-out page (HUM 202) without anyone adding a card.
+    // A post with no picture loses the block's {{post:*:image}} <img>.
+    const named = new Set([...layout.matchAll(/\{\{post:([a-z0-9-]+):/g)].map(m => m[1]));
+    const unplaced = layout === tpl ? [] : c.posts.filter(p => !named.has(p.slug)).reverse();
+    let repeats = 0;
+    let out = layout.replace(/[ \t]*\{\{#unplaced\}\}[ \t]*\r?\n([\s\S]*?)[ \t]*\{\{\/unplaced\}\}[ \t]*(\r?\n)?/g, (all, block) => {
+      repeats++;
+      return unplaced.map(p => {
+        let b = block;
+        if (!/<img src="/.test(p.body)) b = b.replace(/[ \t]*<img\b[^>]*\{\{post:\*:image\}\}[^>]*>[ \t]*\r?\n?/g, '');
+        return b.split('{{post:*:').join('{{post:' + p.slug + ':');
+      }).join('');
+    });
+    if (unplaced.length) {
+      const list = unplaced.map(p => p.slug).join(', ');
+      if (repeats) console.log('auto-placed on ' + c.slug + '.html: ' + list);
+      else console.warn('class-' + c.slug + '.html has no card (and no {{#unplaced}} block) for: ' + list);
+    }
+    out = out.replace(/\{\{post:([a-z0-9-]+):(\w+)\}\}/g, (all, slug, field) => postField(c.slug, slug, field));
     for (const [k, v] of Object.entries(values)) out = out.split('{{' + k + '}}').join(escapeHtml(v));
     const list = n
       ? c.posts.map(p => postCard(p, '../')).join('\n\n')

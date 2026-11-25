@@ -3,7 +3,9 @@
      class-template.html for classes/hum-202.html. It's a portfolio hub
      grouped by section rather than a date-sorted feed. Cards pull each
      post's link, title, summary, read time and first image at build time
-     with {{post:<slug>:<field>}}; to add a page, add a card here. -->
+     with {{post:<slug>:<field>}}. A new post gets a card under Personal
+     Application Essays on its own (the "unplaced" block there); to show it
+     somewhere else, give it a card of its own in that section. -->
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -173,15 +175,19 @@
             <div class="card-meta"><span>{{post:religion-morality-and-choosing-what-s-right:readMinutes}} min read</span><span class="card-go">Read →</span></div>
           </div>
         </a>
-        <a href="{{post:romantic-nationalism-and-my-family-s-heritage:href}}" class="card hum-card reveal">
-          <img class="hum-thumb" src="{{post:romantic-nationalism-and-my-family-s-heritage:image}}" alt="{{post:romantic-nationalism-and-my-family-s-heritage:imageAlt}}" style="object-position: center 25%;" loading="lazy" decoding="async" />
+        <!-- Every HUM 202 post without a card of its own above lands here,
+             oldest first (build.js repeats this block once per post). -->
+        {{#unplaced}}
+        <a href="{{post:*:href}}" class="card hum-card reveal">
+          <img class="hum-thumb" src="{{post:*:image}}" alt="{{post:*:imageAlt}}" style="object-position: center 25%;" loading="lazy" decoding="async" />
           <div class="hum-card-body">
             <span class="card-tag">Personal application</span>
-            <h3>{{post:romantic-nationalism-and-my-family-s-heritage:title}}</h3>
-            <p>{{post:romantic-nationalism-and-my-family-s-heritage:summary}}</p>
-            <div class="card-meta"><span>{{post:romantic-nationalism-and-my-family-s-heritage:readMinutes}} min read</span><span class="card-go">Read →</span></div>
+            <h3>{{post:*:title}}</h3>
+            <p>{{post:*:summary}}</p>
+            <div class="card-meta"><span>{{post:*:readMinutes}} min read</span><span class="card-go">Read →</span></div>
           </div>
         </a>
+        {{/unplaced}}
       </div>
     </div>
   </section>
