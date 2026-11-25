@@ -20,6 +20,8 @@ const CLASSES_OUT = path.join(ROOT, 'classes');
 // The class list (edited from /admin/ -> Classes). Each entry is
 // { code: "MKT 353", name: "Web Business Creation", archived: false }.
 const CLASSES_FILE = path.join(ROOT, '_data', 'classes.json');
+// The CMS config; its "Post to" choices are written from the class list.
+const CMS_CONFIG = path.join(ROOT, 'family', 'manage', 'config.yml');
 
 // Top-level pages that carry the site nav (and so the Blog dropdown).
 const ROOT_PAGES = ['index.html', 'about.html', 'blog.html', 'projects.html', 'resume.html', 'privacy.html'];
@@ -182,11 +184,22 @@ function build() {
       continue;
     }
     const slug = f.replace(/\.md$/, '').toLowerCase().replace(/[^a-z0-9-]/g, '-');
-    const cat = (data.category || 'essay').toLowerCase();
+    // Where the post goes. The CMS writes one "Post to" choice,
+    //   postTo: { type: personal }  or  postTo: { type: <class slug>, section: <id> },
+    // where section (only for classes whose page has sections) picks the
+    // spot on the class page. Older posts say category (+ course) instead.
+    const to = data.postTo && typeof data.postTo === 'object' && data.postTo.type ? data.postTo : null;
+    let cat;
     let cls = null;
-    if (CLASS_CATEGORIES.has(cat)) {
-      if (!data.course) console.warn('academic post has no class, filing under "' + FALLBACK_CLASS + '":', f);
-      cls = classFor(data.course || FALLBACK_CLASS);
+    if (to) {
+      cat = String(to.type) === 'personal' ? 'personal' : 'academic';
+      if (cat === 'academic') cls = classFor(String(to.type));
+    } else {
+      cat = (data.category || 'essay').toLowerCase();
+      if (CLASS_CATEGORIES.has(cat)) {
+        if (!data.course) console.warn('academic post has no class, filing under "' + FALLBACK_CLASS + '":', f);
+        cls = classFor(data.course || FALLBACK_CLASS);
+      }
     }
     posts.push({
       slug,
@@ -206,6 +219,7 @@ function build() {
       // the post lists, the homepage counts and the sitemap (a placeholder
       // page that something links to by hand, like HUM 202's portfolio hub).
       inProgress: !!data.inProgress,
+      section: cls && to && to.section ? String(to.section) : '',
       cls
     });
   }
@@ -215,7 +229,7 @@ function build() {
     // rendered markdown body is escaped so quotes can't break attributes.
     let out = tpl;
     for (const [k, v] of Object.entries(post)) {
-      if (k === 'cls' || k === 'inProgress') continue;
+      if (k === 'cls' || k === 'inProgress' || k === 'section') continue;
       out = out.split('{{' + k + '}}').join(k === 'body' ? String(v) : escapeHtml(v));
     }
     fs.writeFileSync(path.join(ROOT, post.urlPath + '.html'), out);
@@ -266,6 +280,7 @@ function build() {
   injectBetween(path.join(ROOT, 'index.html'), '<!-- RECENT_POSTS_START -->', '<!-- RECENT_POSTS_END -->', recent);
 
   buildClassPages(classes, built);
+  writeCmsPostTo(classes);
 
   // Homepage stat counters. "My projects" counts the project cards on
   // projects.html so the two pages can't drift apart.
@@ -295,6 +310,58 @@ function postCard(p, prefix) {
     '          <h3>' + escapeHtml(p.title) + '</h3>\n' +
     '          <p>' + escapeHtml(p.summary) + '</p>\n' +
     '        </a>';
+}
+
+// A class's own page layout, _src/class-<slug>.html, or null.
+function ownLayoutPath(c) {
+  const p = path.join(ROOT, '_src', 'class-' + c.slug + '.html');
+  return fs.existsSync(p) ? p : null;
+}
+
+// The {{#unplaced …}}…{{/unplaced}} blocks in a class layout (see
+// buildClassPages). Each can name its section and give it a label for the
+// CMS, and one can be the default:
+//   {{#unplaced section="essays" label="Part 3 · Essays" default}}
+const UNPLACED_RE = /[ \t]*\{\{#unplaced\b([^}]*)\}\}[ \t]*\r?\n([\s\S]*?)[ \t]*\{\{\/unplaced\}\}[ \t]*(\r?\n)?/g;
+function unplacedBlocks(layout) {
+  return [...layout.matchAll(UNPLACED_RE)].map(m => {
+    const attr = name => (new RegExp('\\b' + name + '="([^"]*)"').exec(m[1]) || [])[1] || '';
+    return { section: attr('section'), label: attr('label'), isDefault: /\bdefault\b/.test(m[1].replace(/"[^"]*"/g, '')) };
+  });
+}
+
+// The CMS's "Post to" choices: family/manage/config.yml's postTo types,
+// between the POST_TO_TYPES markers. The personal blog, then every class
+// (current ones first). A class whose layout has sections (the section=
+// on its {{#unplaced}} blocks) gets a Section choice, so the CMS asks for
+// one only when that class is picked. Vercel builds before it deploys, so
+// a class added from the CMS shows up there once the next deploy is live.
+function writeCmsPostTo(classes) {
+  const q = JSON.stringify; // a JSON string is a valid YAML string
+  const pad = '          ';
+  const lines = [pad + '- { name: "personal", label: "Personal blog" }'];
+  for (const c of classes.filter(x => !x.archived).concat(classes.filter(x => x.archived))) {
+    const label = c.code + (c.name ? ' · ' + c.name : '') + (c.archived ? ' (past class)' : '');
+    const own = ownLayoutPath(c);
+    const sections = own ? unplacedBlocks(fs.readFileSync(own, 'utf8')).filter(b => b.section) : [];
+    if (!sections.length) {
+      lines.push(pad + '- { name: ' + q(c.slug) + ', label: ' + q(label) + ' }');
+      continue;
+    }
+    const def = (sections.find(b => b.isDefault) || sections[sections.length - 1]).section;
+    lines.push(
+      pad + '- name: ' + q(c.slug),
+      pad + '  label: ' + q(label),
+      pad + '  fields:',
+      pad + '    - label: "Section on the class page"',
+      pad + '      name: "section"',
+      pad + '      widget: "select"',
+      pad + '      default: ' + q(def),
+      pad + '      hint: ' + q('Where its card goes on the ' + c.code + ' page. A post that already has a card of its own there stays where that card is.'),
+      pad + '      options:');
+    for (const b of sections) lines.push(pad + '        - { label: ' + q(b.label || b.section) + ', value: ' + q(b.section) + ' }');
+  }
+  injectBetween(CMS_CONFIG, '# POST_TO_TYPES_START', '# POST_TO_TYPES_END', lines.join('\n'), pad);
 }
 
 // Writes classes/<slug>.html for every class (archived ones too, so old
@@ -329,8 +396,8 @@ function buildClassPages(classes, built) {
     // A class can have a layout of its own, _src/class-<slug>.html, used
     // in place of class-template.html (HUM 202's portfolio hub). It takes
     // the same {{placeholders}}.
-    const own = path.join(ROOT, '_src', 'class-' + c.slug + '.html');
-    const layout = fs.existsSync(own) ? fs.readFileSync(own, 'utf8') : tpl;
+    const own = ownLayoutPath(c);
+    const layout = own ? fs.readFileSync(own, 'utf8') : tpl;
     const n = c.posts.length;
     const values = {
       slug: c.slug,
@@ -342,26 +409,39 @@ function buildClassPages(classes, built) {
       status: c.archived ? 'Past class' : 'Current class',
       count: n + ' post' + (n === 1 ? '' : 's')
     };
-    // {{#unplaced}}…{{/unplaced}} in a layout is repeated for each of the
+    // {{#unplaced …}}…{{/unplaced}} blocks in a layout are filled with the
     // class's finished posts that no {{post:<slug>:…}} names, oldest first,
-    // with {{post:*:<field>}} standing for that post. That's how a new post
-    // lands on a hand-laid-out page (HUM 202) without anyone adding a card.
-    // A post with no picture loses the block's {{post:*:image}} <img>.
+    // each repeating the block with {{post:*:<field>}} standing for that
+    // post. That's how a new post lands on a hand-laid-out page (HUM 202)
+    // without anyone adding a card. A post goes to the block whose section
+    // matches the post's postTo.section (picked in the CMS), else to the
+    // block marked default (else the last one). A post with no picture
+    // loses the block's {{post:*:image}} <img>.
     const named = new Set([...layout.matchAll(/\{\{post:([a-z0-9-]+):/g)].map(m => m[1]));
     const unplaced = layout === tpl ? [] : c.posts.filter(p => !named.has(p.slug)).reverse();
-    let repeats = 0;
-    let out = layout.replace(/[ \t]*\{\{#unplaced\}\}[ \t]*\r?\n([\s\S]*?)[ \t]*\{\{\/unplaced\}\}[ \t]*(\r?\n)?/g, (all, block) => {
-      repeats++;
-      return unplaced.map(p => {
+    const blocks = unplacedBlocks(layout);
+    const fallback = blocks.findIndex(b => b.isDefault) === -1 ? blocks.length - 1 : blocks.findIndex(b => b.isDefault);
+    const home = unplaced.map(p => {
+      const i = p.section ? blocks.findIndex(b => b.section === p.section) : -1;
+      if (p.section && i === -1 && blocks.length) console.warn('no section "' + p.section + '" on ' + c.slug + '.html, using the default for:', p.slug);
+      return i === -1 ? fallback : i;
+    });
+    let k = 0;
+    let out = layout.replace(UNPLACED_RE, (all, attrs, block) => {
+      const here = k++;
+      return unplaced.filter((p, j) => home[j] === here).map(p => {
         let b = block;
         if (!/<img src="/.test(p.body)) b = b.replace(/[ \t]*<img\b[^>]*\{\{post:\*:image\}\}[^>]*>[ \t]*\r?\n?/g, '');
         return b.split('{{post:*:').join('{{post:' + p.slug + ':');
       }).join('');
     });
     if (unplaced.length) {
-      const list = unplaced.map(p => p.slug).join(', ');
-      if (repeats) console.log('auto-placed on ' + c.slug + '.html: ' + list);
-      else console.warn('class-' + c.slug + '.html has no card (and no {{#unplaced}} block) for: ' + list);
+      if (blocks.length) {
+        console.log('auto-placed on ' + c.slug + '.html: ' +
+          unplaced.map((p, j) => p.slug + ' (' + (blocks[home[j]].section || 'block ' + (home[j] + 1)) + ')').join(', '));
+      } else {
+        console.warn('class-' + c.slug + '.html has no card (and no {{#unplaced}} block) for: ' + unplaced.map(p => p.slug).join(', '));
+      }
     }
     out = out.replace(/\{\{post:([a-z0-9-]+):(\w+)\}\}/g, (all, slug, field) => postField(c.slug, slug, field));
     for (const [k, v] of Object.entries(values)) out = out.split('{{' + k + '}}').join(escapeHtml(v));

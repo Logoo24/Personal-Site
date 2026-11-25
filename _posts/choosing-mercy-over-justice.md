@@ -1,8 +1,9 @@
 ---
 title: Choosing mercy over justice
 date: 2026-10-07
-category: academic
-course: HUM 202
+postTo:
+  type: hum-202
+  section: essays
 summary: What Prospero's choice to forgive in The Tempest taught me about listening before I judge.
 readMinutes: 5
 draft: false

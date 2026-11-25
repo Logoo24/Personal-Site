@@ -1,8 +1,8 @@
 ---
 title: 'MKT 353: Quality Score and Relevance'
 date: 2026-06-20
-category: academic
-course: MKT 353
+postTo:
+  type: mkt-353
 summary: This week I learned that Quality Score is mostly about getting my keyword, my ad, and my landing page to say the same thing.
 readMinutes: 1
 draft: false

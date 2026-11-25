@@ -1,8 +1,9 @@
 ---
 title: Religion, Morality, and Choosing What’s Right
 date: 2026-10-31
-category: academic
-course: HUM 202
+postTo:
+  type: hum-202
+  section: essays
 summary: '"Morality means living by a standard of right and wrong and choosing to do right, even when no one is watching"'
 readMinutes: 2
 draft: false

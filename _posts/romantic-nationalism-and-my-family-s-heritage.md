@@ -1,8 +1,9 @@
 ---
 title: Romantic Nationalism and My Family's Heritage
 date: 2026-11-24
-category: academic
-course: HUM 202
+postTo:
+  type: hum-202
+  section: essays
 summary: Smetana and Chopin used music to keep their homelands alive, and their example has me thinking about how I can pass my own family heritage and faith on to my future kids.
 readMinutes: 3
 draft: false

@@ -1,8 +1,9 @@
 ---
 title: "Ten Renaissance Works of Art"
 date: 2026-10-12
-category: academic
-course: HUM 202
+postTo:
+  type: hum-202
+  section: early-modern
 summary: "From Brunelleschi's dome to the Arnolfini Portrait: a close look at ten Renaissance paintings, sculptures and buildings, and what each one says about faith, learning and the people who paid for it."
 readMinutes: 6
 draft: false

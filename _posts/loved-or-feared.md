@@ -1,8 +1,9 @@
 ---
 title: Loved or Feared?
 date: 2026-09-25
-category: academic
-course: HUM 202
+postTo:
+  type: hum-202
+  section: essays
 summary: Comparing Machiavelli's idea that it's safer to be feared than loved with two leaders who showed me that the best leadership combines high standards with love.
 readMinutes: 4
 draft: false

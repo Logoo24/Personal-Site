@@ -1,8 +1,8 @@
 ---
 title: 'MKT 353: Rewriting the Ad People Actually See'
 date: 2026-06-13
-category: academic
-course: MKT 353
+postTo:
+  type: mkt-353
 summary: This week I rebuilt my main search ad from scratch after changing how my app makes money.
 readMinutes: 2
 draft: false

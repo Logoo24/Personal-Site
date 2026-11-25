@@ -41,7 +41,7 @@ collections:
   - name: "posts"
     label: "Blog posts"
     label_singular: "Post"
-    description: "Write and edit blog posts. Personal posts show on the main blog; class posts show on their class's page (pick the class below)."
+    description: "Write and edit blog posts. Personal posts show on the main blog; class posts show on their class's page (pick one under Post to)."
     folder: "_posts"
     create: true
     delete: true
@@ -50,23 +50,31 @@ collections:
     fields:
       - { label: "Title", name: "title", widget: "string" }
       - { label: "Publish date", name: "date", widget: "datetime", date_format: "YYYY-MM-DD", time_format: false, format: "YYYY-MM-DD" }
-      - label: "Category"
-        name: "category"
-        widget: "select"
-        default: "personal"
-        options:
-          - { label: "Personal Blog", value: "personal" }
-          - { label: "Class post", value: "academic" }
-      - label: "Class"
-        name: "course"
-        widget: "relation"
-        collection: "settings"
-        file: "classes"
-        value_field: "classes.*.code"
-        search_fields: ["classes.*.code", "classes.*.name"]
-        display_fields: ["classes.*.code"]
-        required: false
-        hint: "Only for class posts. Add new classes under Classes in the sidebar."
+      # One choice for where the post goes: the personal blog or a class.
+      # Each choice brings only the questions that apply to it (HUM 202 asks
+      # which section of its page). build.js writes the list below from
+      # _data/classes.json and each class page's sections on every build.
+      - label: "Post to"
+        name: "postTo"
+        widget: "object"
+        hint: "The personal blog, or the class this post is for. Add new classes under Classes in the sidebar; they appear here about a minute later, once the site has rebuilt (reload this page)."
+        types:
+          # POST_TO_TYPES_START
+          - { name: "personal", label: "Personal blog" }
+          - name: "hum-202"
+            label: "HUM 202 · Searching for Meaning in the Modern World"
+            fields:
+              - label: "Section on the class page"
+                name: "section"
+                widget: "select"
+                default: "essays"
+                hint: "Where its card goes on the HUM 202 page. A post that already has a card of its own there stays where that card is."
+                options:
+                  - { label: "Part 1 · Early Modern World", value: "early-modern" }
+                  - { label: "Part 2 · 19th Century", value: "19th-century" }
+                  - { label: "Part 3 · Personal Application Essays", value: "essays" }
+          - { name: "mkt-353", label: "MKT 353 · Web Business Creation (past class)" }
+          # POST_TO_TYPES_END
       - { label: "Short summary", name: "summary", widget: "string", hint: "1–2 sentences shown on the blog list page and in search engines." }
       - { label: "Reading time (minutes)", name: "readMinutes", widget: "number", default: 4, value_type: "int", min: 1, max: 90 }
       - { label: "Hide as draft", name: "draft", widget: "boolean", default: false, required: false, hint: "Check this to keep a post out of the live site while you finish writing it." }
@@ -78,7 +86,7 @@ collections:
 
   - name: "settings"
     label: "Classes"
-    description: "Each class gets its own page and a spot in the Blog menu. When you finish a class, switch on Finished to move it under Past classes."
+    description: "Each class gets its own page, a spot in the Blog menu and a choice under a post's Post to (once the site has rebuilt, about a minute after saving). When you finish a class, switch on Finished to move it under Past classes."
     files:
       - name: "classes"
         label: "Class list"

@@ -1,8 +1,8 @@
 ---
 title: 'MKT 353: Measure First, Then Optimize'
 date: 2026-06-27
-category: academic
-course: MKT 353
+postTo:
+  type: mkt-353
 summary: You can't really optimize an ad campaign until you can measure what it's actually producing
 readMinutes: 1
 draft: false

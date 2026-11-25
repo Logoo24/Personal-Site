@@ -1,8 +1,9 @@
 ---
 title: "The Renaissance: A Cultural Overview"
 date: 2026-10-12
-category: academic
-course: HUM 202
+postTo:
+  type: hum-202
+  section: early-modern
 summary: "How Italy's trade cities, humanism, the Reformation, the printing press and Medici banking turned old ideas into something new, and why the Medici partnership model reminds me of my own work."
 readMinutes: 3
 draft: false

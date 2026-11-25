@@ -1,8 +1,8 @@
 ---
 title: 'MKT 353: Setting Up Payments and Legal Structure'
 date: 2026-05-31
-category: academic
-course: MKT 353
+postTo:
+  type: mkt-353
 summary: About finishing my chooseamovie.app website and got Stripe payments working. Plus what I learned about legal structure and starting as a sole proprietorship.
 readMinutes: 2
 draft: false

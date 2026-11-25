@@ -1,8 +1,9 @@
 ---
 title: "19th Century: A Cultural Overview"
 date: 2026-11-14
-category: academic
-course: HUM 202
+postTo:
+  type: hum-202
+  section: 19th-century
 summary: "Part of my HUM 202 portfolio."
 readMinutes: 1
 draft: false
