@@ -9,7 +9,7 @@ draft: false
 inProgress: false
 ---
 
-![File:Eugène Delacroix - Frédéric Chopin - WGA06194.jpg - Wikimedia Commons](/images/uploads/Eug%C3%A8ne_Delacroix_-_Fr%C3%A9d%C3%A9ric_Chopin_-_WGA06194.webp)
+![Portrait of Frédéric Chopin by Eugène Delacroix](/images/uploads/Eug%C3%A8ne_Delacroix_-_Fr%C3%A9d%C3%A9ric_Chopin_-_WGA06194.webp)
 
 During the 1800s a lot of Romantic composers started using their music to show love for their home country, which is nationalism. A good example is Bedřich Smetana, who wrote a set of six symphonic poems called _Má vlast_, which means "My Homeland." The most famous one is _The Moldau_, and it follows the Vltava River from the mountains, through the Czech countryside, and all the way to Prague (Britannica). Smetana actually finished it in 1874 while he was completely deaf, which is pretty amazing. Frédéric Chopin is another example. He left Poland in 1830 at age 20 and never went back, but he kept writing mazurkas and polonaises, which are traditional Polish dances. Robert Schumann even called Chopin's works "cannons sunk beneath flowers" because of how much national pride was hidden in them (Elbphilharmonie). Before Chopin died in Paris, he asked for his heart to be taken back to Warsaw, and his sister made sure that happened ("Fryderyk Chopin").
 
