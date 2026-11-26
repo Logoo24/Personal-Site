@@ -380,6 +380,15 @@ body.hub { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction:
 .ed-import-box .input { flex: 1; min-width: 0; border-color: transparent; background: var(--hub-surface); }
 .ed-import-box .input:focus { border-color: transparent; box-shadow: none; }
 .ed-import-box .input:disabled { opacity: 0.75; cursor: progress; }
+.ed-import-file { flex: none; gap: 0.4rem; background: var(--hub-surface); }
+.ed-import-file svg { width: 16px; height: 16px; flex: none; }
+.ed-import.is-drop .ed-import-box { border-style: dashed; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--bg-alt)); }
+/* Phones: the upload button gets its own row, so it's easy to spot and tap. */
+@media (max-width: 520px) {
+  .ed-import-box { flex-wrap: wrap; row-gap: 0.45rem; }
+  .ed-import-box .input { flex-basis: 0; }
+  .ed-import-file { flex: 1 0 100%; justify-content: center; }
+}
 .ed-import-status { font-size: 0.84rem; color: var(--text-muted); margin: 0.5rem 0 0 0.25rem; }
 .ed-import-status:empty { display: none; }
 .ed-import-status.is-error { color: var(--hub-danger); }

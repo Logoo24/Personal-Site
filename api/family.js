@@ -12,7 +12,9 @@
 //   POST upload   (raw image body)  -> { name, url }
 //   GET  media&f=                   -> a stored photo
 //   POST publish  {id, publish, slug?} -> make public (or change its link) / private
-//   POST import   {url|text, tags}  -> a draft recipe read from a link or pasted text
+//   POST import   {url|text|files, tags} -> a draft recipe read from a link, pasted
+//                                     text, or uploaded photos/PDF/documents
+//                                     (files: [{name, data: base64}])
 //   GET  calendar&from=&to=         -> calendar events (YYYY-MM-DD range)
 //   GET  calendar-series&id=        -> a repeating event's repeat setting
 //   POST calendar-event {action, id?, scope?, event?} -> add / edit / delete an event

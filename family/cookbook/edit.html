@@ -27,11 +27,15 @@
 
     <form id="form" autocomplete="off" hidden>
       <div class="ed-import" id="import" hidden>
-        <label class="ed-import-box">
+        <label class="ed-import-box" for="import-input">
           <span class="ed-import-icon" data-icon="sparkle"></span>
-          <input class="input" id="import-input" type="text" inputmode="url" spellcheck="false" aria-label="Fill in from a link"
-            placeholder="Paste a link to a recipe or Instagram post to fill this in" />
+          <input class="input" id="import-input" type="text" inputmode="url" spellcheck="false" aria-label="Fill in from a link or pasted recipe"
+            placeholder="Paste a link or the recipe’s text" />
+          <button class="btn btn-ghost btn-sm ed-import-file" type="button" id="import-file" title="Upload a photo, PDF or document of a recipe"
+            aria-label="Upload a photo, PDF or document of a recipe"><span data-icon="upload" style="display:contents"></span><span class="ed-import-file-text">Photo or file</span></button>
         </label>
+        <input id="import-files" type="file" multiple hidden
+          accept="image/*,application/pdf,.pdf,.docx,.txt,.md,.rtf,.htm,.html,text/plain" />
         <p class="ed-import-status" id="import-status" aria-live="polite"></p>
       </div>
 
@@ -646,11 +650,32 @@
         story: story.value, notes: notesValue()
       };
     }
-    /* ---------- fill in from a link (or pasted recipe text) ---------- */
+    /* ---------- fill in from a link, pasted recipe text, or a photo or file ---------- */
     var importing = false, pastedText = null;
     function setImportStatus(text, kind) {
       $('#import-status').textContent = text || '';
       $('#import-status').className = 'ed-import-status' + (kind ? ' is-' + kind : '');
+    }
+    // The import picks categories; whether it's a to-try recipe is the family's call.
+    function importTags() { return knownTags.filter(function (t) { return !Hub.isWantTag(t); }); }
+    // work() asks the server; done(res) says how it went.
+    function startImport(work, done) {
+      importing = true;
+      $('#import').classList.add('is-busy');
+      $('#import-input').disabled = true;
+      $('#import-file').disabled = true;
+      return work().then(function (res) {
+        applyImport(res.recipe);
+        pastedText = null;
+        done(res);
+      }).catch(function (e) {
+        setImportStatus(e.message, 'error');
+      }).finally(function () {
+        importing = false;
+        $('#import').classList.remove('is-busy');
+        $('#import-input').disabled = false;
+        $('#import-file').disabled = false;
+      });
     }
     // Copies everything the import found into the form, keeping what's
     // already been typed where the import came back empty.
@@ -677,30 +702,150 @@
       if (inside) { value = inside[0]; isLink = true; }
       if (!isLink && value.length < 40) return setImportStatus('Paste a link to the recipe, or the whole recipe text.', 'error');
       if (isLink && !/^https?:\/\//i.test(value)) value = 'https://' + value;
-      importing = true;
-      $('#import').classList.add('is-busy');
-      $('#import-input').disabled = true;
       setImportStatus(isLink ? 'Reading the recipe… this can take a few seconds.' : 'Reading the pasted recipe…');
-      // The import picks categories; whether it's a to-try recipe is the family's call.
-      var importTags = knownTags.filter(function (t) { return !Hub.isWantTag(t); });
-      Hub.api('import', { body: isLink ? { url: value, tags: importTags } : { text: value, tags: importTags } }).then(function (res) {
-        applyImport(res.recipe);
+      startImport(function () {
+        return Hub.api('import', { body: isLink ? { url: value, tags: importTags() } : { text: value, tags: importTags() } });
+      }, function (res) {
         $('#import-input').value = isLink ? value : '';
-        pastedText = null;
         setImportStatus('Filled in from ' + res.from + '. Look it over, add your own touches, then save.', 'done');
-      }).catch(function (e) {
-        setImportStatus(e.message, 'error');
-      }).finally(function () {
-        importing = false;
-        $('#import').classList.remove('is-busy');
-        $('#import-input').disabled = false;
       });
     }
+
+    // Photos (a recipe card, a cookbook page), PDFs, Word and text files.
+    // Photos are shrunk here first. A request can't be over 4.5 MB on Vercel,
+    // and base64 adds a third, so a PDF too big to send whole goes as
+    // pictures of its first pages instead.
+    var MAX_FILES = 6, MAX_SEND = 4300000, PDF_WHOLE = 3100000;
+    function isPdf(f) { return f.type === 'application/pdf' || /\.pdf$/i.test(f.name); }
+    function isPhoto(f) { return (/^image\//.test(f.type) && f.type !== 'image/svg+xml') || /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(f.name); }
+    function base64(blob) {
+      return new Promise(function (resolve, reject) {
+        var r = new FileReader();
+        r.onload = function () { resolve(String(r.result).replace(/^data:[^,]*,/, '')); };
+        r.onerror = function () { reject(new Error('Couldn’t open that file.')); };
+        r.readAsDataURL(blob);
+      });
+    }
+    var PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/', pdfP = null;
+    function pdfjs() {
+      if (!pdfP) pdfP = new Promise(function (resolve, reject) {
+        var s = document.createElement('script');
+        s.src = PDFJS + 'pdf.min.js';
+        s.onload = function () { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js'; resolve(window.pdfjsLib); };
+        s.onerror = function () { pdfP = null; reject(new Error('Couldn’t load the PDF reader.')); };
+        document.head.appendChild(s);
+      });
+      return pdfP;
+    }
+    // A big PDF's first pages as JPEGs -> { pages: [{ name, blob }], of }.
+    function pdfPages(file, max) {
+      var base = file.name.replace(/\.pdf$/i, '');
+      var work = pdfjs().then(function (lib) {
+        return file.arrayBuffer().then(function (buf) { return lib.getDocument({ data: buf }).promise; });
+      }).then(function (pdf) {
+        var pages = [], chain = Promise.resolve();
+        for (var i = 1; i <= Math.min(pdf.numPages, max); i++) (function (n) {
+          chain = chain.then(function () { return pdf.getPage(n); }).then(function (page) {
+            var v = page.getViewport({ scale: 1 }), vp = page.getViewport({ scale: 1800 / Math.max(v.width, v.height) });
+            var c = document.createElement('canvas');
+            c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+            var ctx = c.getContext('2d');
+            ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+            // intent "print" draws in one go; the default waits on animation
+            // frames, which stop while the tab is in the background.
+            return page.render({ canvasContext: ctx, viewport: vp, intent: 'print' }).promise.then(function () {
+              return new Promise(function (res) { c.toBlob(res, 'image/jpeg', 0.82); });
+            });
+          }).then(function (blob) { if (blob) pages.push({ name: base + ' page ' + n + '.jpg', blob: blob }); });
+        })(i);
+        return chain.then(function () { return { pages: pages, of: pdf.numPages }; });
+      });
+      // A damaged PDF can leave pdf.js working forever.
+      var limit = new Promise(function (resolve, reject) { setTimeout(function () { reject(new Error('Took too long.')); }, 30000); });
+      return Promise.race([work, limit]).catch(function () {
+        throw new Error('Couldn’t open ' + file.name + '. Try a few photos of the recipe instead.');
+      });
+    }
+    // Picked files -> { files: [{ name, data }] for the server, note }.
+    function prepareUploads(files) {
+      if (files.length > MAX_FILES) return Promise.reject(new Error('Add up to ' + MAX_FILES + ' files at a time.'));
+      var note = '';
+      return Promise.all(files.map(function (f) {
+        if (isPhoto(f)) {
+          return Hub.downscale(f, 2000).then(function (blob) { return [{ name: f.name, blob: blob }]; }, function () {
+            throw new Error('Couldn’t open ' + f.name + '. If it’s an iPhone photo, try a screenshot of it instead.');
+          });
+        }
+        if (isPdf(f) && f.size > PDF_WHOLE) {
+          return pdfPages(f, MAX_FILES - files.length + 1).then(function (r) {
+            if (r.of > r.pages.length) note = ' Only the first ' + r.pages.length + ' pages of ' + f.name + ' were read.';
+            return r.pages;
+          });
+        }
+        return [{ name: f.name, blob: f }];
+      })).then(function (groups) {
+        var items = [].concat.apply([], groups);
+        return Promise.all(items.map(function (it) {
+          return base64(it.blob).then(function (data) { return { name: it.name, data: data }; });
+        }));
+      }).then(function (out) {
+        var size = out.reduce(function (n, f) { return n + f.data.length; }, 0);
+        if (size > MAX_SEND) {
+          throw new Error(files.length > 1 ? 'Those files are too big to send together. Try fewer at a time.'
+            : 'That file is too big to send. Try a PDF of just the recipe, or a few photos of it.');
+        }
+        return { files: out, note: note };
+      });
+    }
+    function runFiles(list) {
+      var files = Array.prototype.slice.call(list || []);
+      if (!files.length || importing) return;
+      var label = files.length > 1 ? files.length + ' files' : files[0].name, note = '';
+      setImportStatus('Getting ' + label + ' ready…');
+      startImport(function () {
+        return prepareUploads(files).then(function (up) {
+          note = up.note;
+          setImportStatus('Reading the recipe from ' + label + '… this can take up to half a minute.');
+          return Hub.api('import', { body: { files: up.files, tags: importTags() } });
+        });
+      }, function () {
+        setImportStatus('Filled in from ' + label + '.' + note + ' Look it over, add your own touches, then save.', 'done');
+      });
+    }
+    $('#import-file').addEventListener('click', function () { $('#import-files').click(); });
+    $('#import-files').addEventListener('change', function () {
+      var files = Array.prototype.slice.call(this.files || []);
+      this.value = ''; // so picking the same file again still counts
+      runFiles(files);
+    });
+    // Dropping files on the box works too.
+    var importBox = $('#import');
+    function dragHasFiles(e) { return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0; }
+    ['dragenter', 'dragover'].forEach(function (type) {
+      importBox.addEventListener(type, function (e) {
+        if (!dragHasFiles(e) || importing) return;
+        e.preventDefault();
+        importBox.classList.add('is-drop');
+      });
+    });
+    importBox.addEventListener('dragleave', function (e) { if (!importBox.contains(e.relatedTarget)) importBox.classList.remove('is-drop'); });
+    importBox.addEventListener('drop', function (e) {
+      importBox.classList.remove('is-drop');
+      if (!e.dataTransfer || !e.dataTransfer.files.length) return;
+      e.preventDefault();
+      runFiles(e.dataTransfer.files);
+    });
+
     // Pasting is the trigger. Read the clipboard directly so pasted recipe
     // text keeps its line breaks (a one-line input would flatten them).
     $('#import-input').addEventListener('paste', function (e) {
-      var text = (e.clipboardData || window.clipboardData).getData('text');
-      if (!text || !text.trim()) return;
+      var clip = e.clipboardData || window.clipboardData;
+      var text = clip.getData('text');
+      if (!text || !text.trim()) {
+        // A pasted screenshot or photo.
+        if (clip.files && clip.files.length) { e.preventDefault(); runFiles(clip.files); }
+        return;
+      }
       e.preventDefault();
       text = text.trim();
       // Show just the first line of pasted recipe text, but keep all of it.
