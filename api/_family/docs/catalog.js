@@ -5,7 +5,7 @@
 //
 // entry: { id, collection: cards | manuals | receipts | other, category,
 //   title, date ("YYYY", "YYYY-MM" or "YYYY-MM-DD"), text, notes,
-//   from, gift, thanked, thankedOn (cards; from also for other),
+//   from, gift, thanked, thankedOn, needsThanks (cards; from also for other),
 //   store, total (cents), brand, model, warrantyUntil (receipts/manuals),
 //   sourceUrl (manuals: where the PDF came from),
 //   needsReview (added in a batch and not looked at yet),
@@ -47,6 +47,51 @@ export function cleanDate(d) {
 }
 const cleanDay = d => (/^\d{4}-\d{2}-\d{2}$/.test(cleanDate(d)) ? cleanDate(d) : '');
 const cap = s => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
+const dayOffset = (day, days) => new Date(Date.parse(day + 'T00:00:00Z') + days * 864e5).toISOString().slice(0, 10);
+
+/* ---------- thank-yous ----------
+   A card or gift is on "Still to thank" when it isn't thanked and needs a
+   thank-you. needsThanks is what the family chose (To thank / Not needed);
+   when nobody chose (a batch upload, or an entry from before the choice
+   existed), a gift needs one and a card on its own doesn't, and nor does a
+   gift dated more than six months before it was added (an old one found in
+   a drawer). Works on an entry or its summary. */
+const OLD_GIFT_DAYS = 183;
+// The last day "2025" or "2025-12" could mean.
+function periodEnd(date) {
+  if (/^\d{4}$/.test(date)) return date + '-12-31';
+  if (/^\d{4}-\d{2}$/.test(date)) return new Date(Date.UTC(+date.slice(0, 4), +date.slice(5, 7), 0)).toISOString().slice(0, 10);
+  return date;
+}
+function defaultNeedsThanks(d, addedDay) {
+  if (!d.gift) return false;
+  return !d.date || periodEnd(d.date) >= dayOffset(addedDay, -OLD_GIFT_DAYS);
+}
+export function needsThanks(d) {
+  if (typeof d.needsThanks === 'boolean') return d.needsThanks;
+  return defaultNeedsThanks(d, String(d.createdAt || '').slice(0, 10) || today());
+}
+export const toThank = d => d.collection === 'cards' && !d.thanked && needsThanks(d);
+
+// A warranty that ends within the next 60 days.
+export function warrantySoon(d, day = today()) {
+  return !!d.warrantyUntil && d.warrantyUntil >= day && d.warrantyUntil <= dayOffset(day, 60);
+}
+
+// Every word of the text and notes once, lowercased, for the browse page's
+// search (it searches names and fields itself).
+function searchWords(d) {
+  const words = new Set();
+  for (const w of (d.text + ' ' + d.notes).toLowerCase().match(/[\p{L}\p{N}$][\p{L}\p{N}$.,'’&/-]*/gu) || []) {
+    words.add(w.replace(/[.,'’&/-]+$/, ''));
+  }
+  let out = '';
+  for (const w of words) {
+    if (out.length + w.length + 1 > 4000) break;
+    out += (out ? ' ' : '') + w;
+  }
+  return out;
+}
 // Only plain web links (the page puts it in an href).
 function cleanUrl(u) {
   try {
@@ -97,6 +142,10 @@ function normalize(input, prev) {
     gift: has(c, 'gift') ? line(input.gift, 300) : '',
     thanked,
     thankedOn: thanked ? (prev && prev.thanked && prev.thankedOn ? prev.thankedOn : today()) : null,
+    // null: nobody chose; saveDoc fills in the default.
+    needsThanks: !has(c, 'thanked') ? null
+      : typeof input.needsThanks === 'boolean' ? input.needsThanks
+      : prev && typeof prev.needsThanks === 'boolean' ? prev.needsThanks : null,
     store: has(c, 'store') ? line(input.store, 120) : '',
     total: has(c, 'total') ? int(input.total) : null,
     brand: has(c, 'brand') ? line(input.brand, 80) : '',
@@ -139,7 +188,7 @@ function driveDescription(d) {
   add(d.collection === 'cards' ? 'Occasion' : 'Category', d.category);
   add('Date', d.date);
   add('Gift', d.gift);
-  if (d.collection === 'cards') rows.push('Thanked: ' + (d.thanked ? 'yes' + (d.thankedOn ? ' (' + d.thankedOn + ')' : '') : 'not yet'));
+  if (d.collection === 'cards') rows.push('Thanked: ' + (d.thanked ? 'yes' + (d.thankedOn ? ' (' + d.thankedOn + ')' : '') : needsThanks(d) ? 'not yet' : 'not needed'));
   add('Store', d.store);
   add('Total', d.total != null ? money(d.total) : '');
   add('Brand', d.brand);
@@ -164,28 +213,34 @@ async function syncDrive(d) {
   d.backupId = await backupEntry(backupCopy(d), d.backupId);
 }
 
+// Bump when the summary gains something worked out from the full entry:
+// listDocs rebuilds older summaries once.
+const SUMMARY_V = 2;
 function summarize(d) {
   const withThumb = d.files.find(f => f.thumb);
   return {
+    v: SUMMARY_V,
     id: d.id, collection: d.collection, category: d.category, name: displayName(d), title: d.title,
-    date: d.date, from: d.from, gift: d.gift, thanked: d.thanked, needsReview: d.needsReview,
+    date: d.date, from: d.from, gift: d.gift, thanked: d.thanked, needsThanks: d.needsThanks, needsReview: d.needsReview,
     store: d.store, total: d.total, brand: d.brand, model: d.model, warrantyUntil: d.warrantyUntil,
     thumb: withThumb ? withThumb.thumb : null,
     thumbPage: !!(withThumb && withThumb.type === 'application/pdf'),
     files: d.files.length,
     pdf: d.files.some(f => f.type === 'application/pdf'),
-    // A bit of the text, so search finds words from the card or receipt.
-    snippet: (d.text + ' ' + d.notes).replace(/\s+/g, ' ').trim().slice(0, 300),
+    // Every word of the text and notes, so search finds words from the card or receipt.
+    words: searchWords(d),
     createdAt: d.createdAt, createdBy: d.createdBy, updatedAt: d.updatedAt
   };
 }
 
-const withUrl = s => ({ ...s, thumbUrl: s.thumb ? fileUrl(s.thumb) : null });
+const withUrl = s => ({ ...s, thumbUrl: s.thumb ? fileUrl(s.thumb) : null, toThank: toThank(s) });
 
 function output(d) {
   const { backupId, ...rest } = d;
   return {
     ...rest,
+    needsThanks: d.collection === 'cards' ? needsThanks(d) : null,
+    toThank: toThank(d),
     name: displayName(d),
     files: d.files.map(f => ({
       id: f.id, store: f.store, type: f.type, size: f.size, name: f.name, w: f.w, h: f.h, pages: f.pages,
@@ -216,24 +271,58 @@ async function updateIndex(fn) {
   throw fail(503, 'Documents is busy saving something else. Try again.');
 }
 
+// Summaries written by an older version are rebuilt from their entries,
+// once (a read per entry, then one index write).
+async function upgradeSummaries(docs) {
+  const old = docs.filter(s => s.v !== SUMMARY_V).slice(0, 200);
+  if (!old.length) return docs;
+  const fresh = new Map();
+  for (let i = 0; i < old.length; i += 10) {
+    const got = await Promise.all(old.slice(i, i + 10).map(s => readEntry(s.id).catch(() => null)));
+    got.forEach(d => { if (d) fresh.set(d.id, summarize(d)); });
+  }
+  if (!fresh.size) return docs;
+  try {
+    await updateIndex(list => list.map(s => fresh.get(s.id) || s));
+  } catch (e) {
+    console.error('Documents: couldn’t rebuild the index summaries:', e.message);
+  }
+  return docs.map(s => fresh.get(s.id) || s);
+}
+
 export async function listDocs() {
   const idx = await readJSON(INDEX, { etag: false });
-  return (idx ? idx.data.docs || [] : []).map(withUrl);
+  return (await upgradeSummaries(idx ? idx.data.docs || [] : [])).map(withUrl);
 }
 
 export async function docsStatus() {
   const idx = await readJSON(INDEX, { etag: false });
   const docs = idx ? idx.data.docs || [] : [];
+  const day = today();
   return {
     total: docs.length,
-    toThank: docs.filter(d => d.collection === 'cards' && !d.thanked).length,
-    review: docs.filter(d => d.needsReview).length
+    toThank: docs.filter(toThank).length,
+    review: docs.filter(d => d.needsReview).length,
+    warrantySoon: docs.filter(d => warrantySoon(d, day)).length
   };
 }
 
 export async function getDoc(id) {
   const d = await readEntry(id);
   return d ? output(d) : null;
+}
+
+// Other items for the same product (a receipt and its manual), matched on
+// the model number. Costs one index read, so only for items with a model.
+const modelKey = m => String(m || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+export async function relatedDocs(doc) {
+  const key = modelKey(doc.model);
+  if (key.length < 3) return [];
+  const idx = await readJSON(INDEX, { etag: false });
+  return (idx ? idx.data.docs || [] : [])
+    .filter(s => s.id !== doc.id && modelKey(s.model) === key)
+    .slice(0, 6)
+    .map(withUrl);
 }
 
 const allFiles = d => d.files.flatMap(f => [f, f.thumb]).filter(Boolean);
@@ -250,7 +339,8 @@ export async function saveDoc(input, user) {
   const prev = input.id ? await readEntry(input.id) : null;
   if (input.id && !prev) throw fail(404, 'That item wasn’t found. It may have been deleted.');
   const fields = normalize(input, prev);
-  if (!prev && !fields.files.length && !fields.title && !fields.from && !fields.gift && !fields.text && !fields.store && !fields.brand) {
+  const typed = ['title', 'from', 'gift', 'text', 'notes', 'store', 'brand', 'model', 'sourceUrl'].some(k => fields[k]) || fields.total != null;
+  if (!prev && !fields.files.length && !typed) {
     throw fail(400, 'Add a photo or file, or fill in a few details first.');
   }
   const now = new Date().toISOString();
@@ -261,6 +351,8 @@ export async function saveDoc(input, user) {
     updatedAt: now, updatedBy: user.name,
     backupId: prev ? prev.backupId || null : null
   };
+  // Nobody said whether it needs a thank-you: decide once, and keep it.
+  if (d.collection === 'cards' && d.needsThanks == null) d.needsThanks = needsThanks(d);
   await write(d);
   // Files taken off the entry go to the trash once it's saved without them.
   if (prev) {
@@ -270,7 +362,8 @@ export async function saveDoc(input, user) {
   return output(d);
 }
 
-// Small changes from the item page: the Thanked box, "looked at".
+// Small changes from the item and browse pages: thanked, needs a
+// thank-you, "looked at".
 export async function patchDoc(input, user) {
   input = input || {};
   const prev = await readEntry(input.id);
@@ -280,6 +373,7 @@ export async function patchDoc(input, user) {
     d.thanked = !!input.thanked;
     d.thankedOn = d.thanked ? (prev.thanked && prev.thankedOn ? prev.thankedOn : today()) : null;
   }
+  if (typeof input.needsThanks === 'boolean' && d.collection === 'cards') d.needsThanks = input.needsThanks;
   if ('needsReview' in input) d.needsReview = !!input.needsReview;
   await write(d);
   return output(d);

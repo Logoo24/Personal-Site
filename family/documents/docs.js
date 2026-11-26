@@ -7,18 +7,23 @@
   'use strict';
   var esc = Hub.esc, I = Hub.icons;
 
-  /* ---------- collections ---------- */
+  /* ---------- collections ----------
+     In the order they're offered everywhere: the Add menu, the add page's
+     "What is it?" switch, the browse page's chips. */
   var COLLECTIONS = [
-    { id: 'cards', label: 'Cards & gifts', one: 'Card or gift', add: 'Add a card or gift', icon: 'gift', catLabel: 'Occasion',
-      cats: ['Birthday', 'Christmas', 'Holiday', 'Wedding', 'Anniversary', 'Baby', 'Graduation', 'Thank you', 'Sympathy', 'Just because'] },
+    { id: 'other', label: 'Other documents', one: 'Document', add: 'Add a document', icon: 'file', catLabel: 'Category',
+      cats: ['Home', 'Vehicle', 'Medical', 'School', 'Legal', 'Keepsakes', 'Other'] },
     { id: 'manuals', label: 'Manuals', one: 'Manual', add: 'Add a manual', icon: 'book', catLabel: 'Kind',
       cats: ['Kitchen', 'Laundry', 'Heating & cooling', 'Electronics', 'Tools & yard', 'Furniture', 'Vehicle', 'Other'] },
     { id: 'receipts', label: 'Receipts', one: 'Receipt', add: 'Add a receipt', icon: 'receipt', catLabel: 'Category',
       cats: ['Home', 'Appliances', 'Electronics', 'Furniture', 'Vehicle', 'Medical', 'Clothing', 'Gifts', 'Other'] },
-    { id: 'other', label: 'Other documents', one: 'Document', add: 'Add a document', icon: 'file', catLabel: 'Category',
-      cats: ['Home', 'Vehicle', 'Medical', 'School', 'Legal', 'Keepsakes', 'Other'] }
+    { id: 'cards', label: 'Cards & gifts', one: 'Card or gift', add: 'Add a card or gift', icon: 'gift', catLabel: 'Occasion',
+      cats: ['Birthday', 'Christmas', 'Holiday', 'Wedding', 'Anniversary', 'Baby', 'Graduation', 'Thank you', 'Sympathy', 'Just because'] }
   ];
-  function coll(id) { return COLLECTIONS.filter(function (c) { return c.id === id; })[0] || COLLECTIONS[3]; }
+  function coll(id) {
+    var byId = function (k) { return COLLECTIONS.filter(function (c) { return c.id === k; })[0]; };
+    return byId(id) || byId('other');
+  }
 
   /* ---------- formatting ---------- */
   var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -40,7 +45,16 @@
     var d = new Date();
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
-  function warranty(d) { return d.warrantyUntil ? (d.warrantyUntil >= todayKey() ? 'active' : 'ended') : null; }
+  function dayPlus(days) {
+    var d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  // 'soon' = ends within 60 days (the server's warrantySoon agrees).
+  function warranty(d) {
+    if (!d.warrantyUntil) return null;
+    return d.warrantyUntil < todayKey() ? 'ended' : d.warrantyUntil <= dayPlus(60) ? 'soon' : 'active';
+  }
   function kind(f) { return /^image\//.test(f.type) ? 'image' : f.type === 'application/pdf' ? 'pdf' : 'file'; }
 
   // The line under an item's name.
@@ -65,10 +79,11 @@
   function badges(d) {
     var b = [];
     if (d.needsReview) b.push('<span class="dc-badge dc-badge--review">' + I.sparkle + 'Check details</span>');
-    if (d.collection === 'cards' && !d.thanked) b.push('<span class="dc-badge dc-badge--thank">To thank</span>');
+    if (d.toThank) b.push('<span class="dc-badge dc-badge--thank">To thank</span>');
     if (d.collection === 'cards' && d.thanked) b.push('<span class="dc-badge dc-badge--done">' + I.check + 'Thanked</span>');
     if (d.gift) b.push('<span class="dc-badge" title="' + esc(d.gift) + '">' + I.gift + esc(d.gift.length > 28 ? d.gift.slice(0, 26) + '…' : d.gift) + '</span>');
     var w = warranty(d);
+    if (w === 'soon') b.push('<span class="dc-badge dc-badge--thank">Warranty ends ' + esc(dateLabel(d.warrantyUntil).replace(/, \d{4}$/, '')) + '</span>');
     if (w === 'active') b.push('<span class="dc-badge dc-badge--done">Under warranty</span>');
     return b.join('');
   }
@@ -78,13 +93,40 @@
     return '<div class="dc-placeholder">' + I[d.pdf ? 'file' : c.icon] + (d.pdf ? '<span>PDF</span>' : '') + '</div>';
   }
 
-  function tile(d) {
-    return '<a class="dc-tile dc--' + esc(d.collection) + '" href="/family/documents/item?id=' + encodeURIComponent(d.id) + '">' +
+  // A tile on the browse page. action: { act, label, icon } adds a button
+  // under it (the whole tile is still the link, stretched over it).
+  function tile(d, action) {
+    var href = '/family/documents/item?id=' + encodeURIComponent(d.id);
+    var inner =
       '<div class="dc-thumb' + (d.thumbPage ? ' is-page' : '') + '">' + (d.thumbUrl ? '<img src="' + esc(d.thumbUrl) + '" alt="" loading="lazy" />' : placeholder(d)) +
         (d.files > 1 ? '<span class="dc-count">' + I.image + d.files + '</span>' : '') + '</div>' +
-      '<div class="dc-tile-body"><h3>' + esc(d.name) + '</h3>' +
+      '<div class="dc-tile-body"><h3>' + (action ? '<a class="dc-tile-link" href="' + href + '">' + esc(d.name) + '</a>' : esc(d.name)) + '</h3>' +
         (subline(d) ? '<p>' + esc(subline(d)) + '</p>' : '') +
-        '<div class="dc-badges">' + badges(d) + '</div></div></a>';
+        '<div class="dc-badges">' + badges(d) + '</div>' +
+        (action ? '<button class="btn btn-ghost btn-sm dc-tile-act" type="button" data-act="' + esc(action.act) + '" data-id="' + esc(d.id) + '">' + (action.icon ? I[action.icon] : '') + esc(action.label) + '</button>' : '') +
+      '</div>';
+    return action
+      ? '<div class="dc-tile has-act dc--' + esc(d.collection) + '">' + inner + '</div>'
+      : '<a class="dc-tile dc--' + esc(d.collection) + '" href="' + href + '">' + inner + '</a>';
+  }
+
+  /* ---------- the list an item was opened from ----------
+     The browse page remembers what it showed (in this tab), so an item
+     page can go back to it as it was, and on to the next one. */
+  var LIST_KEY = 'dc-list', FLASH_KEY = 'dc-flash';
+  function saveList(ctx) { try { sessionStorage.setItem(LIST_KEY, JSON.stringify(ctx)); } catch (e) { /* private mode */ } }
+  function savedList() {
+    try { var c = JSON.parse(sessionStorage.getItem(LIST_KEY) || 'null'); return c && c.url && Array.isArray(c.ids) ? c : null; } catch (e) { return null; }
+  }
+  // Where "back" goes: the list as it was left, or the item's collection.
+  function backTo(collection) {
+    var c = savedList();
+    return c ? c.url : '/family/documents' + (collection ? '?c=' + collection : '');
+  }
+  // A message to show on the next page (after going on to the next item).
+  function flash(msg) { try { sessionStorage.setItem(FLASH_KEY, msg); } catch (e) { /* private mode */ } }
+  function showFlash() {
+    try { var m = sessionStorage.getItem(FLASH_KEY); if (m) { sessionStorage.removeItem(FLASH_KEY); Hub.toast(m); } } catch (e) { /* private mode */ }
   }
 
   /* ---------- Google Drive status note ---------- */
@@ -343,6 +385,7 @@
     COLLECTIONS: COLLECTIONS, coll: coll,
     dateLabel: dateLabel, money: money, parseMoney: parseMoney, fileSize: fileSize, todayKey: todayKey, warranty: warranty, kind: kind,
     subline: subline, tile: tile, driveNote: driveNote, driveReturnMessage: driveReturnMessage,
+    saveList: saveList, savedList: savedList, backTo: backTo, flash: flash, showFlash: showFlash,
     prepare: prepare, savedName: savedName, upload: upload, read: read, href: href, openFile: openFile, fetchFile: fetchFile
   };
 })();

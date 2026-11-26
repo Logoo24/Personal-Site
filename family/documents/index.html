@@ -56,11 +56,14 @@
 
     var all = [], drive = null;
     var params = new URLSearchParams(location.search);
-    var state = { c: params.get('c') || '', cat: params.get('cat') || '', f: params.get('f') || '', y: params.get('y') || '' };
+    var state = { c: params.get('c') || '', cat: params.get('cat') || '', f: params.get('f') || '', y: params.get('y') || '', q: params.get('q') || '' };
+    $('#q').value = state.q;
 
+    // The address keeps the filters and the search, so going back to it
+    // (from an item, or the browser's Back) finds the list as it was.
     function keepState() {
       var q = new URLSearchParams();
-      ['c', 'cat', 'f', 'y'].forEach(function (k) { if (state[k]) q.set(k, state[k]); });
+      ['c', 'cat', 'f', 'y', 'q'].forEach(function (k) { if (state[k]) q.set(k, state[k]); });
       history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : ''));
     }
 
@@ -69,31 +72,42 @@
     $('#add-menu').innerHTML = Docs.COLLECTIONS.map(function (c) {
       return '<a role="menuitem" class="dc--' + c.id + '" href="/family/documents/edit?c=' + c.id + '"><span class="dc-add-icon">' + I[c.icon] + '</span>' + esc(c.add) + '</a>';
     }).join('') + '<hr /><button type="button" role="menuitem" class="dc--other" id="bulk-btn"><span class="dc-add-icon">' + I.upload + '</span><span>Several at once<small>Each photo or PDF becomes its own item</small></span></button>';
+    function closeMenu() { $('#add-menu').hidden = true; $('#add-btn').setAttribute('aria-expanded', 'false'); }
     $('#add-btn').addEventListener('click', function (e) {
       e.stopPropagation();
-      var open = $('#add-menu').hidden;
-      $('#add-menu').hidden = !open;
+      var menu = $('#add-menu'), open = menu.hidden;
+      menu.hidden = !open;
       this.setAttribute('aria-expanded', open);
+      if (!open) return;
+      // It hangs from the button's right edge; on a phone, where the button
+      // is at the left, that would run off the screen, so hang it from the left.
+      menu.classList.remove('is-left');
+      if (menu.getBoundingClientRect().left < 8) menu.classList.add('is-left');
     });
-    document.addEventListener('click', function () { $('#add-menu').hidden = true; $('#add-btn').setAttribute('aria-expanded', 'false'); });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') $('#add-menu').hidden = true; });
+    document.addEventListener('click', closeMenu);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeMenu(); });
 
     /* ---------- filtering ---------- */
     function inColl(d) { return !state.c || d.collection === state.c; }
     function yearOf(d) { return d.date ? d.date.slice(0, 4) : ''; }
-    function matches(d, q) {
-      if (!q) return true;
-      return [d.name, d.title, d.from, d.category, d.gift, d.store, d.brand, d.model, d.snippet, Docs.dateLabel(d.date)].join(' ').toLowerCase().indexOf(q) > -1;
+    function warrantySoon(d) { return Docs.warranty(d) === 'soon'; }
+    // Every word typed has to be somewhere in the item ("grandma christmas"
+    // finds "Christmas card from Grandma Jean").
+    function matches(d, words) {
+      if (!words.length) return true;
+      var hay = [d.name, d.title, d.from, d.category, d.gift, d.store, d.brand, d.model, d.words || d.snippet, Docs.dateLabel(d.date), Docs.money(d.total)].join(' ').toLowerCase();
+      return words.every(function (w) { return hay.indexOf(w) > -1; });
     }
     function shown() {
-      var q = $('#q').value.trim().toLowerCase();
+      var words = state.q.toLowerCase().split(/\s+/).filter(Boolean);
       return all.filter(function (d) {
         if (!inColl(d)) return false;
-        if (state.f === 'thank' && !(d.collection === 'cards' && !d.thanked)) return false;
+        if (state.f === 'thank' && !d.toThank) return false;
         if (state.f === 'review' && !d.needsReview) return false;
+        if (state.f === 'warranty' && !warrantySoon(d)) return false;
         if (state.cat && d.category !== state.cat) return false;
         if (state.y && yearOf(d) !== state.y) return false;
-        return matches(d, q);
+        return matches(d, words);
       });
     }
     function byDate(a, b) {
@@ -113,12 +127,16 @@
       var list = all.filter(inColl), counts = {};
       list.forEach(function (d) { if (d.category) counts[d.category] = (counts[d.category] || 0) + 1; });
       var cats = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a] || a.localeCompare(b); });
-      var toThank = list.filter(function (d) { return d.collection === 'cards' && !d.thanked; }).length;
-      var review = list.filter(function (d) { return d.needsReview; }).length;
+      var flag = function (f, icon, label, n) {
+        if (n || state.f === f) html.push('<button class="chip chip-flag' + (state.f === f ? ' on' : '') + '" data-f="' + f + '">' + I[icon] + label + '<span class="chip-count">' + n + '</span></button>');
+      };
       var html = [];
-      if (toThank || state.f === 'thank') html.push('<button class="chip chip-flag' + (state.f === 'thank' ? ' on' : '') + '" data-f="thank">' + I.mail + 'Still to thank<span class="chip-count">' + toThank + '</span></button>');
-      if (review || state.f === 'review') html.push('<button class="chip chip-flag' + (state.f === 'review' ? ' on' : '') + '" data-f="review">' + I.sparkle + 'Check details<span class="chip-count">' + review + '</span></button>');
-      if (cats.length > 1 || state.cat) cats.forEach(function (t) {
+      flag('thank', 'mail', 'Still to thank', list.filter(function (d) { return d.toThank; }).length);
+      flag('review', 'sparkle', 'Check details', list.filter(function (d) { return d.needsReview; }).length);
+      flag('warranty', 'receipt', 'Warranty ends soon', list.filter(warrantySoon).length);
+      // Categories once a collection is picked (under All, "Birthday" and
+      // "Laundry" side by side mean little).
+      if (state.c && (cats.length > 1 || state.cat)) cats.forEach(function (t) {
         html.push('<button class="chip' + (state.cat === t ? ' on' : '') + '" data-cat="' + esc(t) + '">' + esc(t) + '</button>');
       });
       $('#cats').innerHTML = html.join('');
@@ -136,45 +154,80 @@
       var c = state.c ? Docs.coll(state.c) : null;
       if (!all.length) {
         return '<div class="hub-empty"><h3>Nothing kept yet</h3><p>Start with a card you’d hate to lose, or the manual for something in the house.</p>' +
-          '<a class="btn btn-primary" href="/family/documents/edit?c=cards">' + I.plus + 'Add a card or gift</a></div>';
+          '<div class="hub-actions dc-empty-adds">' + Docs.COLLECTIONS.map(function (k, i) {
+            return '<a class="btn ' + (i ? 'btn-ghost' : 'btn-primary') + ' btn-sm" href="/family/documents/edit?c=' + k.id + '">' + I[k.icon] + esc(k.add) + '</a>';
+          }).join('') + '</div></div>';
       }
-      if (state.f === 'thank') return '<div class="hub-empty"><h3>Everyone’s been thanked</h3><p>Nice work. Cards and gifts still to thank show up here.</p></div>';
+      if (state.f === 'thank') return '<div class="hub-empty"><h3>Everyone’s been thanked</h3><p>Nice work. Gifts, and any card marked as needing a thank-you, show up here until they’re thanked.</p></div>';
+      if (state.f === 'review') return '<div class="hub-empty"><h3>All checked</h3><p>Items added several at once wait here until someone has looked them over.</p></div>';
+      if (state.f === 'warranty') return '<div class="hub-empty"><h3>No warranties ending soon</h3><p>Receipts and manuals whose warranty ends in the next 60 days show up here.</p></div>';
       if (c && !all.some(inColl)) {
         return '<div class="hub-empty"><h3>No ' + esc(c.label.toLowerCase()) + ' yet</h3><p>&nbsp;</p><a class="btn btn-primary" href="/family/documents/edit?c=' + c.id + '">' + I.plus + esc(c.add) + '</a></div>';
       }
-      return '<div class="hub-empty"><h3>No matches</h3><p>Nothing here matches' + ($('#q').value.trim() ? ' “' + esc($('#q').value.trim()) + '”' : ' those filters') + '.</p></div>';
+      return '<div class="hub-empty"><h3>No matches</h3><p>Nothing here matches' + (state.q.trim() ? ' “' + esc(state.q.trim()) + '”' : ' those filters') + '.</p></div>';
+    }
+
+    // What the item page's back link and "2 of 5" call this list.
+    function listLabel() {
+      if (state.f === 'thank') return 'Still to thank';
+      if (state.f === 'review') return 'Check details';
+      if (state.f === 'warranty') return 'Warranty ends soon';
+      if (state.q.trim()) return 'Search results';
+      if (state.cat) return state.cat;
+      return state.c ? Docs.coll(state.c).label : 'Documents';
+    }
+    // In "Still to thank", each tile has its own Thanked button.
+    function tileFor(d) {
+      return Docs.tile(d, state.f === 'thank' ? { act: 'thanked', label: 'Thanked', icon: 'check' } : null);
     }
 
     function render() {
       var list = shown();
-      if (!list.length) { $('#list').innerHTML = emptyState(); return; }
-      // Manuals read best A to Z; everything else newest first, by year.
-      if (state.c === 'manuals') {
-        list.sort(function (a, b) { return a.name.localeCompare(b.name); });
-        $('#list').innerHTML = '<div class="dc-grid">' + list.map(Docs.tile).join('') + '</div>';
+      if (!list.length) {
+        $('#list').innerHTML = emptyState();
+        Docs.saveList({ url: location.pathname + location.search, label: listLabel(), f: state.f, ids: [] });
         return;
       }
-      list.sort(byDate);
-      var groups = [], cur = null;
-      list.forEach(function (d) {
-        var y = yearOf(d) || 'No date';
-        if (!cur || cur.y !== y) { cur = { y: y, items: [] }; groups.push(cur); }
-        cur.items.push(d);
-      });
-      var heads = groups.length > 1 || (groups[0] && groups[0].y !== 'No date');
-      $('#list').innerHTML = groups.map(function (g) {
-        return (heads ? '<h2 class="dc-year">' + esc(g.y) + '</h2>' : '') + '<div class="dc-grid">' + g.items.map(Docs.tile).join('') + '</div>';
-      }).join('');
+      // Manuals read best A to Z; everything else newest first, by year.
+      if (state.c === 'manuals' && !state.f) {
+        list.sort(function (a, b) { return a.name.localeCompare(b.name); });
+        $('#list').innerHTML = '<div class="dc-grid">' + list.map(tileFor).join('') + '</div>';
+      } else {
+        list.sort(byDate);
+        var groups = [], cur = null;
+        list.forEach(function (d) {
+          var y = yearOf(d) || 'No date';
+          if (!cur || cur.y !== y) { cur = { y: y, items: [] }; groups.push(cur); }
+          cur.items.push(d);
+        });
+        var heads = groups.length > 1 || (groups[0] && groups[0].y !== 'No date');
+        $('#list').innerHTML = groups.map(function (g) {
+          return (heads ? '<h2 class="dc-year">' + esc(g.y) + '</h2>' : '') + '<div class="dc-grid">' + g.items.map(tileFor).join('') + '</div>';
+        }).join('');
+      }
+      Docs.saveList({ url: location.pathname + location.search, label: listLabel(), f: state.f, ids: list.map(function (d) { return d.id; }) });
     }
     function renderAll() { renderColls(); renderCats(); renderYears(); render(); }
 
-    $('#q').addEventListener('input', render);
+    $('#q').addEventListener('input', function () { state.q = this.value; keepState(); render(); });
+    // Thanked, straight from a tile in "Still to thank".
+    $('#list').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-act="thanked"]');
+      if (!b) return;
+      b.disabled = true;
+      Hub.api('docs-patch', { body: { id: b.getAttribute('data-id'), thanked: true } }).then(function (r) {
+        all = all.map(function (d) { return d.id === r.doc.id ? Object.assign({}, d, { thanked: true, toThank: false }) : d; });
+        renderCount(); renderAll();
+        Hub.toast(r.doc.name + ': marked as thanked.');
+      }).catch(function (err) { b.disabled = false; Hub.toast(err.message, true); });
+    });
     $('#year').addEventListener('change', function () { state.y = this.value; keepState(); render(); });
     $('#colls').addEventListener('click', function (e) {
       var b = e.target.closest('[data-c]');
       if (!b) return;
       state.c = b.getAttribute('data-c'); state.cat = ''; state.y = '';
       if (state.f === 'thank' && state.c && state.c !== 'cards') state.f = '';
+      if (state.f === 'warranty' && state.c && state.c !== 'manuals' && state.c !== 'receipts') state.f = '';
       keepState(); renderAll();
     });
     $('#cats').addEventListener('click', function (e) {
@@ -186,7 +239,7 @@
     });
 
     function renderCount() {
-      var toThank = all.filter(function (d) { return d.collection === 'cards' && !d.thanked; }).length;
+      var toThank = all.filter(function (d) { return d.toThank; }).length;
       $('#count').textContent = all.length
         ? [Hub.plural(all.length, 'item') + ' kept', toThank ? Hub.plural(toThank, 'card') + ' still to thank' : ''].filter(Boolean).join(' · ')
         : 'Cards and gifts, manuals, receipts and papers worth keeping.';
@@ -221,18 +274,23 @@
         '<h3 id="bulk-title">Add several at once</h3>' +
         '<p>Choose a stack of photos or PDFs. Each one becomes its own item, filled in from the picture, and marked “Check details” until you’ve looked it over.</p>' +
         '<label class="field"><span>What are they?</span><select id="bulk-coll">' +
+          '<option value="">A mix: let each photo decide</option>' +
           Docs.COLLECTIONS.map(function (c) { return '<option value="' + c.id + '">' + esc(c.label) + '</option>'; }).join('') +
-          '<option value="">A mix: let each photo decide</option></select></label>' +
+          '</select></label>' +
         '<input type="file" id="bulk-files" accept="image/*,application/pdf" multiple hidden />' +
         '<ul class="dc-bulk-list" id="bulk-list"></ul><p class="dc-bulk-sum" id="bulk-sum" hidden></p>' +
         '<div class="hub-modal-actions"><button class="btn btn-ghost" type="button" data-close>Close</button>' +
         '<button class="btn btn-primary" type="button" id="bulk-pick">' + I.image + 'Choose photos</button></div></div>';
       document.body.appendChild(m);
-      var added = 0, running = false;
+      var added = 0, running = false, closed = false, queue = [];
+      // Closing mid-way stops the rest from starting; the ones already on
+      // their way finish, and the list refreshes once they have.
       var close = function () {
-        if (running && !window.confirm('Some are still being added. Stop and close?')) return;
+        if (running && !window.confirm('Stop adding the rest? The ones already uploading will still be added.')) return;
+        queue.length = 0;
+        closed = true;
         m.remove();
-        if (added) load();
+        if (added && !running) load();
       };
       m.querySelector('[data-close]').onclick = close;
       m.addEventListener('click', function (e) { if (e.target === m && !running) close(); });
@@ -251,7 +309,7 @@
           $('#bulk-list', m).appendChild(li);
           return li;
         });
-        var queue = files.map(function (f, i) { return { file: f, li: rows[i] }; });
+        queue = files.map(function (f, i) { return { file: f, li: rows[i] }; });
         var failed = 0;
         function status(li, text, cls) { li.querySelector('div > span').textContent = text; if (cls) li.className = cls; }
         function one(job) {
@@ -288,6 +346,7 @@
         function worker() { var job = queue.shift(); return job ? one(job).then(worker) : Promise.resolve(); }
         Promise.all([worker(), worker()]).then(function () {
           running = false;
+          if (closed) { if (added) load(); return; }
           $('#bulk-pick', m).disabled = false;
           $('#bulk-coll', m).disabled = false;
           $('#bulk-sum', m).hidden = false;
@@ -308,6 +367,7 @@
         drive = data.drive;
         renderCount(); renderStorage(); renderAll();
         Docs.driveReturnMessage(drive);
+        Docs.showFlash(); // "Marked as thanked." after the last one in a list
       }).catch(function (e) {
         $('#list').innerHTML = '<div class="hub-empty"><h3>Couldn’t open the documents</h3><p>' + esc(e.message) + '</p></div>';
       });

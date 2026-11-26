@@ -28,10 +28,36 @@
   (function () {
     var $ = Hub.$, esc = Hub.esc, I = Hub.icons;
     var id = new URLSearchParams(location.search).get('id');
-    var doc = null, drive = null, at = 0;
+    var doc = null, drive = null, related = [], at = 0;
+    // The browse-page list this item was opened from (Docs.saveList), if it's in it.
+    var ctx = Docs.savedList();
+    var pos = ctx ? ctx.ids.indexOf(id) : -1;
+    var itemHref = function (i) { return '/family/documents/item?id=' + encodeURIComponent(i); };
 
     function backHref() {
-      return '/family/documents' + (doc ? '?c=' + doc.collection : '');
+      return pos > -1 ? ctx.url : '/family/documents' + (doc ? '?c=' + doc.collection : '');
+    }
+
+    /* ---------- the list it came from: back, and "2 of 5" ---------- */
+    function listNav() {
+      if (pos < 0) return '';
+      var prev = ctx.ids[pos - 1], next = ctx.ids[pos + 1];
+      var step = function (to, icon, label) {
+        return to ? '<a href="' + itemHref(to) + '" aria-label="' + label + '">' + icon + '</a>' : '<span class="is-off" aria-hidden="true">' + icon + '</span>';
+      };
+      return '<nav class="dc-listnav" aria-label="List">' +
+        '<a class="dc-back" href="' + esc(ctx.url) + '">' + I.left + '<span>' + esc(ctx.label) + '</span></a>' +
+        (ctx.ids.length > 1 ? '<span class="dc-pos">' + step(prev, I.left, 'Previous') + '<span>' + (pos + 1) + ' of ' + ctx.ids.length + '</span>' + step(next, I.right, 'Next') + '</span>' : '') +
+        '</nav>';
+    }
+    // In "Still to thank" or "Check details", finishing one goes on to the
+    // next (or back to the list after the last). kind is 'thank' or 'review'.
+    function advance(kind, msg) {
+      if (pos < 0 || ctx.f !== kind) return false;
+      Docs.flash(msg);
+      var next = ctx.ids[pos + 1];
+      location.href = next ? itemHref(next) : ctx.url;
+      return true;
     }
 
     /* ---------- photos and files ---------- */
@@ -89,7 +115,8 @@
       add('Model', doc.model);
       if (doc.warrantyUntil) {
         var w = Docs.warranty(doc);
-        add('Warranty until', Docs.dateLabel(doc.warrantyUntil), '<span class="dc-badge' + (w === 'active' ? ' dc-badge--done">Active' : '">Ended') + '</span>');
+        add('Warranty until', Docs.dateLabel(doc.warrantyUntil),
+          '<span class="dc-badge' + (w === 'soon' ? ' dc-badge--thank">Ends soon' : w === 'active' ? ' dc-badge--done">Active' : '">Ended') + '</span>');
       }
       if (doc.sourceUrl) {
         var host = doc.sourceUrl.replace(/^https?:\/\/(www\.)?/i, '').split('/')[0];
@@ -97,13 +124,37 @@
       }
       return rows.length ? '<dl class="dc-facts">' + rows.join('') + '</dl>' : '';
     }
+    // Three states: thanked; still to thank; no thank-you needed.
     function thankedBox() {
       if (doc.collection !== 'cards') return '';
-      return doc.thanked
-        ? '<div class="dc-thanked is-done"><p><strong>Thanked</strong>' + (doc.thankedOn ? 'Marked on ' + esc(Docs.dateLabel(doc.thankedOn)) : '') + '</p>' +
-            '<button class="btn btn-ghost btn-sm" type="button" data-thanked="0">Not yet, actually</button></div>'
-        : '<div class="dc-thanked"><p><strong>Not thanked yet</strong>Mark it once you’ve sent a note or reached out' + (doc.from ? ' to ' + esc(doc.from) : '') + '.</p>' +
-            '<button class="btn btn-primary btn-sm" type="button" data-thanked="1">' + I.check + 'We’ve thanked them</button></div>';
+      if (doc.thanked) {
+        return '<div class="dc-thanked is-done"><p><strong>Thanked</strong>' + (doc.thankedOn ? 'Marked on ' + esc(Docs.dateLabel(doc.thankedOn)) : '') + '</p>' +
+          '<button class="btn btn-ghost btn-sm" type="button" data-thanked="0">Not yet, actually</button></div>';
+      }
+      if (doc.toThank) {
+        return '<div class="dc-thanked"><p><strong>Not thanked yet</strong>Mark it once you’ve sent a note or reached out' + (doc.from ? ' to ' + esc(doc.from) : '') + '.</p>' +
+          '<div class="dc-thanked-btns"><button class="btn btn-primary btn-sm" type="button" data-thanked="1">' + I.check + 'We’ve thanked them</button>' +
+          '<button class="link" type="button" data-needs="0">Doesn’t need one</button></div></div>';
+      }
+      return '<div class="dc-thanked is-none"><p><strong>No thank-you needed</strong>It isn’t on the Still to thank list.</p>' +
+        '<button class="btn btn-ghost btn-sm" type="button" data-needs="1">' + I.mail + 'Needs a thank-you</button></div>';
+    }
+    function reviewBox() {
+      if (!doc.needsReview) return '';
+      var next = pos > -1 && ctx.f === 'review' && ctx.ids[pos + 1];
+      return '<div class="dc-review">' + I.sparkle + '<p>These details were filled in from the picture. Check them over, then mark it done.</p>' +
+        '<a class="btn btn-ghost btn-sm" href="/family/documents/edit?id=' + encodeURIComponent(doc.id) + '">Edit</a>' +
+        '<button class="btn btn-primary btn-sm" type="button" data-reviewed>' + I.check + (next ? 'Looks right, next' : 'Looks right') + '</button></div>';
+    }
+    // A receipt and its manual (the same model number).
+    function relatedBlock() {
+      if (!related.length) return '';
+      return '<section class="dc-block"><h2>Also kept for this model</h2><div class="dc-related">' + related.map(function (r) {
+        var c = Docs.coll(r.collection), sub = Docs.subline(r);
+        return '<a class="dc-rel dc--' + esc(r.collection) + '" href="' + itemHref(r.id) + '">' +
+          '<span class="dc-rel-pic">' + (r.thumbUrl ? '<img src="' + esc(r.thumbUrl) + '" alt="" loading="lazy" />' : I[c.icon]) + '</span>' +
+          '<span><strong>' + esc(r.name) + '</strong><small>' + esc(c.one + (sub ? ' · ' + sub : '')) + '</small></span></a>';
+      }).join('') + '</div></section>';
     }
     function textHeading() {
       return { cards: 'What it says', manuals: 'Summary', receipts: 'Items', other: 'Details' }[doc.collection];
@@ -114,20 +165,25 @@
       document.title = doc.name + ' · Documents · Randall Family';
       var sub = [];
       if (!doc.title && doc.collection === 'receipts') sub.push(Docs.money(doc.total), Docs.dateLabel(doc.date));
+      // Head, photo, then the rest: on a phone the name and the buttons come
+      // before the photo, which would otherwise fill the screen.
       $('#view').innerHTML =
         '<div class="dc-item dc--' + doc.collection + '">' +
-          '<div class="dc-media" id="media"></div>' +
-          '<div class="dc-details">' +
-            '<a class="dc-eyebrow" href="' + backHref() + '">' + I[c.icon] + esc(c.label) + '</a>' +
+          '<div class="dc-head">' +
+            listNav() +
+            // (not when the back link above already says "Cards & gifts")
+            (pos > -1 && ctx.label === c.label ? '' : '<a class="dc-eyebrow" href="/family/documents?c=' + doc.collection + '">' + I[c.icon] + esc(c.label) + '</a>') +
             '<h1 class="dc-title">' + esc(doc.name) + '</h1>' +
             (sub.filter(Boolean).length ? '<p class="dc-sub">' + esc(sub.filter(Boolean).join(' · ')) + '</p>' : '') +
-            (doc.needsReview ? '<div class="dc-review">' + I.sparkle + '<p>These details were filled in from the picture. Check them over, then mark it done.</p>' +
-              '<a class="btn btn-ghost btn-sm" href="/family/documents/edit?id=' + encodeURIComponent(doc.id) + '">Edit</a>' +
-              '<button class="btn btn-primary btn-sm" type="button" data-reviewed>' + I.check + 'Looks right</button></div>' : '') +
+            reviewBox() +
             thankedBox() +
+          '</div>' +
+          '<div class="dc-media" id="media"></div>' +
+          '<div class="dc-body">' +
             facts() +
             (doc.text ? '<section class="dc-block"><h2>' + textHeading() + '</h2><div class="dc-text' + (doc.collection === 'cards' ? ' dc-text--card' : '') + '">' + esc(doc.text) + '</div></section>' : '') +
             (doc.notes ? '<section class="dc-block"><h2>Notes</h2><div class="dc-text">' + esc(doc.notes) + '</div></section>' : '') +
+            relatedBlock() +
             '<div class="dc-actions">' +
               '<a class="btn btn-ghost" href="/family/documents/edit?id=' + encodeURIComponent(doc.id) + '">' + I.edit + 'Edit</a>' +
               '<button class="btn btn-danger" type="button" data-delete>' + I.trash + 'Delete</button>' +
@@ -139,10 +195,15 @@
       drawMedia();
     }
 
-    function patch(body, done) {
+    // kind: 'thank' or 'review' goes on to the next one in that list.
+    function patch(body, done, kind) {
       body.id = doc.id;
-      return Hub.api('docs-patch', { body: body }).then(function (r) { doc = r.doc; render(); if (done) Hub.toast(done); })
-        .catch(function (e) { Hub.toast(e.message, true); });
+      return Hub.api('docs-patch', { body: body }).then(function (r) {
+        doc = r.doc;
+        if (kind && advance(kind, done)) return;
+        render();
+        if (done) Hub.toast(done);
+      }).catch(function (e) { Hub.toast(e.message, true); render(); });
     }
 
     /* ---------- full-size photo ---------- */
@@ -187,9 +248,14 @@
       else if ((t = e.target.closest('[data-thanked]'))) {
         t.disabled = true;
         var yes = t.getAttribute('data-thanked') === '1';
-        patch({ thanked: yes }, yes ? 'Marked as thanked.' : null);
+        patch(yes ? { thanked: true } : { thanked: false, needsThanks: true }, yes ? 'Marked as thanked.' : null, yes ? 'thank' : null);
       }
-      else if ((t = e.target.closest('[data-reviewed]'))) { t.disabled = true; patch({ needsReview: false }, 'Marked as checked.'); }
+      else if ((t = e.target.closest('[data-needs]'))) {
+        t.disabled = true;
+        var needs = t.getAttribute('data-needs') === '1';
+        patch({ needsThanks: needs }, needs ? 'Added to Still to thank.' : 'Taken off Still to thank.', needs ? null : 'thank');
+      }
+      else if ((t = e.target.closest('[data-reviewed]'))) { t.disabled = true; patch({ needsReview: false }, 'Marked as checked.', 'review'); }
       else if (e.target.closest('[data-delete]')) {
         var n = doc.files.length;
         Hub.confirm({
@@ -210,13 +276,14 @@
     Hub.ready(function () {
       if (!id) { location.href = '/family/documents'; return; }
       Hub.api('docs-get', { query: { id: id } }).then(function (r) {
-        doc = r.doc; drive = r.drive;
+        doc = r.doc; drive = r.drive; related = r.related || [];
         render();
+        Docs.showFlash();
         if (drive && !drive.connected && !drive.local && doc.files.some(function (f) { return f.store === 'drive'; })) {
           $('#view').insertAdjacentHTML('afterbegin', Docs.driveNote(drive));
         }
       }).catch(function (e) {
-        $('#view').innerHTML = '<div class="hub-empty"><h3>Couldn’t open this</h3><p>' + esc(e.message) + '</p><a class="btn btn-ghost" href="/family/documents">Back to Documents</a></div>';
+        $('#view').innerHTML = '<div class="hub-empty"><h3>Couldn’t open this</h3><p>' + esc(e.message) + '</p><a class="btn btn-ghost" href="' + esc(backHref()) + '">Back to Documents</a></div>';
       });
     });
   })();

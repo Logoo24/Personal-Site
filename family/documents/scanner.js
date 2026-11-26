@@ -6,7 +6,8 @@
    text is recognized on the device (Tesseract), and it all becomes one PDF
    with an invisible text layer, so it can be searched and copied (pdf-lib).
 
-   DocScanner.open({ title, start: [Blob] }) resolves to
+   Used for manuals, and for receipts and other documents on phones.
+   DocScanner.open({ title, start: [Blob], mode }) resolves to
      { pdf: Blob, pages, thumb: Blob, read: [Blob] }  or null (closed).
    Needs hub.js. The libraries load from CDNs the first time it opens.
    ============================================================ */
@@ -737,7 +738,7 @@
     return script(LIB.pdf).then(function () {
       var L = window.PDFLib;
       return L.PDFDocument.create().then(function (doc) {
-        doc.setTitle(title || 'Scanned manual');
+        doc.setTitle(title || 'Scanned document');
         doc.setProducer('Randall Family Hub');
         doc.setCreator('Randall Family Hub · Documents');
         return doc.embedFont(L.StandardFonts.Helvetica).then(function (font) {
@@ -781,7 +782,9 @@
     opts = opts || {};
     return new Promise(function (resolveOpen) {
       var shots = [], pages = [], seq = 0;
-      var mode = 'auto', filter = 'color', handsFree = false, receipt = [];
+      // opts.mode: the mode it opens in ('long' = Receipt, for adding a receipt).
+      var mode = ['auto', 'single', 'spread', 'long'].indexOf(opts.mode) > -1 ? opts.mode : 'auto';
+      var filter = 'color', handsFree = false, receipt = [];
       try { handsFree = localStorage.getItem('sc-handsfree') === '1'; } catch (e) { /* private mode */ }
       var stream = null, live = null, capturing = false, cropping = null, finished = false, wake = null;
       var work = Promise.resolve(), ocrQueue = [], ocrBusy = false, ocrBroken = false;

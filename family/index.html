@@ -103,6 +103,7 @@
         Hub.api('docs-status').then(function (d) {
           $('#meta-documents').textContent = d.toThank ? Hub.plural(d.toThank, 'card') + ' to thank'
             : d.review ? Hub.plural(d.review, 'item') + ' to check'
+            : d.warrantySoon ? (d.warrantySoon === 1 ? 'A warranty ends soon' : d.warrantySoon + ' warranties end soon')
             : d.total ? Hub.plural(d.total, 'item') + ' kept' : 'Add the first card or receipt';
         }).catch(function () { $('#meta-documents').textContent = 'Open Documents'; });
       }

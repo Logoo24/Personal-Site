@@ -39,6 +39,7 @@
         <div class="dc-drop" id="drop">
           <p id="drop-text">Drop photos or PDFs here, or</p>
           <div class="hub-actions">
+            <button class="btn btn-primary btn-sm" type="button" id="scan" hidden></button>
             <button class="btn btn-primary btn-sm" type="button" id="take" hidden></button>
             <button class="btn btn-ghost btn-sm" type="button" id="choose"></button>
           </div>
@@ -84,10 +85,13 @@
             <small>What they gave, if anything came with it.</small></label>
           <label class="field col-full" data-for="cards manuals receipts other"><span data-label="text">Details</span>
             <textarea name="text" rows="3" data-grow></textarea></label>
-          <label class="dc-check col-full" data-for="cards">
-            <input type="checkbox" name="thanked" />
-            <span><strong>We’ve thanked them</strong><small id="thanked-when">Tick once you’ve sent a note or reached out.</small></span>
-          </label>
+          <div class="field col-full" data-for="cards"><span class="field-label">Thank-you</span>
+            <div class="dc-thanks" id="thanks" role="radiogroup" aria-label="Thank-you">
+              <button type="button" role="radio" data-thanks="todo">To thank</button>
+              <button type="button" role="radio" data-thanks="done">Thanked</button>
+              <button type="button" role="radio" data-thanks="none">Not needed</button>
+            </div>
+            <small id="thanks-hint"></small></div>
           <label class="field col-full" data-for="cards manuals receipts other"><span>Notes</span>
             <textarea name="notes" rows="2" data-grow placeholder="Anything to remember about it"></textarea></label>
         </div>
@@ -124,13 +128,17 @@
     var category = '', categoryAuto = false, addingCat = false, knownCats = {};
     var dateMode = 'day', keepMonth = null, dateAuto = false;
     var readState = { busy: false, done: false, unavailable: false };
+    // Cards: 'todo' (on Still to thank), 'done' (thanked) or 'none' (not needed).
+    var thanks = 'none', thanksTouched = false, thankedOn = null;
+    // Phones and tablets get the scanner and the camera buttons.
+    var TOUCH = window.matchMedia('(pointer: coarse)').matches;
 
     var NOUN = { cards: 'card', manuals: 'manual', receipts: 'receipt', other: 'document' };
     var HINTS = {
       cards: 'Take a picture of the card (the inside, with the message, matters most). Who it’s from and what it says get filled in for you. Just a gift, no card? Skip the photo and fill in the details.',
-      manuals: 'Start with a photo of the cover, then save the maker’s PDF from online or scan your own copy.',
-      receipts: 'Snap the receipt, or add the PDF from the email. The store, date and total get filled in for you.',
-      other: 'Add photos or PDFs. Several pages can go on one item.'
+      manuals: 'Start with a photo of the cover. It looks for the maker’s PDF online straight away; if it isn’t there, scan your own copy.',
+      receipts: (TOUCH ? 'Scan the receipt (a long one goes in parts, top to bottom), or add the PDF from the email.' : 'Add a photo of the receipt, or the PDF from the email.') + ' The store, date and total get filled in for you.',
+      other: TOUCH ? 'Scan the pages into one PDF, or add photos or PDFs.' : 'Add photos or PDFs. Several pages can go on one item.'
     };
     var LABELS = {
       from: { cards: 'From', other: 'From (optional)' },
@@ -149,6 +157,9 @@
       if (e.target.matches('textarea[data-grow]')) grow(e.target);
       e.target.classList.remove('dc-auto');
       dirty = true;
+      if (e.target.name === 'gift') autoThanks();
+      // The manual box names the product it would search for.
+      if (collection === 'manuals' && /^(brand|model|title)$/.test(e.target.name) && mf.find !== 'searching') drawMf();
     });
     if ('ResizeObserver' in window) {
       var widths = new WeakMap();
@@ -178,6 +189,12 @@
       $('#seg').className = 'dc-seg dc--' + c;
       $('#fields').className = 'ed-section dc-fields is-' + c;
       $('#files-hint').textContent = HINTS[c];
+      // Receipts and documents are scanned (flattened, cleaned up, one PDF);
+      // cards are photos.
+      var scanHere = TOUCH && (c === 'receipts' || c === 'other');
+      $('#scan').hidden = !scanHere;
+      $('#scan').innerHTML = I.camera + (c === 'receipts' ? 'Scan the receipt' : 'Scan pages');
+      $('#take').hidden = !TOUCH || scanHere;
       $$('[data-label]').forEach(function (el) {
         var k = el.getAttribute('data-label');
         el.textContent = k === 'category' ? Docs.coll(c).catLabel : (LABELS[k] && LABELS[k][c]) || el.textContent;
@@ -268,8 +285,44 @@
       dateAuto = false; dirty = true;
       (dateMode === 'day' ? $('#date-day') : $('#date-year')).focus();
     };
-    $('#date-day').addEventListener('input', function () { dateAuto = false; });
-    $('#date-year').addEventListener('input', function () { dateAuto = false; keepMonth = null; });
+    $('#date-day').addEventListener('input', function () { dateAuto = false; autoThanks(); });
+    $('#date-year').addEventListener('input', function () { dateAuto = false; keepMonth = null; autoThanks(); });
+
+    /* ---------- thank-you: to thank, thanked, or not needed ----------
+       A new card follows the server's default until someone picks: a gift
+       goes on Still to thank, unless it's dated more than six months ago; a
+       card on its own doesn't. */
+    function periodEnd(d) {
+      if (/^\d{4}$/.test(d)) return d + '-12-31';
+      if (/^\d{4}-\d{2}$/.test(d)) { var e = new Date(+d.slice(0, 4), +d.slice(5, 7), 0); return d + '-' + String(e.getDate()).padStart(2, '0'); }
+      return d;
+    }
+    function defaultThanks() {
+      if (!form.elements.gift.value.trim()) return 'none';
+      var d = dateValue(), cut = new Date();
+      cut.setDate(cut.getDate() - 183);
+      var cutKey = cut.getFullYear() + '-' + String(cut.getMonth() + 1).padStart(2, '0') + '-' + String(cut.getDate()).padStart(2, '0');
+      return !d || periodEnd(d) >= cutKey ? 'todo' : 'none';
+    }
+    function setThanks(v) {
+      thanks = v;
+      $$('#thanks [data-thanks]').forEach(function (b) {
+        var on = b.getAttribute('data-thanks') === v;
+        b.classList.toggle('on', on); b.setAttribute('aria-checked', on);
+      });
+      $('#thanks-hint').textContent = v === 'todo' ? 'It stays on the Still to thank list until it’s marked thanked.'
+        : v === 'done' ? (thankedOn ? 'Marked on ' + Docs.dateLabel(thankedOn) + '.' : 'Marked as thanked when you save.')
+        : 'It isn’t on the Still to thank list.' + (thanksTouched ? ''
+          : form.elements.gift.value.trim() ? ' A gift from more than six months ago isn’t, unless you pick To thank.'
+          : ' A card on its own isn’t, unless you pick To thank; gifts are.');
+    }
+    function autoThanks() { if (!thanksTouched && !doc) setThanks(defaultThanks()); }
+    $('#thanks').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-thanks]');
+      if (!b) return;
+      thanksTouched = true; dirty = true;
+      setThanks(b.getAttribute('data-thanks'));
+    });
 
     /* ---------- files ---------- */
     function canUpload() { return !drive || drive.connected || drive.local; }
@@ -359,9 +412,13 @@
 
     $('#choose').innerHTML = I.image + 'Choose photos or files';
     $('#take').innerHTML = I.camera + 'Take a photo';
-    $('#take').hidden = !window.matchMedia('(pointer: coarse)').matches;
     $('#choose').onclick = function () { $('#pick').click(); };
     $('#take').onclick = function () { $('#snap').click(); };
+    $('#scan').onclick = function () {
+      if (!canUpload()) return Hub.toast('Google Drive needs to be connected before files can be added.', true);
+      var receipt = collection === 'receipts';
+      scan({ title: receipt ? 'Scanned receipt' : 'Scanned document', mode: receipt ? 'long' : 'auto' });
+    };
     $('#pick').onchange = $('#snap').onchange = function () { addFiles(this.files); this.value = ''; };
     var drop = $('#drop');
     ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('is-over'); }); });
@@ -434,19 +491,22 @@
       });
       if (s.category && (!category || categoryAuto)) setCategory(s.category, true);
       if (s.date && (!dateValue() || dateAuto)) setDate(s.date, true);
+      autoThanks(); // a gift read off the card puts it on Still to thank
       dirty = true;
       if (again) Hub.toast('Filled in again from the picture.');
     }
 
     /* ---------- adding a manual ----------
        A photo of the cover (or the model sticker) is read for the brand and
-       model; then (A) find the maker's PDF online, or (B) scan our copy.
+       model, and the maker's PDF is searched for online straight away. Then
+       either "Use this" on what was found, or (nothing found) scan our copy.
        Either way the item ends up with one PDF. The cover photo itself is
        only read, never uploaded on its own; a scan starts with it as page 1. */
     function product() {
       var el = form.elements;
       return [el.brand.value.trim(), el.model.value.trim()].filter(Boolean).join(' ') || el.title.value.trim();
     }
+    function canSearch() { return !!(form.elements.brand.value.trim() || form.elements.model.value.trim()); }
     function hostOf(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } }
     function mfShown() { return canUpload() && collection === 'manuals' && (!files.length || !!mf.busy); }
     function drawMf() {
@@ -461,7 +521,7 @@
       }
       if (!mf.cover && !mf.started) {
         box.innerHTML = '<h3>Start with the cover</h3>' +
-          '<p>Take a picture of the manual’s cover, or of the sticker on the appliance with the model number. The brand and model get filled in, then you can find the manual online or scan yours.</p>' +
+          '<p>Take a picture of the manual’s cover, or of the sticker on the appliance with the model number. The brand and model get filled in and the manual is looked for online; if it isn’t there, you can scan yours.</p>' +
           '<div class="hub-actions"><button class="btn btn-primary btn-sm" type="button" data-mf="snap">' + I.camera + 'Take a photo</button>' +
           '<button class="btn btn-ghost btn-sm" type="button" data-mf="pick">' + I.image + 'Choose a photo</button></div>' +
           '<div class="dc-mf-links"><button type="button" data-mf="scan">Skip: just scan the pages</button>' +
@@ -469,50 +529,55 @@
         return;
       }
       var name = product();
+      var scanBtn = function (primary) {
+        return '<button class="btn ' + (primary ? 'btn-primary' : 'btn-ghost') + ' btn-sm" type="button" data-mf="scan">' + I.camera + 'Scan your manual</button>';
+      };
+      var paste = mf.showPaste ? '<div class="dc-mf-paste"><input class="input" type="url" placeholder="Paste a link to the PDF" data-mf-url />' +
+        '<button class="btn btn-ghost btn-sm" type="button" data-mf="use-link">Use link</button></div>' : '';
+      var links = '<div class="dc-mf-links">' + (mf.showPaste ? '' : '<button type="button" data-mf="paste">Paste a link instead</button>') +
+        (mf.find && canSearch() ? '<button type="button" data-mf="search">Search again</button>' : '') + '</div>';
       var cover = mf.cover
         ? '<div class="dc-mf-cover">' + (mf.cover.url ? '<img src="' + esc(mf.cover.url) + '" alt="" />' : '') + '<p>' +
             (mf.reading ? 'Reading the cover…'
               : name ? 'This looks like <strong>' + esc(name) + '</strong>. Fix the brand and model below if that’s not right.'
-              : esc(mf.readError || 'Couldn’t read a model off that photo.') + ' Type the brand and model below, then search.') +
+              : esc(mf.readError || 'Couldn’t read a model off that photo.') + ' Type the brand and model below.') +
             '</p></div>'
-        : '<div class="dc-mf-cover"><p>Type the brand and model below to search for the manual online, or scan your copy.</p></div>';
-      var find;
-      var paste = '<div class="dc-mf-paste"><input class="input" type="url" placeholder="Or paste a link to the PDF" data-mf-url />' +
-        '<button class="btn btn-ghost btn-sm" type="button" data-mf="use-link">Use link</button></div>';
-      if (mf.find === 'searching') {
-        find = '<div class="dc-mf-busy">' + I.sparkle + '<span>Searching for the ' + esc(name || 'manual') + ' PDF… (up to a minute)</span></div>';
+        : '';
+      var step;
+      if (mf.reading) {
+        step = '';
+      } else if (mf.find === 'searching') {
+        step = '<div class="dc-mf-busy">' + I.sparkle + '<span>Looking online for the ' + esc(name || 'manual') + ' manual… (up to a minute)</span></div>' +
+          '<div class="dc-mf-links"><button type="button" data-mf="scan">Don’t wait: scan yours instead</button></div>';
       } else if (Array.isArray(mf.find) && mf.find.length) {
-        find = '<ul class="dc-mf-results">' + mf.find.map(function (c, i) {
+        step = '<h3>Found online</h3><ul class="dc-mf-results">' + mf.find.map(function (c, i) {
           return '<li><div><strong>' + esc(c.title) + '</strong><small>' + esc(c.host) + (c.size ? ' · ' + Docs.fileSize(c.size) : '') + ' · PDF</small></div>' +
             '<a href="' + esc(c.url) + '" target="_blank" rel="noopener">Look</a>' +
             '<button class="btn btn-primary btn-sm" type="button" data-mf="use" data-i="' + i + '">Use this</button></li>';
-        }).join('') + '</ul>' + paste;
-      } else if (Array.isArray(mf.find)) {
-        find = '<p>Couldn’t find a PDF of it online. Scan your copy, or paste a link if you find it yourself.</p>' + paste;
-      } else if (mf.find === 'error') {
-        find = '<p class="dc-mf-error">' + esc(mf.findError) + '</p>' + paste;
+        }).join('') + '</ul>' +
+          '<div class="dc-mf-or"><span>Not the right one?</span>' + scanBtn(false) + '</div>' + links + paste;
+      } else if (mf.find) {
+        // Nothing found (or the search failed): scanning is the way on.
+        step = '<div class="dc-mf-none"><h3>' + (mf.find === 'error' ? 'The search didn’t work' : 'No manual found online') + '</h3>' +
+          '<p>' + (mf.find === 'error' ? esc(mf.findError) + ' ' : 'There’s no PDF of the ' + esc(name || 'manual') + ' online that could be saved. ') +
+            'Scan your copy instead: take a picture of each page, or two at once with the book open, and it becomes one PDF with searchable text.</p>' +
+          '<div class="hub-actions">' + scanBtn(true) + '</div></div>' + links + paste;
       } else {
-        find = '<p>Looks for the maker’s own PDF' + (name ? ' of the ' + esc(name) : '') + ' and saves that.</p>' +
-          '<div class="hub-actions"><button class="btn btn-primary btn-sm" type="button" data-mf="search"' + (mf.reading ? ' disabled' : '') + '>' + I.search + 'Search online</button></div>' +
-          '<div class="dc-mf-links"><button type="button" data-mf="paste">Paste a link instead</button></div>';
-        if (mf.showPaste) find += paste;
+        step = '<p>' + (canSearch() ? 'Look for the maker’s PDF of the ' + esc(name) + ' manual, or scan your copy.' : 'Type the brand and model below to look for the manual online, or scan your copy.') + '</p>' +
+          '<div class="hub-actions"><button class="btn btn-primary btn-sm" type="button" data-mf="search">' + I.search + 'Search online</button>' + scanBtn(false) + '</div>' + links + paste;
       }
-      box.innerHTML = cover +
-        '<div class="dc-mf-opts">' +
-          '<div class="dc-mf-opt"><h4><span>A</span>Find it online</h4>' + find + '</div>' +
-          '<div class="dc-mf-opt"><h4><span>B</span>Scan our copy</h4>' +
-            '<p>Take a picture of each page, or two at once with the book open. It becomes one PDF with searchable text.</p>' +
-            '<div class="hub-actions"><button class="btn btn-primary btn-sm" type="button" data-mf="scan">' + I.camera + 'Start scanning</button></div></div>' +
-        '</div>' +
-        '<div class="dc-mf-links">' + (mf.cover ? '<button type="button" data-mf="snap">Take the cover photo again</button>' : '<button type="button" data-mf="snap">Take a cover photo</button>') +
+      var typed = ($('[data-mf-url]') || {}).value || ''; // a half-pasted link survives a redraw
+      box.innerHTML = cover + (step ? '<div class="dc-mf-step">' + step + '</div>' : '') +
+        '<div class="dc-mf-links dc-mf-foot">' + (mf.cover ? '<button type="button" data-mf="snap">Take the cover photo again</button>' : '<button type="button" data-mf="snap">Take a cover photo</button>') +
           '<button type="button" data-mf="drop">Already have the PDF?</button></div>';
+      if (typed && $('[data-mf-url]')) $('[data-mf-url]').value = typed;
     }
 
     function onCover(file) {
       if (!file) return;
       mf.started = true;
       mf.cover = { file: file, url: '' };
-      mf.reading = true; mf.readError = ''; mf.find = null;
+      mf.reading = true; mf.readError = ''; mf.find = null; mf.searchSeq = (mf.searchSeq || 0) + 1;
       drawMf();
       Docs.prepare(file).then(function (p) {
         if (p.thumb) mf.cover.url = URL.createObjectURL(p.thumb);
@@ -527,17 +592,21 @@
         mf.readError = e.status === 503 ? 'Reading photos isn’t set up.' : e.message;
       }).then(function () {
         mf.reading = false;
-        drawMf();
+        // Found a brand or model: look for the manual online right away.
+        if (canSearch() && mfShown()) search(); else drawMf();
       });
     }
 
     function search() {
       var el = form.elements;
+      if (!canSearch()) { Hub.toast('Type the brand or model first, so there’s something to look for.', true); el.brand.focus(); return; }
+      var seq = mf.searchSeq = (mf.searchSeq || 0) + 1;
       mf.find = 'searching';
       drawMf();
       Hub.api('docs-manual-find', { body: { brand: el.brand.value, model: el.model.value, title: el.title.value } }).then(function (r) {
-        mf.find = r.candidates;
+        if (seq === mf.searchSeq) mf.find = r.candidates;
       }).catch(function (e) {
+        if (seq !== mf.searchSeq) return;
         mf.find = 'error';
         mf.findError = e.message;
       }).then(drawMf);
@@ -578,19 +647,17 @@
       });
     }
 
-    // (B) The scanner hands back a finished PDF, which uploads like any file.
-    function scan() {
+    // The scanner hands back a finished PDF, which uploads like any file.
+    // o: { title, mode (the scanner's starting mode: 'long' for a receipt),
+    //      start (photos already taken), coverRead (images to read first),
+    //      alwaysRead (read it even if details are filled in) }
+    function scan(o) {
       if (!window.DocScanner) return Hub.toast('The scanner didn’t load. Reload the page and try again.', true);
-      mf.started = true;
-      drawMf();
-      var name = product();
-      var title = name ? name + ' manual' : 'Scanned manual';
-      DocScanner.open({ title: title, start: mf.cover ? [mf.cover.file] : [] }).then(function (res) {
+      DocScanner.open({ title: o.title, start: o.start || [], mode: o.mode }).then(function (res) {
         if (!res) return;
-        var coverRead = mf.cover && mf.cover.read ? mf.cover.read : [];
         var it = {
-          key: ++seq, name: title.replace(/[\\/:*?"<>|]+/g, ' ') + '.pdf', status: 'uploading', progress: 0, fresh: true, kind: 'pdf',
-          read: coverRead.concat(res.read).slice(0, 4), pages: res.pages, preview: URL.createObjectURL(res.thumb)
+          key: ++seq, name: o.title.replace(/[\\/:*?"<>|]+/g, ' ') + '.pdf', status: 'uploading', progress: 0, fresh: true, kind: 'pdf',
+          read: (o.coverRead || []).concat(res.read).slice(0, 4), pages: res.pages, preview: URL.createObjectURL(res.thumb)
         };
         files.push(it);
         dirty = true;
@@ -609,8 +676,20 @@
           drawFiles();
           Hub.toast(e.message, true);
         });
-        readNow();
+        if (o.alwaysRead || shouldAutoRead()) readNow();
       }).catch(function (e) { Hub.toast(e.message || 'The scanner stopped.', true); });
+    }
+    // A manual: the cover photo, if one was taken, is page 1.
+    function scanManual() {
+      mf.started = true;
+      drawMf();
+      var name = product();
+      scan({
+        title: name ? name + ' manual' : 'Scanned manual',
+        start: mf.cover ? [mf.cover.file] : [],
+        coverRead: mf.cover && mf.cover.read ? mf.cover.read : [],
+        alwaysRead: true
+      });
     }
 
     $('#mf').addEventListener('click', function (e) {
@@ -620,7 +699,7 @@
       if (a === 'snap') $('#mf-snap').click();
       else if (a === 'pick') $('#mf-pick').click();
       else if (a === 'search') search();
-      else if (a === 'scan') scan();
+      else if (a === 'scan') scanManual();
       else if (a === 'paste') { mf.showPaste = true; drawMf(); var u = $('[data-mf-url]'); if (u) u.focus(); }
       else if (a === 'use') useOnline((mf.find[+b.getAttribute('data-i')] || {}).url);
       else if (a === 'use-link') useOnline(($('[data-mf-url]') || {}).value);
@@ -643,10 +722,12 @@
       });
       form.elements.notes.value = d.notes || '';
       form.elements.sourceUrl.value = d.sourceUrl || '';
-      form.elements.thanked.checked = !!d.thanked;
-      if (d.thanked && d.thankedOn) $('#thanked-when').textContent = 'Marked on ' + Docs.dateLabel(d.thankedOn) + '.';
       setCategory(d.category || '');
       setDate(d.date || '');
+      // A saved card shows what it is; a new one follows the default until picked.
+      thankedOn = d.thanked ? d.thankedOn || null : null;
+      thanksTouched = !!d.id;
+      setThanks(d.id ? (d.thanked ? 'done' : d.needsThanks ? 'todo' : 'none') : defaultThanks());
       files = (d.files || []).map(function (f) {
         return { key: ++seq, name: f.name, status: 'ready', ref: f, kind: Docs.kind(f), preview: f.thumbUrl || (Docs.kind(f) === 'image' ? f.url : null), fresh: false };
       });
@@ -659,7 +740,8 @@
         id: doc ? doc.id : undefined,
         collection: collection,
         title: el.title.value, from: el.from.value, category: category, date: dateValue(),
-        text: el.text.value, notes: el.notes.value, gift: el.gift.value, thanked: el.thanked.checked,
+        text: el.text.value, notes: el.notes.value, gift: el.gift.value,
+        thanked: thanks === 'done', needsThanks: thanks !== 'none',
         store: el.store.value, total: Docs.parseMoney(el.total.value), brand: el.brand.value, model: el.model.value,
         warrantyUntil: el.warrantyUntil.value,
         sourceUrl: el.sourceUrl.value,
@@ -701,7 +783,7 @@
           if (!yes) return;
           $('#delete').disabled = true;
           Hub.api('docs-delete', { body: { id: doc.id } }).then(function () {
-            dirty = false; location.href = '/family/documents?c=' + doc.collection;
+            dirty = false; location.href = Docs.backTo(doc.collection);
           }).catch(function (e) { $('#delete').disabled = false; Hub.toast(e.message, true); });
         });
     };
@@ -734,8 +816,8 @@
           // Opening a "Check details" item to fix it counts as checking it.
           if (doc.needsReview) $('#status').textContent = 'Saving marks this as checked.';
         } else {
-          fill({ collection: start || 'cards' });
-          $('#cancel').href = '/family/documents' + (start ? '?c=' + start : '');
+          fill({ collection: start || Docs.COLLECTIONS[0].id });
+          $('#cancel').href = Docs.backTo(start);
         }
         $('#drive-note').innerHTML = Docs.driveNote(drive);
         drawMf();

@@ -2,10 +2,10 @@
 // people canSeeDocuments() lets in):
 //
 //   GET  docs-list                    -> { docs (summaries), drive (status) }
-//   GET  docs-status                  -> { total, toThank, review } for the hub card
-//   GET  docs-get&id=                 -> { doc, drive }
+//   GET  docs-status                  -> { total, toThank, review, warrantySoon } for the hub card
+//   GET  docs-get&id=                 -> { doc, drive, related (same model number) }
 //   POST docs-save    {...entry}      -> { doc } (create / update)
-//   POST docs-patch   {id, thanked?, needsReview?} -> { doc }
+//   POST docs-patch   {id, thanked?, needsThanks?, needsReview?} -> { doc }
 //   POST docs-delete  {id}
 //   POST docs-upload-start {name, type, size} -> { token, chunk }
 //   POST docs-upload-chunk (raw bytes; x-upload-token, x-upload-offset,
@@ -20,7 +20,7 @@
 //   POST docs-drive-disconnect        -> { drive } (admins)
 
 import { isAdmin } from '../session.js';
-import { listDocs, docsStatus, getDoc, saveDoc, patchDoc, deleteDoc } from './catalog.js';
+import { listDocs, docsStatus, getDoc, relatedDocs, saveDoc, patchDoc, deleteDoc } from './catalog.js';
 import { driveStatus, startUpload, uploadChunk, discardUploads, serveFile, connectStart, connectFinish, disconnect } from './drive.js';
 import { readDocument } from './reader.js';
 import { findManual, fetchManual } from './manuals.js';
@@ -38,7 +38,8 @@ export async function documentsRoute(request, url, user, r) {
     case 'GET docs-get': {
       const doc = await getDoc(url.searchParams.get('id'));
       if (!doc) throw fail(404, 'That item wasn’t found. It may have been deleted.');
-      return { doc, drive: await driveStatus(user, admin) };
+      const [drive, related] = await Promise.all([driveStatus(user, admin), relatedDocs(doc).catch(() => [])]);
+      return { doc, drive, related };
     }
     case 'POST docs-save':
       return { doc: await saveDoc(await body(request), user) };
