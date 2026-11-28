@@ -36,10 +36,15 @@
     });
   }
 
+  // One cropper at a time: a second open (a double click on the photo) is
+  // turned away as if cancelled.
+  var busy = false;
   function open(opts) {
+    if (busy) return Promise.resolve(null);
+    busy = true;
     opts = opts || {};
     var R = opts.ratio || 3 / 2, maxW = opts.maxWidth || 1600;
-    return loadImage(opts.src).then(function (loaded) {
+    return loadImage(opts.src).catch(function (e) { busy = false; throw e; }).then(function (loaded) {
       return new Promise(function (resolveOpen) {
         var img = loaded.img, W = img.naturalWidth, H = img.naturalHeight;
         // The frame, in the photo's own pixels.
@@ -63,6 +68,10 @@
           '<div class="pc-foot"><button type="button" class="btn btn-ghost" data-act="cancel">Cancel</button>' +
             '<button type="button" class="btn btn-ghost pc-reset" data-act="reset">Reset</button>' +
             '<button type="button" class="btn btn-primary" data-act="save">Save</button></div>';
+        // The page behind can't be reached (no tabbing to Save recipe, no
+        // Enter on the button that opened this); focus comes back after.
+        var before = document.activeElement, muted = [];
+        Array.prototype.forEach.call(document.body.children, function (n) { if (!n.inert) { n.inert = true; muted.push(n); } });
         document.body.appendChild(el);
         document.documentElement.classList.add('pc-open');
         var box = el.querySelector('.pc-box'), frame = el.querySelector('.pc-frame'), shade = el.querySelector('.pc-shade');
@@ -128,8 +137,9 @@
           var h = w / R;
           f = { x: drag.sx > 0 ? drag.ax : drag.ax - w, y: drag.sy > 0 ? drag.ay : drag.ay - h, w: w, h: h };
         }
+        // One finger at a time: a second one is ignored until the first lifts.
         el.querySelector('.pc-stage').addEventListener('pointerdown', function (e) {
-          if (e.button) return;
+          if (e.button || drag) return;
           var h = e.target.closest('.pc-h');
           if (h) {
             // A corner: the opposite corner stays put.
@@ -140,11 +150,12 @@
           } else {
             drag = { kind: 'move', p: photoPoint(e), f: { x: f.x, y: f.y, w: f.w, h: f.h } };
           }
-          this.setPointerCapture(e.pointerId);
+          drag.id = e.pointerId;
+          try { this.setPointerCapture(e.pointerId); } catch (err) { /* the pointer is already gone */ }
           e.preventDefault();
         });
         el.querySelector('.pc-stage').addEventListener('pointermove', function (e) {
-          if (!drag) return;
+          if (!drag || e.pointerId !== drag.id) return;
           if (drag.kind === 'move') {
             var p = photoPoint(e);
             f = clamp({ x: drag.f.x + p[0] - drag.p[0], y: drag.f.y + p[1] - drag.p[1], w: drag.f.w });
@@ -155,8 +166,9 @@
           draw();
         });
         ['pointerup', 'pointercancel'].forEach(function (ev) {
-          el.querySelector('.pc-stage').addEventListener(ev, function () {
-            if (drag && drag.kind === 'size' && drag.lift && !drag.moved) { f = drag.was; draw(); }
+          el.querySelector('.pc-stage').addEventListener(ev, function (e) {
+            if (!drag || e.pointerId !== drag.id) return;
+            if (drag.kind === 'size' && drag.lift && !drag.moved) { f = drag.was; draw(); }
             drag = null;
           });
         });
@@ -175,11 +187,14 @@
 
         /* ----- finishing ----- */
         function done(result) {
-          document.removeEventListener('keydown', onKey);
+          document.removeEventListener('keydown', onKey, true);
           window.removeEventListener('resize', fit);
           document.documentElement.classList.remove('pc-open');
           el.remove();
+          muted.forEach(function (n) { n.inert = false; });
+          if (before && before.focus) { try { before.focus({ preventScroll: true }); } catch (e) { /* gone */ } }
           if (loaded.own) URL.revokeObjectURL(loaded.url);
+          busy = false;
           resolveOpen(result);
         }
         function save() {
@@ -195,11 +210,13 @@
             done({ blob: blob, crop: { x: f.x / W, y: f.y / H, w: f.w / W, h: f.h / H } });
           }).catch(function (e) { btn.disabled = false; Hub.toast(e.message, true); });
         }
+        // Escape cancels; Enter saves, unless it's on one of the cropper's
+        // own buttons (which then do what they say).
         function onKey(e) {
-          if (e.key === 'Escape') done(null);
-          else if (e.key === 'Enter' && !e.target.closest('button')) { e.preventDefault(); save(); }
+          if (e.key === 'Escape') { e.preventDefault(); done(null); }
+          else if (e.key === 'Enter' && !(e.target.closest && e.target.closest('button') && el.contains(e.target))) { e.preventDefault(); save(); }
         }
-        document.addEventListener('keydown', onKey);
+        document.addEventListener('keydown', onKey, true);
         window.addEventListener('resize', fit);
         el.addEventListener('click', function (e) {
           var b = e.target.closest('[data-act]');
@@ -213,6 +230,7 @@
         // safe-area padding have settled).
         fit();
         requestAnimationFrame(fit);
+        frame.focus({ preventScroll: true });
       });
     });
   }

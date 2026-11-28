@@ -184,7 +184,7 @@ body.hub { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction:
 
 /* ---------- toast ---------- */
 .hub-toast {
-  position: fixed; left: 50%; bottom: 1.5rem; transform: translate(-50%, 150%); z-index: 300;
+  position: fixed; left: 50%; bottom: 1.5rem; transform: translate(-50%, 150%); z-index: 500; /* above the full-screen cropper and scanner */
   padding: 0.8rem 1.2rem; border-radius: 10px; background: var(--text); color: var(--bg);
   font-weight: 500; font-size: 0.92rem; box-shadow: var(--shadow); transition: transform .35s var(--ease-out);
   max-width: calc(100vw - 2rem);
@@ -269,7 +269,7 @@ body.hub { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction:
 @media (min-width: 900px) {
   .rc-hero:has(> .rc-cover) { display: grid; grid-template-columns: minmax(0, 1fr) min(48%, 600px); grid-template-rows: repeat(5, auto) 1fr; column-gap: 3rem; }
   .rc-hero:has(> .rc-cover) > * { grid-column: 1; }
-  .rc-hero > .rc-cover { grid-column: 2; grid-row: 1 / -1; width: 100%; margin-bottom: 0; }
+  .rc-hero:has(> .rc-cover) > .rc-cover { grid-column: 2; grid-row: 1 / -1; width: 100%; margin-bottom: 0; }
 }
 .rc-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.8rem; }
 .rc-tag { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: var(--hub-cookbook); }
@@ -616,6 +616,35 @@ body.hub-cal .hub-main { display: flex; flex-direction: column; min-height: 0; m
 }
 
 /* ============================================================
+   ASK ABOUT THIS RECIPE (recipe.html, api/_family/recipe-ask.js)
+   ============================================================ */
+.rc-ask { margin-top: 2.5rem; max-width: 780px; padding: clamp(1.1rem, 3vw, 1.6rem); background: var(--bg-alt); border: 1px solid var(--line); border-radius: 16px; }
+.rc-ask-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; flex-wrap: wrap; }
+.rc-ask h2 { display: flex; align-items: center; gap: 0.5rem; font-size: 1.25rem !important; }
+.rc-ask h2 svg { width: 20px; height: 20px; color: var(--hub-cookbook); flex: none; }
+.rc-ask-sub { font-size: 0.88rem; color: var(--text-muted); margin-top: 0.3rem; }
+.rc-ask-thread { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1.1rem; }
+.rc-ask-thread:empty { display: none; }
+.rc-ask-q { align-self: flex-end; max-width: 85%; padding: 0.6rem 0.9rem; border-radius: 14px 14px 4px 14px; background: color-mix(in srgb, var(--hub-cookbook) 14%, var(--hub-surface)); white-space: pre-wrap; overflow-wrap: anywhere; }
+.rc-ask-a { align-self: flex-start; max-width: 100%; padding: 0.75rem 1rem; border-radius: 14px 14px 14px 4px; background: var(--hub-surface); border: 1px solid var(--line); line-height: 1.6; overflow-wrap: anywhere; }
+.rc-ask-a p + p, .rc-ask-a p + ul, .rc-ask-a p + ol, .rc-ask-a ul + p, .rc-ask-a ol + p { margin-top: 0.55rem; }
+.rc-ask-a ul, .rc-ask-a ol { padding-left: 1.3rem; }
+.rc-ask-a li + li { margin-top: 0.2rem; }
+.rc-ask-wait { color: var(--text-muted); display: flex; align-items: center; gap: 0.4rem; }
+.rc-ask-dots { display: inline-flex; gap: 3px; }
+.rc-ask-dots i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: rc-ask-dot 1.2s infinite ease-in-out; }
+.rc-ask-dots i:nth-child(2) { animation-delay: 0.15s; }
+.rc-ask-dots i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes rc-ask-dot { 0%, 80%, 100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) { .rc-ask-dots i { animation: none; opacity: 0.6; } }
+.rc-ask-starters { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 1rem; }
+.rc-ask-starters:empty { display: none; }
+.rc-ask-form { display: flex; gap: 0.5rem; align-items: flex-end; margin-top: 1rem; }
+.rc-ask-form textarea { flex: 1; min-width: 0; resize: none; min-height: 44px; max-height: 200px; line-height: 1.45; overflow-y: hidden; }
+.rc-ask-form .btn { flex: none; min-height: 44px; }
+.rc-ask-note { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.6rem; }
+
+/* ============================================================
    CROPPING A PHOTO (photo-crop.js): the cookbook's cover photos
    ============================================================ */
 html.pc-open, html.pc-open body { overflow: hidden; }
@@ -635,7 +664,8 @@ html.pc-open, html.pc-open body { overflow: hidden; }
   background-image: linear-gradient(rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.35)), linear-gradient(rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.35)),
     linear-gradient(rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.35)), linear-gradient(rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.35));
   background-size: 1px 100%, 1px 100%, 100% 1px, 100% 1px; background-position: 33.33% 0, 66.67% 0, 0 33.33%, 0 66.67%; background-repeat: no-repeat; }
-.pc-frame:focus-visible { outline: 3px solid var(--accent); }
+.pc-frame:focus { outline: 2px solid #fff; }
+.pc-frame:focus-visible { outline-width: 3px; }
 /* Corner handles: each catches a finger-sized area centred on the corner,
    and shows as a pie wedge outside the frame, its point on the corner, so
    nothing inside the frame is covered. */

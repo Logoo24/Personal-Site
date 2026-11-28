@@ -29,6 +29,23 @@
     <div class="rc-share" id="share" hidden></div>
     <article id="recipe"><p class="hub-loading">Getting the recipe…</p></article>
     <p class="rc-byline no-print" id="byline"></p>
+    <!-- Ask Claude about this recipe (api/_family/recipe-ask.js). -->
+    <section class="rc-ask no-print" id="ask" hidden aria-labelledby="ask-title">
+      <div class="rc-ask-head">
+        <div>
+          <h2 id="ask-title"><span data-icon="sparkle" style="display:contents"></span>Ask about this recipe</h2>
+          <p class="rc-ask-sub">Substitutions, timing, making it ahead, what went wrong… Claude answers from this recipe.</p>
+        </div>
+        <button class="btn btn-ghost btn-sm" type="button" id="ask-clear" hidden>New conversation</button>
+      </div>
+      <div class="rc-ask-thread" id="ask-thread" aria-live="polite"></div>
+      <div class="rc-ask-starters" id="ask-starters"></div>
+      <form class="rc-ask-form" id="ask-form">
+        <textarea id="ask-input" rows="1" maxlength="1000" placeholder="Ask a question" aria-label="Your question about this recipe"></textarea>
+        <button class="btn btn-primary" type="submit" id="ask-send">Ask</button>
+      </form>
+      <p class="rc-ask-note">Answers come from Claude and can be wrong. Double-check anything about allergies or food safety.</p>
+    </section>
   </main>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
@@ -312,6 +329,90 @@
     });
     $('#print').addEventListener('click', function () { window.print(); });
 
+    /* ---------- ask about this recipe ----------
+       The conversation lives on the page (and in sessionStorage, so a
+       reload keeps it); each question sends the last six turns along, and
+       the server stores nothing. */
+    var ask = { turns: [], busy: false };
+    var STARTERS = ['Can I make it ahead?', 'What can I substitute?', 'How do I store leftovers?', 'Any tips for getting it right?'];
+    function askKey() { return 'rc-ask-' + id; }
+    function saveTurns() { try { sessionStorage.setItem(askKey(), JSON.stringify(ask.turns.filter(function (t) { return t.a; }).slice(-20))); } catch (e) { /* private mode */ } }
+    // Answers are plain text with a little markdown: bold, italics, lists
+    // and paragraphs only. Escaped first, so nothing else (no links, no
+    // pictures) can come through.
+    function answerHTML(text) {
+      var inline = function (s) {
+        return esc(s).replace(/\*\*(?=\S)([\s\S]*?\S)\*\*/g, '<strong>$1</strong>').replace(/(^|[\s(])\*(?=\S)([^*\n]*?\S)\*(?=[\s).,!?:;]|$)/g, '$1<em>$2</em>');
+      };
+      return String(text).trim().split(/\n{2,}/).map(function (block) {
+        var lines = block.split('\n');
+        if (lines.every(function (l) { return /^\s*[-*•]\s+/.test(l); })) return '<ul>' + lines.map(function (l) { return '<li>' + inline(l.replace(/^\s*[-*•]\s+/, '')) + '</li>'; }).join('') + '</ul>';
+        if (lines.every(function (l) { return /^\s*\d+[.)]\s+/.test(l); })) return '<ol>' + lines.map(function (l) { return '<li>' + inline(l.replace(/^\s*\d+[.)]\s+/, '')) + '</li>'; }).join('') + '</ol>';
+        return '<p>' + lines.map(inline).join('<br>') + '</p>';
+      }).join('');
+    }
+    function drawAsk() {
+      $('#ask-thread').innerHTML = ask.turns.map(function (t) {
+        return '<div class="rc-ask-q">' + esc(t.q) + '</div>' +
+          (t.a ? '<div class="rc-ask-a">' + answerHTML(t.a) + '</div>'
+            : '<div class="rc-ask-a rc-ask-wait" aria-label="Thinking">Thinking<span class="rc-ask-dots"><i></i><i></i><i></i></span></div>');
+      }).join('');
+      $('#ask-starters').innerHTML = ask.turns.length ? '' : STARTERS.map(function (s) { return '<button type="button" class="chip" data-ask="' + esc(s) + '">' + esc(s) + '</button>'; }).join('');
+      $('#ask-clear').hidden = !ask.turns.length || ask.busy;
+      $('#ask-send').disabled = ask.busy;
+      $('#ask-send').textContent = ask.busy ? 'Asking…' : 'Ask';
+      $('#ask-input').placeholder = ask.turns.length ? 'Ask a follow-up' : 'Ask a question';
+    }
+    function growAsk() {
+      var t = $('#ask-input');
+      t.style.height = 'auto';
+      t.style.height = Math.min(t.scrollHeight + 2, 200) + 'px';
+      t.style.overflowY = t.scrollHeight > 200 ? 'auto' : 'hidden';
+    }
+    function sendQuestion(q) {
+      q = String(q || '').trim();
+      if (!q || ask.busy) return;
+      var history = ask.turns.filter(function (t) { return t.a; }).slice(-6).map(function (t) { return { q: t.q, a: t.a }; });
+      var turn = { q: q, a: '' };
+      ask.turns.push(turn);
+      ask.busy = true;
+      $('#ask-input').value = ''; growAsk();
+      drawAsk();
+      Hub.api('recipe-ask', { body: { id: recipe.id, question: q, history: history, factor: factor } }).then(function (res) {
+        turn.a = res.answer;
+        saveTurns();
+      }).catch(function (e) {
+        // Back in the box, to try again or reword.
+        ask.turns.splice(ask.turns.indexOf(turn), 1);
+        if (!$('#ask-input').value) { $('#ask-input').value = q; growAsk(); }
+        Hub.toast(e.message || 'Couldn’t get an answer. Try again.', true);
+      }).then(function () {
+        ask.busy = false;
+        drawAsk();
+        var last = Hub.$$('#ask-thread .rc-ask-a').pop();
+        if (last) last.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+    }
+    function startAsk() {
+      try { ask.turns = (JSON.parse(sessionStorage.getItem(askKey()) || '[]') || []).filter(function (t) { return t && t.q && t.a; }); } catch (e) { ask.turns = []; }
+      $('#ask').hidden = false;
+      drawAsk();
+    }
+    $('#ask-form').addEventListener('submit', function (e) { e.preventDefault(); sendQuestion($('#ask-input').value); });
+    $('#ask-input').addEventListener('input', growAsk);
+    $('#ask-input').addEventListener('keydown', function (e) {
+      // Enter asks; Shift+Enter starts a new line.
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendQuestion(this.value); }
+    });
+    $('#ask-starters').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-ask]');
+      if (b) sendQuestion(b.getAttribute('data-ask'));
+    });
+    $('#ask-clear').addEventListener('click', function () {
+      ask.turns = []; saveTurns(); drawAsk(); $('#ask-input').focus();
+    });
+    Hub.$$('#ask [data-icon]').forEach(function (n) { n.innerHTML = Hub.icons[n.getAttribute('data-icon')]; });
+
     Hub.ready(function () {
       if (!id) { location.replace('/family/cookbook'); return; }
       Hub.api('recipe', { query: { id: id } }).then(function (data) {
@@ -324,6 +425,7 @@
         Hub.$$('.hub-crumb').pop().after(crumb);
         render();
         renderShare();
+        startAsk();
         var when = function (iso) { return new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); };
         $('#byline').textContent = 'Added by ' + recipe.createdBy + ' on ' + when(recipe.createdAt) +
           (recipe.updatedAt !== recipe.createdAt ? ' · Last edited by ' + recipe.updatedBy + ' on ' + when(recipe.updatedAt) : '');

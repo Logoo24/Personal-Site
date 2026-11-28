@@ -15,6 +15,7 @@
 //   POST import   {url|text|files, tags} -> a draft recipe read from a link, pasted
 //                                     text, or uploaded photos/PDF/documents
 //                                     (files: [{name, data: base64}])
+//   POST recipe-ask {id, question, history, factor} -> { answer } about one recipe
 //   GET  calendar&from=&to=         -> calendar events (YYYY-MM-DD range)
 //   GET  calendar-series&id=        -> a repeating event's repeat setting
 //   POST calendar-event {action, id?, scope?, event?} -> add / edit / delete an event
@@ -40,6 +41,7 @@ import { listRecipes, allRecipes, getRecipe, saveRecipe, deleteRecipe, saveMedia
 import { shareRecipe, unshareRecipe } from './_family/share.js';
 import { eventsBetween, CALENDAR_LINKS, canEditCalendar, seriesInfo, changeEvent } from './_family/calendar.js';
 import { importRecipe } from './_family/import.js';
+import { askRecipe } from './_family/recipe-ask.js';
 import { getFile, remove } from './_family/store.js';
 
 const json = (data, status = 200, headers = {}) =>
@@ -151,6 +153,8 @@ async function route(request) {
     }
     case 'POST import':
       return json(await importRecipe(await request.json().catch(() => ({}))));
+    case 'POST recipe-ask':
+      return json(await askRecipe(await request.json().catch(() => ({})), user));
     case 'GET calendar':
       return json({ events: await eventsBetween(url.searchParams.get('from'), url.searchParams.get('to')), links: CALENDAR_LINKS, canEdit: canEditCalendar() });
     case 'GET calendar-series':
