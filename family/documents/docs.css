@@ -283,6 +283,9 @@
 .dc-thanks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.3rem; padding: 0.25rem; border-radius: 11px; background: var(--bg-deep); }
 .dc-thanks button { border: 0; border-radius: 8px; background: none; padding: 0.55rem 0.4rem; color: var(--text-soft); font: 600 0.85rem var(--sans); cursor: pointer; }
 .dc-thanks button.on { background: var(--hub-surface); color: var(--dc-cards); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+/* "Optional" in every empty box: paler than an example would be, so it
+   never reads as something filled in. */
+.dc-fields .input::placeholder, .dc-fields textarea::placeholder { color: var(--text-muted); opacity: 0.45; }
 .dc-money { position: relative; }
 .dc-money::before { content: "$"; position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.95rem; pointer-events: none; }
 .dc-money .input { padding-left: 1.7rem; }

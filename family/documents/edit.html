@@ -56,35 +56,35 @@
         <p class="ed-hint">Fill in whatever helps you find it later. Nothing here is required.</p>
         <div class="ed-grid">
           <label class="field col-full" data-for="cards other"><span data-label="from">From</span>
-            <input class="input" name="from" list="people" maxlength="200" placeholder="Grandma &amp; Grandpa Jensen" /></label>
+            <input class="input" name="from" list="people" maxlength="200" placeholder="Optional" /></label>
           <label class="field col-full" data-for="cards manuals receipts other"><span data-label="title">Name</span>
-            <input class="input" name="title" maxlength="160" /></label>
+            <input class="input" name="title" maxlength="160" placeholder="Optional" /></label>
           <label class="field col-half" data-for="receipts"><span>Store</span>
-            <input class="input" name="store" maxlength="120" placeholder="Costco" /></label>
+            <input class="input" name="store" maxlength="120" placeholder="Optional" /></label>
           <label class="field col-half" data-for="receipts"><span>Total</span>
-            <span class="dc-money"><input class="input" name="total" inputmode="decimal" placeholder="0.00" /></span></label>
+            <span class="dc-money"><input class="input" name="total" inputmode="decimal" placeholder="Optional" /></span></label>
           <label class="field col-half" data-for="manuals receipts"><span>Brand</span>
-            <input class="input" name="brand" maxlength="80" placeholder="Bosch" /></label>
+            <input class="input" name="brand" maxlength="80" placeholder="Optional" /></label>
           <label class="field col-half" data-for="manuals receipts"><span>Model</span>
-            <input class="input" name="model" maxlength="80" placeholder="SHE53C85N" /></label>
+            <input class="input" name="model" maxlength="80" placeholder="Optional" /></label>
           <div class="field col-full" data-for="cards manuals receipts other"><span class="field-label" data-label="category">Category</span>
             <div class="dc-catpick" id="cats"></div></div>
           <div class="field col-half" data-for="cards manuals receipts other"><span class="field-label" data-label="date">Date</span>
             <div class="dc-date">
               <input class="input" type="date" id="date-day" aria-label="Date" />
-              <input class="input" type="number" id="date-year" min="1900" max="2100" step="1" inputmode="numeric" placeholder="2025" aria-label="Year" hidden />
+              <input class="input" type="number" id="date-year" min="1900" max="2100" step="1" inputmode="numeric" placeholder="Optional" aria-label="Year" hidden />
               <button type="button" id="date-mode">Just the year</button>
             </div></div>
           <label class="field col-half" data-for="manuals receipts"><span>Warranty until</span>
             <input class="input" type="date" name="warrantyUntil" /></label>
           <label class="field col-full" data-for="manuals"><span>Online link</span>
-            <input class="input" type="url" name="sourceUrl" maxlength="600" placeholder="https://… where the manual is online" />
+            <input class="input" type="url" name="sourceUrl" maxlength="600" placeholder="Optional" />
             <small>Filled in when the manual comes from online.</small></label>
           <label class="field col-full" data-for="cards"><span>Gift</span>
-            <input class="input" name="gift" maxlength="300" placeholder="$50, a stand mixer, a quilt…" />
+            <input class="input" name="gift" maxlength="300" placeholder="Optional" />
             <small>What they gave, if anything came with it.</small></label>
           <label class="field col-full" data-for="cards manuals receipts other"><span data-label="text">Details</span>
-            <textarea name="text" rows="3" data-grow></textarea></label>
+            <textarea name="text" rows="3" data-grow placeholder="Optional"></textarea></label>
           <div class="field col-full" data-for="cards"><span class="field-label">Thank-you</span>
             <div class="dc-thanks" id="thanks" role="radiogroup" aria-label="Thank-you">
               <button type="button" role="radio" data-thanks="todo">To thank</button>
@@ -93,7 +93,7 @@
             </div>
             <small id="thanks-hint"></small></div>
           <label class="field col-full" data-for="cards manuals receipts other"><span>Notes</span>
-            <textarea name="notes" rows="2" data-grow placeholder="Anything to remember about it"></textarea></label>
+            <textarea name="notes" rows="2" data-grow placeholder="Optional"></textarea></label>
         </div>
         <datalist id="people"></datalist>
       </section>
@@ -141,13 +141,11 @@
       other: TOUCH ? 'Scan the pages into one PDF, or add photos or PDFs.' : 'Add photos or PDFs. Several pages can go on one item.'
     };
     var LABELS = {
-      // Nothing is required (the hint above the fields says so), so no
-      // field is marked "optional": that made the others look required.
+      // Nothing is required: every text box says "Optional" in pale grey
+      // (in the markup), rather than an example that could read as filled in.
       from: { cards: 'From', other: 'From' },
       title: { cards: 'Name', manuals: 'What it’s for', receipts: 'What you bought', other: 'Name' },
-      titleHint: { cards: '', manuals: 'Dishwasher', receipts: 'Washing machine', other: 'Car title, a coupon, a note from Mom…' },
       text: { cards: 'What it says', manuals: 'Summary and key details', receipts: 'Items', other: 'Details' },
-      textHint: { cards: 'The message, word for word', manuals: 'Filter size, serial number, what it covers…', receipts: 'One item per line', other: '' },
       date: { cards: 'Date', manuals: 'Bought on', receipts: 'Date', other: 'Date' }
     };
     var TEXT_FIELDS = ['from', 'title', 'store', 'total', 'brand', 'model', 'gift', 'text', 'warrantyUntil'];
@@ -206,8 +204,6 @@
         var k = el.getAttribute('data-label');
         el.textContent = k === 'category' ? Docs.coll(c).catLabel : (LABELS[k] && LABELS[k][c]) || el.textContent;
       });
-      form.elements.title.placeholder = LABELS.titleHint[c];
-      form.elements.text.placeholder = LABELS.textHint[c];
       if (!doc) $('#heading').textContent = Docs.coll(c).add;
       drawCats();
       drawMf();
