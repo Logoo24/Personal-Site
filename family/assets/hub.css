@@ -451,6 +451,9 @@ body.hub { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction:
 .ed-link { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.9rem; padding: 0.55rem 0.55rem 0.55rem 0.9rem; border: 1px solid var(--line); border-radius: 10px; background: var(--hub-surface); }
 .ed-link-url { flex: 1; min-width: 0; font-family: var(--mono, monospace); font-size: 0.88rem; overflow-wrap: anywhere; color: var(--text-soft); }
 .ed-link-form { padding: 0.55rem; }
+/* The link on its own line, with Edit link underneath (fits any width). */
+.ed-link-view { flex-direction: column; align-items: flex-start; gap: 0.55rem; padding: 0.7rem 0.9rem; }
+.ed-link-view .ed-link-url { flex: none; width: 100%; }
 .ed-link-prefix { font-family: var(--mono, monospace); font-size: 0.85rem; color: var(--text-muted); overflow-wrap: anywhere; }
 .ed-link-form .input { flex: 1; min-width: 9rem; padding: 0.45rem 0.7rem; font-family: var(--mono, monospace); font-size: 0.88rem; }
 .ed-link-form small { flex-basis: 100%; color: var(--text-muted); font-size: 0.78rem; }

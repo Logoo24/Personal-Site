@@ -161,7 +161,7 @@
       <section class="ed-section ed-sharing" id="sharing">
         <h2>Sharing</h2>
         <p class="ed-hint" id="share-hint"></p>
-        <div class="ed-link" id="link-view">
+        <div class="ed-link ed-link-view" id="link-view">
           <span class="ed-link-url" id="link-url"></span>
           <button class="btn btn-ghost btn-sm" type="button" id="link-edit"><span data-icon="edit" style="display:contents"></span>Edit link</button>
         </div>
@@ -1022,7 +1022,6 @@
           document.title = 'Edit ' + recipe.title + ' · Randall Family';
           $('#cancel').href = '/family/cookbook/recipe?id=' + encodeURIComponent(recipe.id);
           $('#danger').hidden = false;
-          if (!recipe.private && !Hub.isWant(recipe)) $('#status').textContent = 'In the public recipe book: its page shows your changes as soon as you save.';
         }
         $('#loading').remove();
         form.hidden = false;
