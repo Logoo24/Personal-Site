@@ -386,7 +386,9 @@ html.sc-open, html.sc-open body { overflow: hidden; }
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
   mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px)); }
 .sc-bar-end { display: flex; align-items: center; gap: 0.5rem; }
-.sc-modes { display: flex; justify-content: center; padding: 0 0.75rem 0.6rem; }
+/* What's being scanned (Document / Book / Receipt), just above the shutter. */
+.sc-modes { display: flex; justify-content: center; padding: 0.75rem 0.75rem 0; }
+.sc-modes .sc-seg button { padding: 0.5rem 1rem; }
 /* A long receipt in the making. */
 .sc-receipt { position: absolute; top: 0.75rem; left: 50%; transform: translateX(-50%); z-index: 1; display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.35rem 0.35rem 0.9rem; border-radius: 99px; background: rgba(0, 0, 0, 0.62); white-space: nowrap; font-size: 0.82rem; font-weight: 600; }
 .sc-receipt .sc-pill { padding: 0.45rem 0.75rem; }
@@ -396,6 +398,7 @@ html.sc-open, html.sc-open body { overflow: hidden; }
 .sc-done:disabled { opacity: 0.4; cursor: default; }
 @media (max-width: 420px) {
   .sc-seg button { padding: 0.45rem 0.6rem; font-size: 0.76rem; }
+  .sc-modes .sc-seg button { padding: 0.5rem 0.85rem; font-size: 0.8rem; }
   .sc-bar .sc-pill { padding: 0.5rem 0.65rem; }
 }
 
@@ -427,6 +430,16 @@ html.sc-open, html.sc-open body { overflow: hidden; }
 .sc-crop-box circle { fill: rgba(255, 255, 255, 0.92); stroke: #34D399; cursor: grab; }
 .sc-crop-box line { stroke: #fff; stroke-dasharray: 6 6; vector-effect: non-scaling-stroke; }
 .sc-crop-tools { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.6rem; padding: 0.75rem 1rem max(1rem, env(safe-area-inset-bottom)); }
+.sc-crop-tools button:disabled, .sc-check-foot .btn:disabled { opacity: 0.4; cursor: default; }
+/* Straight after a document's picture: the corners, then Add a page or Save. */
+.sc-bar-gap { min-width: 92px; text-align: right; font-size: 0.8rem; font-weight: 600; color: rgba(255, 255, 255, 0.7); }
+.sc-crop-box.is-waiting img { opacity: 0.55; transition: opacity 0.2s; }
+.sc-crop-box img { transition: opacity 0.2s; }
+.sc-crop:has(.sc-check-foot:not([hidden])) .sc-crop-tools { padding-bottom: 0.25rem; }
+.sc-check-foot { display: flex; gap: 0.75rem; width: 100%; max-width: 560px; margin: 0 auto; padding: 0.6rem 1rem max(1rem, env(safe-area-inset-bottom)); }
+.sc-check-foot .btn { flex: 1; justify-content: center; min-height: 48px; font-size: 1rem; }
+.sc-check-foot .btn-ghost { color: #fff; border-color: rgba(255, 255, 255, 0.4); }
+.sc-check-foot .btn svg { width: 18px; height: 18px; }
 
 .sc-saving { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding: 1rem; background: rgba(0, 0, 0, 0.6); }
 .sc-saving-box { width: min(420px, 100%); display: grid; gap: 0.9rem; padding: 1.5rem; border-radius: 16px; background: var(--hub-surface); color: var(--text); text-align: center; }

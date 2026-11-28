@@ -141,9 +141,11 @@
       other: TOUCH ? 'Scan the pages into one PDF, or add photos or PDFs.' : 'Add photos or PDFs. Several pages can go on one item.'
     };
     var LABELS = {
-      from: { cards: 'From', other: 'From (optional)' },
-      title: { cards: 'Name (optional)', manuals: 'What it’s for', receipts: 'What you bought', other: 'Name' },
-      titleHint: { cards: '', manuals: 'Dishwasher', receipts: 'Washing machine', other: 'Car title' },
+      // Nothing is required (the hint above the fields says so), so no
+      // field is marked "optional": that made the others look required.
+      from: { cards: 'From', other: 'From' },
+      title: { cards: 'Name', manuals: 'What it’s for', receipts: 'What you bought', other: 'Name' },
+      titleHint: { cards: '', manuals: 'Dishwasher', receipts: 'Washing machine', other: 'Car title, a coupon, a note from Mom…' },
       text: { cards: 'What it says', manuals: 'Summary and key details', receipts: 'Items', other: 'Details' },
       textHint: { cards: 'The message, word for word', manuals: 'Filter size, serial number, what it covers…', receipts: 'One item per line', other: '' },
       date: { cards: 'Date', manuals: 'Bought on', receipts: 'Date', other: 'Date' }
@@ -188,6 +190,11 @@
       });
       $('#seg').className = 'dc-seg dc--' + c;
       $('#fields').className = 'ed-section dc-fields is-' + c;
+      // Who it's from leads for a card; for any other document (a coupon,
+      // the car title, a note) it's an afterthought, so it sits lower.
+      var fromField = form.elements.from.closest('.field'), grid = fromField.parentNode;
+      if (c === 'other') grid.insertBefore(fromField, form.elements.notes.closest('.field'));
+      else grid.insertBefore(fromField, grid.firstElementChild);
       $('#files-hint').textContent = HINTS[c];
       // Receipts and documents are scanned (flattened, cleaned up, one PDF);
       // cards are photos.
@@ -417,7 +424,7 @@
     $('#scan').onclick = function () {
       if (!canUpload()) return Hub.toast('Google Drive needs to be connected before files can be added.', true);
       var receipt = collection === 'receipts';
-      scan({ title: receipt ? 'Scanned receipt' : 'Scanned document', mode: receipt ? 'long' : 'auto' });
+      scan({ title: receipt ? 'Scanned receipt' : 'Scanned document', mode: receipt ? 'long' : 'page' });
     };
     $('#pick').onchange = $('#snap').onchange = function () { addFiles(this.files); this.value = ''; };
     var drop = $('#drop');
@@ -648,7 +655,8 @@
     }
 
     // The scanner hands back a finished PDF, which uploads like any file.
-    // o: { title, mode (the scanner's starting mode: 'long' for a receipt),
+    // o: { title, mode (the scanner's starting mode: 'page' for a document,
+    //      'book' for a manual, 'long' for a receipt),
     //      start (photos already taken), coverRead (images to read first),
     //      alwaysRead (read it even if details are filled in) }
     function scan(o) {
@@ -686,6 +694,7 @@
       var name = product();
       scan({
         title: name ? name + ' manual' : 'Scanned manual',
+        mode: 'book',
         start: mf.cover ? [mf.cover.file] : [],
         coverRead: mf.cover && mf.cover.read ? mf.cover.read : [],
         alwaysRead: true

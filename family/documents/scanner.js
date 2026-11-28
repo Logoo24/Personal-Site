@@ -265,6 +265,14 @@
       cv.morphologyEx(edges, edges, cv.MORPH_CLOSE, k);
       cv.dilate(edges, edges, k);
       shapes(cv, edges, W, H, cands);
+      // Strong edges only, too. On a busy table (wood grain) the faint
+      // edges join the page's outline to the clutter around it, and a page
+      // in two colours (white on top, blue below) then only ever closes up
+      // as one half or the other.
+      cv.Canny(gray, edges, 40, 120);
+      cv.morphologyEx(edges, edges, cv.MORPH_CLOSE, k);
+      cv.dilate(edges, edges, k);
+      shapes(cv, edges, W, H, cands);
       // Bright areas too: a page whose edges are faint is often still the
       // brightest thing in the picture.
       cv.threshold(gray, bright, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
@@ -782,8 +790,14 @@
     opts = opts || {};
     return new Promise(function (resolveOpen) {
       var shots = [], pages = [], seq = 0;
-      // opts.mode: the mode it opens in ('long' = Receipt, for adding a receipt).
-      var mode = ['auto', 'single', 'spread', 'long'].indexOf(opts.mode) > -1 ? opts.mode : 'auto';
+      // The mode, picked for what's being scanned (opts.mode):
+      //   page: a document. Each picture opens the corner check straight
+      //         away, then Save (one page is two taps) or Add a page.
+      //   book: a manual or booklet. The camera stays up, page after page
+      //         (hands-free if wanted); a wide shot of an open book becomes
+      //         two pages. Everything is looked over at the end.
+      //   long: a receipt, taken in parts, top to bottom.
+      var mode = opts.mode === 'long' ? 'long' : /^(book|auto|single|spread)$/.test(opts.mode || '') ? 'book' : 'page';
       var filter = 'color', handsFree = false, receipt = [];
       try { handsFree = localStorage.getItem('sc-handsfree') === '1'; } catch (e) { /* private mode */ }
       var stream = null, live = null, capturing = false, cropping = null, finished = false, wake = null;
@@ -794,15 +808,14 @@
       el.setAttribute('role', 'dialog');
       el.setAttribute('aria-modal', 'true');
       el.setAttribute('aria-label', 'Scan pages');
-      var modes = '<div class="sc-seg" data-modes>' + [['auto', 'Auto'], ['single', '1 page'], ['spread', 'Open book'], ['long', 'Receipt']].map(function (m) {
-        return '<button type="button" data-mode="' + m[0] + '">' + m[1] + '</button>';
+      var modes = '<div class="sc-seg" role="radiogroup" aria-label="What are you scanning?">' + [['page', 'Document'], ['book', 'Book'], ['long', 'Receipt']].map(function (m) {
+        return '<button type="button" role="radio" data-mode="' + m[0] + '">' + m[1] + '</button>';
       }).join('') + '</div>';
       el.innerHTML =
         '<section class="sc-cam" data-view="camera">' +
           '<div class="sc-bar"><button type="button" class="sc-icon" data-act="close" aria-label="Close">' + I.x + '</button>' +
             '<div class="sc-bar-end"><button type="button" class="sc-pill" data-act="handsfree" aria-pressed="false" title="Takes the picture by itself when the page is held still">' + I.sparkle + 'Hands-free</button>' +
-            '<button type="button" class="sc-pill" data-act="filter"></button></div></div>' +
-          '<div class="sc-modes">' + modes + '</div>' +
+            '<button type="button" class="sc-pill" data-act="snap" title="Use the camera app, for the sharpest photo">' + I.camera + 'Camera app</button></div></div>' +
           '<div class="sc-stage">' +
             '<video playsinline muted autoplay></video><canvas class="sc-outline"></canvas><div class="sc-flash"></div>' +
             '<div class="sc-receipt" hidden><span data-rcount></span>' +
@@ -813,11 +826,11 @@
               '<button type="button" class="btn btn-ghost" data-act="pick">' + I.image + 'Choose photos</button></div></div>' +
             '<p class="sc-tip"></p>' +
           '</div>' +
+          '<div class="sc-modes">' + modes + '</div>' +
           '<div class="sc-controls">' +
             '<button type="button" class="sc-last" data-act="review" aria-label="See the pages"><span class="sc-last-img"></span><b>0</b></button>' +
             '<button type="button" class="sc-shutter" data-act="shoot" aria-label="Take a picture of the page"></button>' +
-            '<div class="sc-side"><button type="button" class="sc-pill" data-act="snap" title="Use the camera app, for the sharpest photo">' + I.camera + 'Camera app</button>' +
-              '<button type="button" class="sc-done" data-act="review">Done</button></div>' +
+            '<div class="sc-side"><button type="button" class="sc-done" data-act="review">Done</button></div>' +
           '</div>' +
         '</section>' +
         '<section class="sc-review" data-view="review" hidden>' +
@@ -828,13 +841,22 @@
           '<div class="sc-rfoot"><button type="button" class="btn btn-ghost" data-act="close">Cancel</button>' +
             '<button type="button" class="btn btn-primary" data-act="save">Save as PDF</button></div>' +
         '</section>' +
+        // The corners: checked straight after each picture of a document
+        // ("check"), or fixed later from the pages ("fix").
         '<section class="sc-crop" data-view="crop" hidden>' +
-          '<div class="sc-bar"><button type="button" class="sc-pill" data-act="crop-cancel">Cancel</button><strong>Drag the corners to the page edges</strong>' +
-            '<button type="button" class="sc-pill sc-pill--on" data-act="crop-apply">Done</button></div>' +
+          '<div class="sc-bar">' +
+            '<button type="button" class="sc-pill" data-act="crop-cancel" data-for="fix">Cancel</button>' +
+            '<button type="button" class="sc-pill" data-act="check-retake" data-for="check">' + I.camera + 'Retake</button>' +
+            '<strong data-crop-title></strong>' +
+            '<button type="button" class="sc-pill sc-pill--on" data-act="crop-apply" data-for="fix">Done</button>' +
+            '<span class="sc-bar-gap" data-for="check" data-crop-count></span></div>' +
           '<div class="sc-crop-stage"><div class="sc-crop-box"><img alt="" /><svg preserveAspectRatio="none"><polygon /></svg></div></div>' +
           '<div class="sc-crop-tools"><div class="sc-seg" data-cropmodes>' +
-            '<button type="button" data-cmode="single">One page</button><button type="button" data-cmode="spread">Open book (two pages)</button></div>' +
+            '<button type="button" data-cmode="single">One page</button><button type="button" data-cmode="spread">Two pages (open book)</button></div>' +
             '<button type="button" class="sc-pill" data-act="crop-full">Whole photo</button></div>' +
+          '<div class="sc-check-foot" data-for="check">' +
+            '<button type="button" class="btn btn-ghost" data-act="check-more">' + I.plus + 'Add a page</button>' +
+            '<button type="button" class="btn btn-primary" data-act="check-save">Save</button></div>' +
         '</section>' +
         '<div class="sc-saving" hidden><div class="sc-saving-box"><p data-saving>Getting the pages ready…</p><div class="sc-meter"><i></i></div>' +
           '<button type="button" class="btn btn-ghost btn-sm" data-act="skip-ocr" hidden>Save without waiting for the text</button></div></div>' +
@@ -848,7 +870,11 @@
       function view(name) {
         if (name !== 'camera') finishReceipt();
         Array.prototype.forEach.call(el.querySelectorAll('[data-view]'), function (v) { v.hidden = v.getAttribute('data-view') !== name; });
-        if (name === 'camera') startCamera(); else stopCamera();
+        // Checking a document's corners is a pause between pictures: the
+        // camera keeps running underneath, so "Add a page" is instant.
+        if (name === 'camera') startCamera();
+        else if (name === 'crop' && cropping && cropping.from === 'check') stopOutline();
+        else stopCamera();
         if (name === 'review') drawReview();
       }
       // Color: cleaned up (shadows and colour cast taken out). Black &
@@ -856,16 +882,24 @@
       // just as the camera saw it (photos, glossy covers).
       var FILTERS = { color: ['Color', 'bw'], bw: ['Black & white', 'photo'], photo: ['Original', 'color'] };
       var FILTER_TIPS = { bw: 'black & white (crisper text, smaller file)', photo: 'original (as the camera saw it, for photos and covers)', color: 'color (shadows and lighting cleaned up)' };
+      // Hands-free is for going through a book: a document's pages each
+      // stop for a corner check anyway, and a receipt goes in parts.
+      function autoShoot() { return handsFree && mode === 'book'; }
       function drawModes() {
-        Array.prototype.forEach.call(el.querySelectorAll('[data-mode]'), function (b) { b.classList.toggle('on', b.getAttribute('data-mode') === mode); });
+        Array.prototype.forEach.call(el.querySelectorAll('[data-mode]'), function (b) {
+          var on = b.getAttribute('data-mode') === mode;
+          b.classList.toggle('on', on);
+          b.setAttribute('aria-checked', String(on));
+        });
         Array.prototype.forEach.call(el.querySelectorAll('[data-act="filter"]'), function (b) {
           b.textContent = FILTERS[filter][0];
           b.title = 'Switch to ' + FILTER_TIPS[FILTERS[filter][1]];
         });
         var hf = $('[data-act="handsfree"]');
+        hf.hidden = mode !== 'book';
         hf.classList.toggle('sc-pill--on', handsFree);
         hf.setAttribute('aria-pressed', String(handsFree));
-        $('.sc-shutter').classList.toggle('hf', handsFree);
+        $('.sc-shutter').classList.toggle('hf', autoShoot());
         drawTip();
       }
       function drawTip() {
@@ -875,8 +909,9 @@
         $('[data-act="receipt-undo"]').hidden = $('[data-act="receipt-done"]').hidden = !receipt.length;
         $('.sc-tip').textContent = mode === 'long'
           ? (receipt.length ? 'Move down so the next picture overlaps this one by about a third.' : 'Start at the top of the receipt. You’ll take it in parts, top to bottom.')
+          : mode === 'page' ? 'Fit the page on the screen and take the picture. You’ll check the corners next.'
           : handsFree ? 'Hold steady over a page and it takes the picture. Turn the page for the next one.'
-          : 'Hold the phone back until the words look sharp. The page doesn’t need to fill the screen.';
+          : 'Take each page, or both pages of an open book at once. Tap Done when you have them all.';
       }
       function drawCounter() {
         $('.sc-last b').textContent = pages.length;
@@ -892,16 +927,31 @@
         $('.sc-shutter').disabled = true;
         $('.sc-tip').hidden = true;
       }
+      var asking = false; // a camera request is waiting on the browser
       function startCamera() {
-        if (stream || finished) return;
+        if (finished || asking) return;
+        // Back from a corner check: the camera never stopped, unless the
+        // phone took it away meanwhile (the camera app, a call).
+        if (stream) {
+          if (stream.getVideoTracks().some(function (t) { return t.readyState === 'live'; })) {
+            video.play().catch(function () {});
+            if (!live) startOutline();
+            return;
+          }
+          stopCamera();
+        }
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return noCamera('This browser can’t show the camera here. Take each page with the camera app instead.');
         // As many pixels as the camera gives. Asked for as a square, so the
         // best mode wins whether the browser counts the phone as held
         // upright or sideways (asking for 3840×2160 on an upright phone can
         // land on 1080p, as that's "closer" to the sideways numbers).
+        asking = true;
         navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 4096 }, height: { ideal: 4096 } } })
           .then(function (s) {
-            if (finished || el.querySelector('[data-view="camera"]').hidden) { s.getTracks().forEach(function (t) { t.stop(); }); return; }
+            asking = false;
+            // Left the camera while the browser was asking: let it go (it's
+            // asked for again on the way back).
+            if (finished || stream || el.querySelector('[data-view="camera"]').hidden) { s.getTracks().forEach(function (t) { t.stop(); }); return; }
             stream = s;
             video.srcObject = s;
             video.play().catch(function () {});
@@ -913,6 +963,7 @@
             startOutline();
           })
           .catch(function (e) {
+            asking = false;
             noCamera(e && e.name === 'NotAllowedError'
               ? 'The camera is turned off for this site. Allow it in the browser’s settings, or take each page with the camera app.'
               : 'The camera isn’t available. Take each page with the camera app instead.');
@@ -1013,7 +1064,7 @@
         return s / a.length;
       }
       function watchStill(L, now, diag) {
-        if (!handsFree) { L.steadySince = 0; return; }
+        if (!autoShoot()) { L.steadySince = 0; return; }
         var sig = frameSig(), motion = L.sig ? sigDiff(sig, L.sig) : 99;
         L.sig = sig;
         var still = L.target && L.prevQ && quadGap(L.target, L.prevQ) < diag * 0.015 && motion < 5;
@@ -1024,7 +1075,7 @@
         if (L.changed && L.steadySince && now - L.steadySince >= HOLD_MS && now - L.lastShot > 1200 && !capturing) shoot();
       }
       function drawRing(L, now) {
-        var p = handsFree && L.changed && L.steadySince && !capturing ? Math.min(1, (now - L.steadySince) / HOLD_MS) : 0;
+        var p = autoShoot() && L.changed && L.steadySince && !capturing ? Math.min(1, (now - L.steadySince) / HOLD_MS) : 0;
         p = Math.round(p * 100) / 100;
         if (p !== L.ring) { L.ring = p; $('.sc-shutter').style.setProperty('--p', p); }
       }
@@ -1093,7 +1144,7 @@
         var shutter = $('.sc-shutter');
         shutter.classList.add('busy');
         var hint = live && live.target ? { quad: live.target.map(function (p) { return p.slice(); }), w: vw, h: vh } : null;
-        var forLong = mode === 'long';
+        var forLong = mode === 'long', forCheck = mode === 'page';
         sharpestFrame(hint).then(function (c) {
           if (!c) return;
           var f = $('.sc-flash');
@@ -1105,7 +1156,10 @@
           return toBlob(c, 'image/jpeg', 0.95).then(function (b) {
             c.width = c.height = 0;
             if (forLong) { receipt.push({ blob: b, hint: hint }); drawTip(); drawCounter(); }
-            else addShot(b, null, hint);
+            else {
+              var shot = addShot(b, null, hint);
+              if (forCheck && !finished && !el.querySelector('[data-view="camera"]').hidden) openCrop(shot, 'check');
+            }
           });
         }).catch(function () {
           Hub.toast('Couldn’t take that picture. Try again.', true);
@@ -1166,12 +1220,21 @@
       // turns: quarter turns per page of the shot (worked out once, then
       // kept, along with any turning by hand); checked: which pages have
       // had their text checked for being upside down.
+      // A shot's mode: 'single' (one page), 'spread' (an open book, two) or
+      // 'auto' (two if it's wide). Only Book mode guesses; a document's
+      // page is one page unless the corner check says otherwise.
+      // shot.located resolves once its corners are known (the check waits).
       function addShot(blob, forceMode, hint) {
-        var m = forceMode || mode;
-        var shot = { id: ++seq, blob: blob, mode: m === 'long' ? 'single' : m, filter: filter, quad: null, hint: hint || null, w: 0, h: 0, busy: true, turns: [], checked: [] };
+        var m = forceMode || (mode === 'book' ? 'auto' : 'single');
+        var shot = { id: ++seq, blob: blob, mode: m, filter: filter, quad: null, hint: hint || null, w: 0, h: 0, busy: true, turns: [], checked: [] };
+        shot.located = new Promise(function (r) { shot.gotCorners = r; });
         shots.push(shot);
         drawCounter();
         process(shot);
+        return shot;
+      }
+      function cornersKnown(shot) {
+        if (shot.gotCorners) { shot.gotCorners(); shot.gotCorners = null; }
       }
       // A long receipt: its parts, top to bottom, become one long page.
       function addLong(parts) {
@@ -1204,7 +1267,7 @@
         return q;
       }
       // An ordinary shot: one page, or two from an open book.
-      function shotPages(cv, shot) {
+      function shotPages(cv, shot, stale) {
         return loadImage(shot.blob).then(function (img) {
           // Corners are kept in this working copy's pixels (the crop editor uses them too).
           var canvas = crop(img, 0, 0, img.naturalWidth, img.naturalHeight, SHOT_MAX);
@@ -1214,19 +1277,28 @@
             shot.found = !!q;
             shot.quad = q || fullQuad(canvas.width, canvas.height);
           }
-          // Auto splits a wide page in two (an open book), but not a whole
-          // photo where no page was found: that's just a sideways phone.
-          var z = quadSize(shot.quad);
-          var spread = shot.mode === 'spread' || (shot.mode === 'auto' && shot.found && z.w > z.h * 1.2);
-          var s = pageScale(shot.quad, spread);
-          var flat = warp(cv, canvas, shot.quad, Math.max(1, Math.round(z.w * s)), Math.max(1, Math.round(z.h * s)));
-          canvas.width = canvas.height = 0; // let the phone have the memory back
-          var half = Math.floor(flat.width / 2);
-          shot.spread = spread;
-          return spread
-            ? [crop(flat, 0, 0, half, flat.height, Infinity), crop(flat, half, 0, flat.width - half, flat.height, Infinity)]
-            : [flat];
+          cornersKnown(shot);
+          // A breath before the heavy part, so the corner check can show
+          // them (and new corners chosen meanwhile skip this run).
+          return new Promise(function (r) { setTimeout(r, 30); }).then(function () {
+            if (stale && stale()) { canvas.width = canvas.height = 0; return null; }
+            return flatten(cv, shot, canvas);
+          });
         });
+      }
+      function flatten(cv, shot, canvas) {
+        // Auto splits a wide page in two (an open book), but not a whole
+        // photo where no page was found: that's just a sideways phone.
+        var z = quadSize(shot.quad);
+        var spread = shot.mode === 'spread' || (shot.mode === 'auto' && shot.found && z.w > z.h * 1.2);
+        var s = pageScale(shot.quad, spread);
+        var flat = warp(cv, canvas, shot.quad, Math.max(1, Math.round(z.w * s)), Math.max(1, Math.round(z.h * s)));
+        canvas.width = canvas.height = 0; // let the phone have the memory back
+        var half = Math.floor(flat.width / 2);
+        shot.spread = spread;
+        return spread
+          ? [crop(flat, 0, 0, half, flat.height, Infinity), crop(flat, half, 0, flat.width - half, flat.height, Infinity)]
+          : [flat];
       }
       // A long receipt: each part flattened to one width, then lined up.
       function longPage(cv, shot) {
@@ -1267,9 +1339,20 @@
       }
       function process(shot) {
         shot.busy = true;
+        shot.failed = false;
+        // A newer run of the same shot (new corners, another filter) or a
+        // retake makes this run moot: it stops where it is and adds nothing,
+        // so it can't hold up the next corner check or touch the new run's
+        // page turns.
+        var gen = shot.gen = (shot.gen || 0) + 1;
+        var gone = function () { return shots.indexOf(shot) < 0; };
+        var stale = function () { return gen !== shot.gen || gone(); };
         work = work.then(function () {
+          if (stale()) return;
           return opencv().then(function (cv) {
-            return (shot.parts ? longPage(cv, shot) : shotPages(cv, shot)).then(function (parts) {
+            if (stale()) return null;
+            return (shot.parts ? longPage(cv, shot) : shotPages(cv, shot, stale)).then(function (parts) {
+              if (!parts || stale()) return null;
               return Promise.all(parts.map(function (p, i) {
                 // Which way up: worked out the first time (a receipt is
                 // always taken top to bottom), then kept.
@@ -1284,6 +1367,9 @@
               }));
             });
           }).then(function (made) {
+            // Retaken (or removed) while it was being worked on, or a newer
+            // run is on its way (that one says when it's done).
+            if (!made || stale()) { if (gone()) { shot.busy = false; drawCounter(); } return; }
             // Replace this shot's old pages in place, or add to the end.
             var at = -1;
             pages = pages.filter(function (p, i) {
@@ -1301,9 +1387,13 @@
             drawCounter();
             if (!el.querySelector('[data-view="review"]').hidden) drawReview();
           }).catch(function (e) {
+            if (stale()) { if (gone()) { shot.busy = false; drawCounter(); } return; }
             shot.busy = false;
             shot.failed = true;
+            cornersKnown(shot);
             Hub.toast(e.message || 'Couldn’t use that photo.', true);
+            // Its corner check has nothing to show: back to the camera.
+            if (cropping && cropping.shot === shot && cropping.from === 'check') { dropShot(shot); cropping = null; view('camera'); }
             drawCounter();
           });
         });
@@ -1349,9 +1439,11 @@
       // reads clearly better, the page is turned that way and read again.
       // Once per page; turning a page by hand counts as checked.
       function upright(w, p, r) {
-        var shot = p.shot, i = p.part || 0;
-        if (shot.checked[i] || p.gone) return r;
-        shot.checked[i] = true;
+        // The shot's turn lists as they are now: new corners replace them,
+        // and a page made from the old corners mustn't write into the new.
+        var shot = p.shot, i = p.part || 0, turns = shot.turns, checked = shot.checked;
+        if (checked[i] || p.gone) return r;
+        checked[i] = true;
         var d = r.data || {}, conf = d.confidence || 0, chars = String(d.text || '').replace(/\s/g, '').length;
         if (conf >= 60 || chars < 15) return r;
         return loadImage(p.blob).then(function (img) {
@@ -1369,7 +1461,7 @@
               if (p.gone) return r;
               URL.revokeObjectURL(p.url);
               p.blob = t.blob; p.w = t.w; p.h = t.h; p.url = URL.createObjectURL(t.blob);
-              shot.turns[i] = ((shot.turns[i] || 0) + tries[best]) % 4;
+              turns[i] = ((turns[i] || 0) + tries[best]) % 4;
               var tile = el.querySelector('.sc-page[data-id="' + p.id + '"] img');
               if (tile) tile.src = p.url;
               drawCounter();
@@ -1438,30 +1530,95 @@
         });
       }
 
-      /* ----- fixing the edges ----- */
-      function openCrop(shot) {
-        cropping = { shot: shot, quad: shot.quad.map(function (p) { return p.slice(); }), mode: shot.spread ? 'spread' : 'single' };
+      /* ----- the corners -----
+         from 'check': straight after a document's picture, before its
+         corners are even known (they appear as soon as they are), with
+         Retake / Add a page / Save. from 'fix': a page's "Fix the edges",
+         from the pages, with Cancel / Done. */
+      function openCrop(shot, from) {
+        from = from || 'fix';
+        cropping = { shot: shot, from: from, quad: null, mode: shot.mode === 'spread' || shot.spread ? 'spread' : 'single' };
+        Array.prototype.forEach.call(el.querySelectorAll('.sc-crop [data-for]'), function (b) { b.hidden = b.getAttribute('data-for') !== from; });
+        var n = shots.filter(function (s) { return !s.parts; }).length;
+        el.querySelector('[data-crop-count]').textContent = from === 'check' && n > 1 ? 'Page ' + n : '';
         view('crop');
-        var img = el.querySelector('.sc-crop img');
-        var url = URL.createObjectURL(shot.blob);
-        img.onload = function () { URL.revokeObjectURL(url); fitCrop(); };
+        var c = cropping, img = el.querySelector('.sc-crop img'), box = el.querySelector('.sc-crop-box');
+        box.classList.add('is-waiting');
+        drawCropTitle();
+        drawCrop();
+        // (Cleared first, or the last page shows until this one loads.)
+        img.removeAttribute('src');
+        var url = URL.createObjectURL(shot.blob), loaded = new Promise(function (r) {
+          img.onload = function () { URL.revokeObjectURL(url); if (cropping === c) fitCrop(); r(); };
+          img.onerror = function () { URL.revokeObjectURL(url); r(); };
+        });
         img.src = url;
+        Promise.all([loaded, shot.located || Promise.resolve()]).then(function () {
+          if (cropping !== c || !shot.quad) return;
+          c.quad = shot.quad.map(function (p) { return p.slice(); });
+          box.classList.remove('is-waiting');
+          drawCropTitle();
+          fitCrop();
+        });
         drawCropModes();
+      }
+      function drawCropTitle() {
+        var t = !cropping.quad ? 'Finding the page…'
+          : cropping.from === 'check' && !cropping.shot.found ? 'Drag the corners to the page’s edges'
+          : cropping.from === 'check' ? 'Check the corners' : 'Drag the corners to the page’s edges';
+        el.querySelector('[data-crop-title]').textContent = t;
+        // Add a page and Save work before the corners show (the page is
+        // kept with whatever corners are found); moving them doesn't.
+        Array.prototype.forEach.call(el.querySelectorAll('[data-act="crop-apply"], [data-act="crop-full"], [data-cmode]'), function (b) { b.disabled = !cropping.quad; });
+      }
+      // The corner check's choice, kept: new corners (or one page made two)
+      // mean the page is made again from the photo.
+      function applyCrop() {
+        var c = cropping, shot = c.shot;
+        cropping = null;
+        if (!c.quad) return;
+        var newMode = c.mode === 'spread' ? 'spread' : 'single';
+        var spreadNow = shot.mode === 'spread' || !!shot.spread;
+        if (shot.quad && quadGap(c.quad, shot.quad) < 0.5 && (newMode === 'spread') === spreadNow) return;
+        shot.quad = c.quad;
+        shot.mode = newMode;
+        shot.found = true;
+        shot.turns = []; shot.checked = []; // new edges: work out which way up again
+        process(shot);
+      }
+      // A picture taken back: it and its pages go.
+      function dropShot(shot) {
+        shots = shots.filter(function (s) { return s !== shot; });
+        pages = pages.filter(function (p) {
+          if (p.shot !== shot) return true;
+          p.gone = true; URL.revokeObjectURL(p.url);
+          return false;
+        });
+        drawCounter();
+      }
+      // The photo's size in the corners' pixels (the working copy's), or,
+      // while those aren't known yet, the photo's own.
+      function cropSize() {
+        var img = el.querySelector('.sc-crop img');
+        return cropping.shot.w ? { w: cropping.shot.w, h: cropping.shot.h } : { w: img.naturalWidth, h: img.naturalHeight };
       }
       function fitCrop() {
         if (!cropping) return;
+        var z = cropSize();
+        if (!z.w) return;
         var stage = el.querySelector('.sc-crop-stage'), box = el.querySelector('.sc-crop-box'), svg = box.querySelector('svg');
-        var r = stage.getBoundingClientRect(), s = Math.min((r.width - 32) / cropping.shot.w, (r.height - 32) / cropping.shot.h);
-        box.style.width = Math.round(cropping.shot.w * s) + 'px';
-        box.style.height = Math.round(cropping.shot.h * s) + 'px';
-        svg.setAttribute('viewBox', '0 0 ' + cropping.shot.w + ' ' + cropping.shot.h);
+        var r = stage.getBoundingClientRect(), s = Math.min((r.width - 32) / z.w, (r.height - 32) / z.h);
+        box.style.width = Math.round(z.w * s) + 'px';
+        box.style.height = Math.round(z.h * s) + 'px';
+        svg.setAttribute('viewBox', '0 0 ' + z.w + ' ' + z.h);
         drawCrop();
       }
       function drawCrop() {
         var box = el.querySelector('.sc-crop-box'), svg = box.querySelector('svg');
-        var per = cropping.shot.w / (box.getBoundingClientRect().width || 1);
-        svg.querySelector('polygon').setAttribute('points', cropping.quad.map(function (p) { return p.join(','); }).join(' '));
         Array.prototype.forEach.call(svg.querySelectorAll('circle, line'), function (c) { c.remove(); });
+        if (!cropping.quad) { svg.querySelector('polygon').removeAttribute('points'); return; }
+        var per = cropSize().w / (box.getBoundingClientRect().width || 1);
+        svg.querySelector('polygon').setAttribute('points', cropping.quad.map(function (p) { return p.join(','); }).join(' '));
         if (cropping.mode === 'spread') {
           var q = cropping.quad, mid = function (a, b) { return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; };
           var t = mid(q[0], q[1]), b = mid(q[3], q[2]);
@@ -1476,7 +1633,7 @@
       }
       var dragging = null;
       el.querySelector('.sc-crop-box svg').addEventListener('pointerdown', function (e) {
-        if (!cropping) return;
+        if (!cropping || !cropping.quad) return;
         var svg = this, r = svg.getBoundingClientRect(), per = cropping.shot.w / r.width;
         var x = (e.clientX - r.left) * per, y = (e.clientY - r.top) * per;
         // The nearest corner, if the finger is anywhere close to one.
@@ -1488,7 +1645,7 @@
         e.preventDefault();
       });
       el.querySelector('.sc-crop-box svg').addEventListener('pointermove', function (e) {
-        if (dragging == null) return;
+        if (dragging == null || !cropping || !cropping.quad) return;
         var r = this.getBoundingClientRect(), per = cropping.shot.w / r.width;
         cropping.quad[dragging] = [
           Math.max(0, Math.min(cropping.shot.w, (e.clientX - r.left) * per)),
@@ -1510,10 +1667,12 @@
       }
       var skipOcr = false;
       function save() {
-        if (!pages.length) return;
+        // (A page just checked may still be on its way.)
+        if (!pages.length && !shots.some(function (s) { return s.busy; })) return;
         skipOcr = false;
         saving('Finishing the photos…', 0);
         work.then(function () {
+          if (!pages.length) throw new Error('There’s no page to save. Take a picture first.');
           // Wait for the text, unless they'd rather not.
           return new Promise(function (resolve) {
             var total = pages.length;
@@ -1574,12 +1733,15 @@
         resolveOpen(result);
       }
       function close() {
-        var n = pages.length + (receipt.length ? 1 : 0);
+        // Pictures still being worked on count too.
+        var n = Math.max(pages.length, shots.length) + (receipt.length ? 1 : 0);
         if (n && !window.confirm('Leave without saving ' + (n === 1 ? 'this page' : 'these ' + n + ' pages') + '?')) return;
         finish(null);
       }
       function onKey(e) {
-        if (e.key === 'Escape') { if (cropping) { cropping = null; view('review'); } else close(); }
+        if (!el.querySelector('.sc-saving').hidden) return;
+        // Escape on the corner check keeps the picture as it is.
+        if (e.key === 'Escape') { if (cropping) { var from = cropping.from; if (from === 'check') applyCrop(); else cropping = null; view(from === 'check' ? 'camera' : 'review'); } else close(); }
         else if ((e.key === ' ' || e.key === 'Enter') && stream && !el.querySelector('[data-view="camera"]').hidden && e.target === document.body) { e.preventDefault(); shoot(); }
       }
       document.addEventListener('keydown', onKey);
@@ -1637,16 +1799,10 @@
         }
         else if (act === 'crop-cancel') { cropping = null; view('review'); }
         else if (act === 'crop-full') { cropping.quad = fullQuad(cropping.shot.w, cropping.shot.h); drawCrop(); }
-        else if (act === 'crop-apply') {
-          var shot = cropping.shot;
-          shot.quad = cropping.quad;
-          shot.mode = cropping.mode;
-          shot.found = true;
-          shot.turns = []; shot.checked = []; // new edges: work out which way up again
-          cropping = null;
-          view('review');
-          process(shot);
-        }
+        else if (act === 'crop-apply') { applyCrop(); view('review'); }
+        else if (act === 'check-retake') { dropShot(cropping.shot); cropping = null; view('camera'); }
+        else if (act === 'check-more') { applyCrop(); view('camera'); }
+        else if (act === 'check-save') { applyCrop(); view('review'); save(); }
       });
       Array.prototype.forEach.call(el.querySelectorAll('input[type=file]'), function (input) {
         input.addEventListener('change', function () {
@@ -1654,10 +1810,14 @@
           this.value = '';
           if (!files.length) return;
           // In Receipt mode, a camera-app photo is the next part, and
-          // photos picked together are the parts of one receipt.
+          // photos picked together are the parts of one receipt. A
+          // document's single photo gets its corner check, like a shot.
           if (mode === 'long') {
             files.forEach(function (f) { receipt.push({ blob: f, hint: null }); });
             if (pick) finishReceipt(); else { drawTip(); drawCounter(); }
+          } else if (mode === 'page' && files.length === 1) {
+            openCrop(addShot(files[0]), 'check');
+            return;
           } else files.forEach(function (f) { addShot(f); });
           if (pick) view('review');
         });
