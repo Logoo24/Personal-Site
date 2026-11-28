@@ -7,11 +7,10 @@
 //   GET  session                    -> { user, googleClientId }
 //   GET  recipes [&full=1]          -> cookbook index (or every full recipe)
 //   GET  recipe&id=                 -> one recipe
-//   POST recipe   {...recipe}       -> create / update
+//   POST recipe   {...recipe, slug?, private?} -> create / update (and its public link)
 //   DELETE recipe&id=
 //   POST upload   (raw image body)  -> { name, url }
 //   GET  media&f=                   -> a stored photo
-//   POST publish  {id, publish, slug?} -> make public (or change its link) / private
 //   POST import   {url|text|files, tags} -> a draft recipe read from a link, pasted
 //                                     text, or uploaded photos/PDF/documents
 //                                     (files: [{name, data: base64}])
@@ -38,7 +37,7 @@ import { createToken, readSession, sessionCookie, clearedCookie, sessionSecret, 
 import { financeRoute, financeCron } from './_family/finance/index.js';
 import { documentsRoute } from './_family/docs/index.js';
 import { listRecipes, allRecipes, getRecipe, saveRecipe, deleteRecipe, saveMedia, mediaIn, MEDIA_URL } from './_family/recipes.js';
-import { shareRecipe, unshareRecipe } from './_family/share.js';
+import { checkSlug, linkRecipe, linkEveryRecipe, dropLinks } from './_family/share.js';
 import { eventsBetween, CALENDAR_LINKS, canEditCalendar, seriesInfo, changeEvent } from './_family/calendar.js';
 import { importRecipe } from './_family/import.js';
 import { askRecipe } from './_family/recipe-ask.js';
@@ -121,20 +120,35 @@ async function route(request) {
   }
 
   switch (`${method} ${r}`) {
-    case 'GET recipes':
-      return json({ recipes: url.searchParams.get('full') ? await allRecipes() : await listRecipes() });
+    case 'GET recipes': {
+      if (url.searchParams.get('full')) return json({ recipes: await allRecipes() });
+      // Opening the cookbook also gives any recipe without a link its link
+      // (if that fails, the cookbook still opens, and it's tried next time).
+      const recipes = await linkEveryRecipe(user).catch(e => { console.error('Giving recipes links failed', e); return listRecipes(); });
+      return json({ recipes });
+    }
     case 'GET recipe': {
       const recipe = await getRecipe(url.searchParams.get('id'));
       return recipe ? json({ recipe }) : fail(404, 'Recipe not found');
     }
     case 'POST recipe': {
-      const recipe = await saveRecipe(await request.json(), user);
-      return json({ recipe });
+      const input = await request.json();
+      // A link name typed in the editor is checked before anything is saved.
+      const slug = input.slug != null && String(input.slug).trim() ? await checkSlug(input.slug, input.id) : null;
+      let recipe = await saveRecipe(input, user), warning = null;
+      // Saved either way: a link that can't be set now (someone took the
+      // name a moment ago, a busy store) is a warning, not a failed save,
+      // so saving again can't make a second copy of a new recipe.
+      try { recipe = await linkRecipe(recipe, user, slug); } catch (e) {
+        console.error('Recipe link failed', e && e.message);
+        warning = (e && e.status === 409 ? e.message + ' ' : '') + 'The recipe is saved; its link can be set again from Edit.';
+      }
+      return json({ recipe, warning });
     }
     case 'DELETE recipe': {
       const recipe = await getRecipe(url.searchParams.get('id'));
       if (!recipe) return fail(404, 'Recipe not found');
-      if (recipe.published) await unshareRecipe(recipe);
+      await dropLinks(recipe);
       await deleteRecipe(recipe.id);
       await Promise.all(mediaIn(recipe, true).map(f => remove('media/' + f).catch(() => {})));
       return json({ ok: true });
@@ -145,12 +159,6 @@ async function route(request) {
     }
     case 'GET media':
       return media(request, url);
-    case 'POST publish': {
-      const { id, publish, slug } = await request.json();
-      const recipe = await getRecipe(id);
-      if (!recipe) return fail(404, 'Recipe not found');
-      return json({ recipe: publish ? await shareRecipe(recipe, user, slug) : await unshareRecipe(recipe) });
-    }
     case 'POST import':
       return json(await importRecipe(await request.json().catch(() => ({}))));
     case 'POST recipe-ask':

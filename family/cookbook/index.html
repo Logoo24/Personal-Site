@@ -25,6 +25,7 @@
         <p id="count">&nbsp;</p>
       </div>
       <div class="hub-actions">
+        <a class="btn btn-ghost" href="/recipes" data-icon-before="globe" title="The public recipe book: every recipe that isn’t kept private">Public book</a>
         <button class="btn btn-ghost" type="button" id="select-btn" data-icon-before="print">Export PDF</button>
         <a class="btn btn-primary" href="/family/cookbook/edit" data-icon-before="plus">New recipe</a>
       </div>
@@ -66,7 +67,7 @@
       var meta = [];
       if (r.totalMinutes) meta.push(Hub.minutes(r.totalMinutes));
       if (r.servings) meta.push(r.servings + ' ' + (r.yieldUnit || 'servings'));
-      if (r.published) meta.push('<span class="shared">● Public</span>');
+      if (r.private) meta.push('<span class="private">Private</span>');
       return '<a class="cb-card' + (picked.has(r.id) ? ' picked' : '') + '" href="/family/cookbook/recipe?id=' + encodeURIComponent(r.id) + '" data-id="' + esc(r.id) + '">' +
         '<span class="cb-check">' + Hub.icons.check + '</span>' +
         '<div class="cb-thumb">' + (r.cover
@@ -151,9 +152,9 @@
     Hub.ready(function () {
       Hub.api('recipes').then(function (data) {
         all = data.recipes.slice().sort(function (a, b) { return a.title.localeCompare(b.title); });
-        var book = cookbook(), shared = book.filter(function (r) { return r.published; }).length, waiting = wants().length;
+        var book = cookbook(), kept = book.filter(function (r) { return r.private; }).length, waiting = wants().length;
         $('#count').textContent = all.length
-          ? [Hub.plural(book.length, 'family recipe'), shared ? shared + ' public' : '', waiting ? waiting + ' to try' : ''].filter(Boolean).join(' · ')
+          ? [Hub.plural(book.length, 'family recipe'), kept ? kept + ' private' : '', waiting ? waiting + ' to try' : ''].filter(Boolean).join(' · ')
           : 'Recipes, stories and photos from our kitchen.';
         $('#select-btn').hidden = !all.length;
         renderTags(); render();

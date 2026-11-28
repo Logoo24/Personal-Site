@@ -76,18 +76,22 @@ function summarize(r) {
     updatedAt: r.updatedAt, createdBy: r.createdBy,
     // Ingredient names, so the cookbook search can find "buttermilk".
     search: r.ingredients.filter(i => i.item).map(i => i.item).join(', ').slice(0, 600),
-    published: r.published ? { slug: r.published.slug } : null
+    // Its link (every recipe has one) and whether the family kept it private.
+    published: r.published ? { slug: r.published.slug } : null,
+    private: !!r.private
   };
 }
 
-export async function listRecipes() {
-  const idx = await readJSON(INDEX);
+// opts: store.js readJSON options ({ etag: false } for read-only public
+// lookups, which saves a head() call on each).
+export async function listRecipes(opts) {
+  const idx = await readJSON(INDEX, opts);
   return idx ? idx.data.recipes || [] : [];
 }
 
-export async function getRecipe(id) {
+export async function getRecipe(id, opts) {
   if (!/^[a-z0-9]{6,32}$/.test(String(id || ''))) return null;
-  const r = await readJSON(`recipes/${id}.json`);
+  const r = await readJSON(`recipes/${id}.json`, opts);
   return r ? r.data : null;
 }
 
@@ -122,14 +126,42 @@ export async function saveRecipe(input, user) {
     createdBy: existing ? existing.createdBy : user.name,
     updatedAt: now,
     updatedBy: user.name,
-    published: existing ? existing.published || null : null
+    published: existing ? existing.published || null : null,
+    // Recipes are public unless the family says otherwise (share.js).
+    private: input.private != null ? !!input.private : !!(existing && existing.private)
   };
   await writeJSON(`recipes/${recipe.id}.json`, recipe);
   await updateIndex(list => [summarize(recipe), ...list.filter(r => r.id !== recipe.id)]);
   return recipe;
 }
 
-// Used by publish.js to record (or clear) the public slug.
+// Gives many recipes their links at once (share.js, for recipes from before
+// every recipe had one): each recipe file, then the index in one write.
+// links: { id: published }. A recipe saved meanwhile isn't overwritten
+// (each write is conditional on what was read, and re-read if it changed),
+// one that has a link by then keeps it, and the index only gains the links,
+// so a summary saved meanwhile isn't rolled back. Entries whose file is
+// gone get the link in the index anyway, so they're never asked about again.
+export async function setLinks(links) {
+  const ids = Object.keys(links);
+  for (let i = 0; i < ids.length; i += 8) {
+    await Promise.all(ids.slice(i, i + 8).map(async id => {
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const cur = await readJSON(`recipes/${id}.json`);
+        if (!cur || (cur.data.published && cur.data.published.slug)) return;
+        try {
+          await writeJSON(`recipes/${id}.json`, { ...cur.data, published: links[id] }, cur.etag);
+          return;
+        } catch (e) {
+          if (!e.precondition) throw e;
+        }
+      }
+    }));
+  }
+  await updateIndex(list => list.map(x => (links[x.id] && !(x.published && x.published.slug) ? { ...x, published: { slug: links[x.id].slug } } : x)));
+}
+
+// Used by share.js to record a recipe's link.
 export async function setPublished(id, published) {
   const r = await getRecipe(id);
   if (!r) return null;

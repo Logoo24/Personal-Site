@@ -5,7 +5,8 @@
   "framework": null,
   "cleanUrls": true,
   "functions": {
-    "api/family.js": { "maxDuration": 60 }
+    "api/family.js": { "maxDuration": 60 },
+    "api/recipe.js": { "maxDuration": 60 }
   },
   "crons": [
     { "path": "/api/finance-cron", "schedule": "0 11 * * *" }
@@ -14,7 +15,8 @@
     { "source": "/api/finance-cron", "destination": "/api/family?r=fin-cron" },
     { "source": "/api/drive-callback", "destination": "/api/family?r=docs-drive-callback" },
     { "source": "/recipes/:slug/photos/:file", "destination": "/api/recipe?slug=:slug&f=:file" },
-    { "source": "/recipes/:slug", "destination": "/api/recipe?slug=:slug" }
+    { "source": "/recipes/:slug", "destination": "/api/recipe?slug=:slug" },
+    { "source": "/recipes", "destination": "/api/recipe?book=1" }
   ],
   "headers": [
     {

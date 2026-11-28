@@ -251,7 +251,7 @@ body.hub { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction:
 .cb-card h3 { font-size: 1.12rem; letter-spacing: -0.02em; }
 .cb-card p { font-size: 0.86rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .cb-card-meta { margin-top: auto; padding-top: 0.6rem; display: flex; flex-wrap: wrap; gap: 0.35rem 0.9rem; font-size: 0.78rem; color: var(--text-muted); font-weight: 500; }
-.cb-card-meta .shared { color: var(--hub-manage); }
+.cb-card-meta .private { color: var(--text-muted); font-style: italic; }
 .cb-check { position: absolute; top: 0.7rem; left: 0.7rem; z-index: 2; width: 28px; height: 28px; border-radius: 8px; border: 2px solid #fff; background: rgba(0, 0, 0, 0.3); display: none; place-items: center; color: #fff; }
 .cb-select .cb-check { display: grid; }
 .cb-card.picked { border-color: var(--hub-cookbook); box-shadow: 0 0 0 2px var(--hub-cookbook); }
@@ -447,6 +447,15 @@ body.hub { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction:
 .ed-cover { display: flex; gap: 1.25rem; align-items: center; flex-wrap: wrap; }
 .ed-cover-img { width: 240px; aspect-ratio: 3 / 2; border-radius: 12px; object-fit: cover; background: var(--bg-deep); border: 1px dashed var(--line-strong); display: grid; place-items: center; color: var(--text-muted); font-size: 0.85rem; overflow: hidden; }
 .ed-cover-img img { width: 100%; height: 100%; object-fit: cover; }
+/* Sharing: the recipe's public link, and keeping it private. */
+.ed-link { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.9rem; padding: 0.55rem 0.55rem 0.55rem 0.9rem; border: 1px solid var(--line); border-radius: 10px; background: var(--hub-surface); }
+.ed-link-url { flex: 1; min-width: 0; font-family: var(--mono, monospace); font-size: 0.88rem; overflow-wrap: anywhere; color: var(--text-soft); }
+.ed-link-form { padding: 0.55rem; }
+.ed-link-prefix { font-family: var(--mono, monospace); font-size: 0.85rem; color: var(--text-muted); overflow-wrap: anywhere; }
+.ed-link-form .input { flex: 1; min-width: 9rem; padding: 0.45rem 0.7rem; font-family: var(--mono, monospace); font-size: 0.88rem; }
+.ed-link-form small { flex-basis: 100%; color: var(--text-muted); font-size: 0.78rem; }
+.ed-link .btn svg, .ed-private .btn svg { width: 15px; height: 15px; }
+.ed-private { margin-top: 0.9rem; }
 /* A button: tapping the photo crops it. */
 button.ed-cover-img { padding: 0; font: inherit; cursor: pointer; }
 button.ed-cover-img:disabled { cursor: default; }
@@ -643,6 +652,40 @@ body.hub-cal .hub-main { display: flex; flex-direction: column; min-height: 0; m
 .rc-ask-form textarea { flex: 1; min-width: 0; resize: none; min-height: 44px; max-height: 200px; line-height: 1.45; overflow-y: hidden; }
 .rc-ask-form .btn { flex: none; min-height: 44px; }
 .rc-ask-note { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.6rem; }
+
+/* ============================================================
+   THE PUBLIC RECIPE BOOK (/recipes, api/_family/share-page.js):
+   the hub's recipe view and cards, in a public frame
+   ============================================================ */
+.pub-bar { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.8rem var(--gutter); background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+.pub-brand { display: inline-flex; align-items: center; gap: 0.65rem; color: var(--text); font-family: var(--display); font-weight: 700; font-size: 1.02rem; letter-spacing: -0.02em; text-decoration: none; min-width: 0; }
+.pub-brand > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pub-brand:hover { color: var(--hub-cookbook); }
+.pub-logo { width: 34px; height: 34px; flex: none; border-radius: 10px; background: var(--hub-cookbook); color: #fff; display: grid; place-items: center; }
+.pub-logo svg { width: 19px; height: 19px; }
+.pub-family { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+.pub-family:hover { color: var(--accent); }
+.pub-main { max-width: 1100px; }
+.pub-head .btn svg { width: 16px; height: 16px; }
+.pub-hero { text-align: center; max-width: 680px; margin: 1rem auto 2.25rem; }
+.pub-hero h1 { font-size: clamp(2.2rem, 6vw, 3.6rem) !important; letter-spacing: -0.04em; margin-top: 0.8rem; }
+.pub-hero p { font-size: 1.08rem; color: var(--text-soft); margin-top: 0.9rem; }
+.pub-find { display: flex; flex-direction: column; align-items: center; gap: 1rem; margin-bottom: 2rem; }
+.pub-search { position: relative; display: block; width: min(100%, 520px); }
+.pub-search svg { position: absolute; left: 0.9rem; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: var(--text-muted); pointer-events: none; }
+.pub-search .input { width: 100%; padding-left: 2.6rem; }
+.pub-tags { justify-content: center; }
+.pub-grid > [hidden] { display: none !important; }
+.pub-grid .cb-card-meta span { display: inline-flex; align-items: center; gap: 0.3rem; }
+.pub-grid .cb-card-meta svg { width: 14px; height: 14px; }
+.pub-empty { text-align: center; color: var(--text-muted); padding: 2.5rem 1rem; }
+.pub-missing { max-width: 520px; margin: 3rem auto; }
+.pub-foot { padding: 2rem var(--gutter) max(2rem, env(safe-area-inset-bottom)); text-align: center; font-size: 0.85rem; color: var(--text-muted); border-top: 1px solid var(--line); }
+.pub-foot a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+@media (max-width: 520px) {
+  .pub-brand { font-size: 0.92rem; }
+  .pub-family { font-size: 0.78rem; }
+}
 
 /* ============================================================
    CROPPING A PHOTO (photo-crop.js): the cookbook's cover photos

@@ -157,8 +157,27 @@
         <textarea name="notes" id="notes" rows="4" data-grow placeholder="- Freezes well for up to a month."></textarea>
       </section>
 
+      <!-- Every recipe is in the public recipe book (/recipes) unless it's kept private. Saved with the recipe. -->
+      <section class="ed-section ed-sharing" id="sharing">
+        <h2>Sharing</h2>
+        <p class="ed-hint" id="share-hint"></p>
+        <div class="ed-link" id="link-view">
+          <span class="ed-link-url" id="link-url"></span>
+          <button class="btn btn-ghost btn-sm" type="button" id="link-edit"><span data-icon="edit" style="display:contents"></span>Edit link</button>
+        </div>
+        <div class="ed-link ed-link-form" id="link-form" hidden>
+          <span class="ed-link-prefix" id="link-prefix"></span>
+          <input class="input" id="link-slug" maxlength="80" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Link name" />
+          <button class="btn btn-ghost btn-sm" type="button" id="link-cancel">Cancel</button>
+          <small id="link-note">Letters, numbers and dashes. The old link stops working once you save.</small>
+        </div>
+        <div class="ed-private">
+          <button class="btn btn-ghost btn-sm" type="button" id="private-btn"></button>
+        </div>
+      </section>
+
       <div class="ed-danger" id="danger" hidden>
-        <p>Deleting removes the recipe and its photos for everyone (and from the website, if it’s shared).</p>
+        <p>Deleting removes the recipe and its photos for everyone, and takes it out of the public recipe book.</p>
         <button class="btn btn-danger btn-sm" type="button" id="delete">Delete recipe</button>
       </div>
 
@@ -347,6 +366,43 @@
         });
       }).catch(function (e) { Hub.toast(e.message, true); showCover(); });
     };
+
+
+    /* ---------- sharing ----------
+       Every recipe is in the public recipe book at its own link unless it's
+       kept private (or still on "Want to make"). The link and the choice
+       are saved with the recipe; a link name already taken is refused
+       before anything is saved. */
+    var isPrivate = false, savedSlug = null, slugEdited = null;
+    function slugOf(s) {
+      return String(s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '')
+        .replace(/['’]/g, '').replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 70).replace(/-+$/, '') || 'recipe';
+    }
+    function drawSharing() {
+      var want = currentTags().some(Hub.isWantTag);
+      var slug = slugEdited != null ? slugOf(slugEdited) : savedSlug || slugOf(form.elements.title.value);
+      var host = location.host.replace(/^www\./, '');
+      $('#link-url').textContent = host + '/recipes/' + slug;
+      $('#link-prefix').textContent = host + '/recipes/';
+      $('#share-hint').textContent = isPrivate
+        ? 'Private: only the family can see it, and it’s left out of the public recipe book.'
+        : want ? 'It joins the public recipe book once you’ve made it (when the “' + Hub.WANT_TAG + '” tag comes off). Its link:'
+        : savedSlug ? 'In the public recipe book. Use Share on the recipe to send it to friends and family. Its link:'
+        : 'It goes in the public recipe book when you save, at a link like this:';
+      $('#link-view').hidden = isPrivate || !$('#link-form').hidden;
+      $('#link-form').hidden = isPrivate || $('#link-form').hidden;
+      $('#private-btn').innerHTML = isPrivate ? I.globe + 'Make it public' : I.lock + 'Make private';
+    }
+    $('#link-edit').onclick = function () {
+      $('#link-form').hidden = false; $('#link-view').hidden = true;
+      $('#link-slug').value = slugEdited != null ? slugEdited : savedSlug || slugOf(form.elements.title.value);
+      $('#link-slug').focus(); $('#link-slug').select();
+    };
+    $('#link-slug').addEventListener('input', function (e) { e.stopPropagation(); slugEdited = this.value; dirty = true; });
+    $('#link-slug').addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
+    $('#link-cancel').onclick = function () { slugEdited = null; $('#link-form').hidden = true; drawSharing(); };
+    $('#private-btn').onclick = function () { isPrivate = !isPrivate; dirty = true; drawSharing(); };
+    form.elements.title.addEventListener('input', function () { if (!savedSlug && slugEdited == null) drawSharing(); });
 
     /* ---------- formatting toolbars ----------
        Each .ed-toolbar formats one text box: the story, the notes, or (for
@@ -556,6 +612,7 @@
       renderTagChips();
     }
     function renderTagChips() {
+      if ($('#share-hint')) setTimeout(drawSharing); // "Want to make" changes what sharing says
       $('#tag-chips').innerHTML = tags.map(function (t, i) {
         return '<span class="tag-chip' + (Hub.isWantTag(t) ? ' is-want' : '') + '">' + esc(t) +
           '<button type="button" data-remove-tag="' + i + '" aria-label="Remove ' + esc(t) + '">' + I.x + '</button></span>';
@@ -675,6 +732,8 @@
       setTags(r.tags);
       cover = r.cover || null; coverFull = cover && r.coverFull || null; coverCrop = coverFull && r.coverCrop || null;
       showCover();
+      if (r.id) { isPrivate = !!r.private; savedSlug = r.published && r.published.slug || null; slugEdited = null; }
+      drawSharing();
       $('#ings').innerHTML = ''; (r.ingredients && r.ingredients.length ? r.ingredients : [{}]).forEach(function (i) { addIng(i); });
       $('#steps').innerHTML = ''; (r.steps && r.steps.length ? r.steps : ['']).forEach(addStep);
       growAll();
@@ -691,6 +750,7 @@
         tags: currentTags(), servings: form.elements.servings.value, yieldUnit: form.elements.yieldUnit.value.trim(),
         prepMinutes: form.elements.prepMinutes.value, cookMinutes: form.elements.cookMinutes.value,
         cover: cover, coverFull: coverFull, coverCrop: coverCrop,
+        private: isPrivate, slug: slugEdited != null && slugEdited.trim() ? slugEdited.trim() : undefined,
         ingredients: ingredients,
         steps: $$('#steps textarea').map(function (t) { return t.value.trim(); }).filter(Boolean),
         story: story.value, notes: notesValue()
@@ -920,6 +980,8 @@
       $('#save').disabled = true; $('#save').textContent = 'Saving…';
       Hub.api('recipe', { body: data }).then(function (res) {
         dirty = false;
+        // Shown on the recipe page (the toast wouldn't survive leaving).
+        if (res.warning) { try { sessionStorage.setItem('rc-flash', res.warning); } catch (e) { Hub.toast(res.warning, true); } }
         location.href = '/family/cookbook/recipe?id=' + encodeURIComponent(res.recipe.id);
       }).catch(function (err) {
         saving = false;
@@ -929,7 +991,7 @@
     });
     $('#delete').onclick = function () {
       Hub.confirm({ title: 'Delete “' + recipe.title + '”?', confirm: 'Delete forever', danger: true,
-        body: '<p>This removes the recipe and its photos for the whole family' + (recipe.published ? ', and takes it off the website' : '') + '. It can’t be undone.</p>' })
+        body: '<p>This removes the recipe and its photos for the whole family' + (!recipe.private ? ', and takes it out of the public recipe book' : '') + '. It can’t be undone.</p>' })
         .then(function (yes) {
           if (!yes) return;
           $('#delete').disabled = true;
@@ -960,7 +1022,7 @@
           document.title = 'Edit ' + recipe.title + ' · Randall Family';
           $('#cancel').href = '/family/cookbook/recipe?id=' + encodeURIComponent(recipe.id);
           $('#danger').hidden = false;
-          if (recipe.published) $('#status').textContent = 'This recipe is public. Its link shows your changes as soon as you save.';
+          if (!recipe.private && !Hub.isWant(recipe)) $('#status').textContent = 'In the public recipe book: its page shows your changes as soon as you save.';
         }
         $('#loading').remove();
         form.hidden = false;
