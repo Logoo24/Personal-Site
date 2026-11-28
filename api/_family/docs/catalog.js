@@ -10,7 +10,10 @@
 //   sourceUrl (manuals: where the PDF came from),
 //   needsReview (added in a batch and not looked at yet),
 //   files: [{ id, store, type, size, name, w, h, pages, thumb: { id, store },
-//             folder, placed }],
+//             folder, placed, text }],
+//   (a file's text is every page's words, from the scanner's text reader
+//   or pdf.js: '' when it was looked for and there was none, missing when
+//   nobody has looked yet)
 //   backupId (its JSON copy in Drive), createdAt/By, updatedAt/By }
 
 import { readJSON, writeJSON, remove } from '../store.js';
@@ -78,19 +81,74 @@ export function warrantySoon(d, day = today()) {
   return !!d.warrantyUntil && d.warrantyUntil >= day && d.warrantyUntil <= dayOffset(day, 60);
 }
 
-// Every word of the text and notes once, lowercased, for the browse page's
-// search (it searches names and fields itself).
+/* ---------- search words ----------
+   Every distinct word of the details, notes and the files' page text,
+   lowercased, for the browse page's search (it searches names and fields
+   itself). The page finds what's typed anywhere inside a word, so a word
+   that starts or ends a longer one ("filter" in "filters", "washer" in
+   "dishwasher") is left out: the longer word finds it. Words keep the order
+   they first appear in (details and notes before page text), up to
+   WORDS_MAX characters, which keeps documents/index.json to a couple of MB
+   with a few hundred items, many of them long manuals. */
+const WORDS_MAX = 16000;
+const WORD = /[\p{L}\p{N}$][\p{L}\p{N}$.,'’&/-]*/gu;
+const byKey = (a, b) => (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0);
 function searchWords(d) {
-  const words = new Set();
-  for (const w of (d.text + ' ' + d.notes).toLowerCase().match(/[\p{L}\p{N}$][\p{L}\p{N}$.,'’&/-]*/gu) || []) {
-    words.add(w.replace(/[.,'’&/-]+$/, ''));
+  const first = new Map(); // word -> where it first appears
+  const take = text => {
+    for (const m of String(text || '').toLowerCase().matchAll(WORD)) {
+      const w = m[0].replace(/[.,'’&/-]+$/, '');
+      if (w && w.length <= 40 && !first.has(w)) first.set(w, first.size);
+    }
+  };
+  take(d.text + ' ' + d.notes);
+  for (const f of d.files || []) take(f.text);
+  // Sorted, a word that starts another sits just before one that does
+  // (and reversed, one that ends another): each points at that longer
+  // word, and its place in the order goes to the longest word covering it.
+  const words = [...first.keys()];
+  const over = new Map();
+  const cover = sorted => {
+    for (let i = 0; i < sorted.length - 1; i++) {
+      if (sorted[i + 1][1].startsWith(sorted[i][1]) && !over.has(sorted[i][0])) over.set(sorted[i][0], sorted[i + 1][0]);
+    }
+  };
+  cover(words.map(w => [w, w]).sort(byKey));
+  cover(words.map(w => [w, [...w].reverse().join('')]).sort(byKey));
+  const root = w => { for (let n = 0; over.has(w) && n < 100; n++) w = over.get(w); return w; };
+  const at = new Map();
+  for (const w of words) {
+    const r = root(w), i = first.get(w);
+    if (!at.has(r) || i < at.get(r)) at.set(r, i);
   }
   let out = '';
-  for (const w of words) {
-    if (out.length + w.length + 1 > 4000) break;
+  for (const [w] of [...at].sort((a, b) => a[1] - b[1])) {
+    if (out.length + w.length + 1 > WORDS_MAX) break;
     out += (out ? ' ' : '') + w;
   }
   return out;
+}
+
+// A file's page text: plain lines, without runs of spaces or blank lines.
+const PAGE_TEXT_MAX = 200000; // one file: 60 to 80 pages of a dense manual
+const PAGES_TEXT_MAX = 400000; // all of an item's files together
+function cleanPageText(v) {
+  return String(v)
+    .replace(/\r\n?/g, '\n')
+    .replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, ' ')
+    .replace(/[ \t\u00a0]+/g, ' ')
+    .replace(/ ?\n ?/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+    .slice(0, PAGE_TEXT_MAX);
+}
+// A file's text: what it was saved with, or what the editor sent (for a new
+// file, or one saved before page text was kept, which the editor fills in).
+// undefined: nobody has looked for any.
+function fileText(f, old) {
+  if (old && old.text) return old.text;
+  if (typeof f.text === 'string') return cleanPageText(f.text);
+  return old && typeof old.text === 'string' ? old.text : undefined;
 }
 // Only plain web links (the page puts it in an href).
 function cleanUrl(u) {
@@ -107,6 +165,7 @@ function cleanUrl(u) {
 function cleanFiles(list, prevFiles) {
   const prev = new Map((prevFiles || []).map(f => [f.store + ':' + f.id, f]));
   const out = [], seen = new Set();
+  let room = PAGES_TEXT_MAX;
   for (const f of (Array.isArray(list) ? list : []).slice(0, 40)) {
     if (!f) continue;
     const k = f.store + ':' + f.id;
@@ -114,6 +173,8 @@ function cleanFiles(list, prevFiles) {
     if (seen.has(k) || (!old && !verifyRef(f))) continue;
     seen.add(k);
     const thumb = old ? old.thumb || null : f.thumb && verifyRef(f.thumb) ? { id: f.thumb.id, store: f.thumb.store } : null;
+    let text = fileText(f, old);
+    if (text !== undefined) { text = text.slice(0, room); room -= text.length; }
     out.push({
       id: f.id, store: f.store,
       type: old ? old.type : cleanType(f.type),
@@ -122,7 +183,8 @@ function cleanFiles(list, prevFiles) {
       w: old ? old.w : int(f.w), h: old ? old.h : int(f.h), pages: old ? old.pages : int(f.pages),
       thumb,
       folder: old ? old.folder || 'hub' : 'hub',
-      placed: old ? old.placed || null : null
+      placed: old ? old.placed || null : null,
+      ...(text !== undefined ? { text } : {})
     });
   }
   return out;
@@ -203,7 +265,7 @@ function driveDescription(d) {
 // The JSON copy kept in Drive: everything needed to rebuild the entry.
 function backupCopy(d) {
   const { backupId, ...rest } = d;
-  return { ...rest, name: displayName(d), files: d.files.map(f => ({ driveId: f.store === 'drive' ? f.id : null, name: f.name, type: f.type, size: f.size })), keptBy: 'Randall Family Hub · Documents' };
+  return { ...rest, name: displayName(d), files: d.files.map(f => ({ driveId: f.store === 'drive' ? f.id : null, name: f.name, type: f.type, size: f.size, ...(f.text ? { text: f.text } : {}) })), keptBy: 'Randall Family Hub · Documents' };
 }
 
 // Files go to their folder and get their names before the entry is written,
@@ -215,7 +277,7 @@ async function syncDrive(d) {
 
 // Bump when the summary gains something worked out from the full entry:
 // listDocs rebuilds older summaries once.
-const SUMMARY_V = 2;
+const SUMMARY_V = 3;
 function summarize(d) {
   const withThumb = d.files.find(f => f.thumb);
   return {
@@ -227,7 +289,8 @@ function summarize(d) {
     thumbPage: !!(withThumb && withThumb.type === 'application/pdf'),
     files: d.files.length,
     pdf: d.files.some(f => f.type === 'application/pdf'),
-    // Every word of the text and notes, so search finds words from the card or receipt.
+    // Every word of the details, notes and pages, so search finds words
+    // from the card, the receipt or deep inside a manual.
     words: searchWords(d),
     createdAt: d.createdAt, createdBy: d.createdBy, updatedAt: d.updatedAt
   };
@@ -244,6 +307,7 @@ function output(d) {
     name: displayName(d),
     files: d.files.map(f => ({
       id: f.id, store: f.store, type: f.type, size: f.size, name: f.name, w: f.w, h: f.h, pages: f.pages,
+      text: f.text,
       url: fileUrl(f),
       thumb: f.thumb, thumbUrl: f.thumb ? fileUrl(f.thumb) : null,
       driveUrl: f.store === 'drive' ? 'https://drive.google.com/file/d/' + encodeURIComponent(f.id) + '/view' : null
@@ -363,12 +427,29 @@ export async function saveDoc(input, user) {
 }
 
 // Small changes from the item and browse pages: thanked, needs a
-// thank-you, "looked at".
+// thank-you, "looked at". Plus fileText: [{ id, store, text }], the page
+// text of a PDF saved before page text was kept, which the item page reads
+// once in the background. It only fills files with none, and on its own it
+// isn't an edit (no "last changed by"), nor a write when nothing's new.
 export async function patchDoc(input, user) {
   input = input || {};
   const prev = await readEntry(input.id);
   if (!prev) throw fail(404, 'That item wasn’t found. It may have been deleted.');
-  const d = { ...prev, updatedAt: new Date().toISOString(), updatedBy: user.name };
+  const textOnly = Object.keys(input).every(k => k === 'id' || k === 'fileText');
+  const d = textOnly ? { ...prev } : { ...prev, updatedAt: new Date().toISOString(), updatedBy: user.name };
+  if (Array.isArray(input.fileText)) {
+    const sent = new Map(input.fileText.slice(0, 40).filter(f => f && typeof f.text === 'string').map(f => [f.store + ':' + f.id, f.text]));
+    let room = PAGES_TEXT_MAX - d.files.reduce((n, f) => n + (f.text || '').length, 0), filled = false;
+    d.files = d.files.map(f => {
+      const t = sent.get(keyOf(f));
+      if (t === undefined || typeof f.text === 'string') return f;
+      const text = cleanPageText(t).slice(0, Math.max(0, room));
+      room -= text.length;
+      filled = true;
+      return { ...f, text };
+    });
+    if (textOnly && !filled) return output(prev);
+  }
   if ('thanked' in input && d.collection === 'cards') {
     d.thanked = !!input.thanked;
     d.thankedOn = d.thanked ? (prev.thanked && prev.thankedOn ? prev.thankedOn : today()) : null;

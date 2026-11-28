@@ -248,11 +248,49 @@
           Promise.all(pages.map(function (c) { return canvasBlob(c, 'image/jpeg', 0.8); })),
           scaled(pages[0], pages[0].width, pages[0].height, 560, 'image/webp', 0.8)
         ]);
-      }).then(function (r) { return { read: r[0], thumb: r[1], pages: pdf.numPages }; });
+      }).then(function (r) { return { read: r[0], thumb: r[1], pages: pdf.numPages, doc: pdf }; });
     });
   }
 
-  // Any picked file -> { kind, full, read: [images for the reader], thumb, w, h, pages }.
+  /* ---------- PDFs: every page's text, for search ----------
+     What's printed in the PDF, or the hidden text a scanner laid over its
+     pictures. Stops at TEXT_MAX characters (the server keeps no more), at
+     a page it can't read, or after ms, handing back what it has.
+     '' = there's no text in it. */
+  var TEXT_MAX = 200000;
+  function pdfText(pdf, ms) {
+    var out = '', n = 0, stop = false;
+    function next() {
+      if (stop || ++n > pdf.numPages || out.length >= TEXT_MAX) return Promise.resolve();
+      return pdf.getPage(n).then(function (page) {
+        return page.getTextContent().then(function (tc) {
+          var s = tc.items.map(function (it) { return (it.str || '') + (it.hasEOL ? '\n' : ''); }).join('').trim();
+          if (s) out += (out ? '\n\n' : '') + s;
+          page.cleanup();
+        });
+      }).then(next);
+    }
+    return Promise.race([
+      next().catch(function () { /* keep the pages read so far */ }),
+      new Promise(function (resolve) { setTimeout(function () { stop = true; resolve(); }, ms || 30000); })
+    ]).then(function () { return out.slice(0, TEXT_MAX); });
+  }
+  // The text of a PDF that's already stored (one saved before page text
+  // was kept), fetched and read here. Rejects only when the file or the
+  // PDF reader can't be fetched; a damaged PDF has no text ('').
+  function storedPdfText(f) {
+    return Promise.all([pdfjs(), fetchFile(f)]).then(function (r) {
+      return r[1].arrayBuffer().then(function (buf) {
+        return timeLimit(r[0].getDocument({ data: buf }).promise, 20000).then(function (pdf) {
+          return pdfText(pdf).then(function (t) { pdf.destroy(); return t; });
+        }, function () { return ''; });
+      });
+    });
+  }
+
+  // Any picked file -> { kind, full, read: [images for the reader], thumb, w, h, pages,
+  // textDone (a PDF's page text for search, a promise: it's read while the
+  // file uploads; undefined for anything else) }.
   // Files that can't be drawn (Word documents, HEIC on Windows) are kept as
   // they are, with no thumbnail and nothing to read.
   // A damaged PDF can leave pdf.js working forever, so give up after a while
@@ -266,7 +304,14 @@
       return timeLimit(preparePhoto(file), 30000).then(function (p) { p.kind = 'image'; return p; }, function () { return asIs; });
     }
     if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) {
-      return timeLimit(preparePdf(file), 20000).then(function (p) { p.kind = 'pdf'; p.full = file; return p; }, function () { asIs.kind = 'pdf'; return asIs; });
+      return timeLimit(preparePdf(file), 20000).then(function (p) {
+        p.kind = 'pdf'; p.full = file;
+        var pdf = p.doc;
+        delete p.doc;
+        // Read while the file uploads: a long manual's text takes a while.
+        p.textDone = pdfText(pdf).then(function (t) { pdf.destroy(); return t; });
+        return p;
+      }, function () { asIs.kind = 'pdf'; return asIs; });
     }
     return Promise.resolve(asIs);
   }
@@ -386,6 +431,7 @@
     dateLabel: dateLabel, money: money, parseMoney: parseMoney, fileSize: fileSize, todayKey: todayKey, warranty: warranty, kind: kind,
     subline: subline, tile: tile, driveNote: driveNote, driveReturnMessage: driveReturnMessage,
     saveList: saveList, savedList: savedList, backTo: backTo, flash: flash, showFlash: showFlash,
-    prepare: prepare, savedName: savedName, upload: upload, read: read, href: href, openFile: openFile, fetchFile: fetchFile
+    prepare: prepare, savedName: savedName, upload: upload, read: read, href: href, openFile: openFile, fetchFile: fetchFile,
+    storedPdfText: storedPdfText
   };
 })();

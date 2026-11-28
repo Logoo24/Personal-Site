@@ -223,6 +223,16 @@
 .dc-block h2 { font-size: 1.05rem !important; font-family: var(--sans); font-weight: 700; letter-spacing: -0.01em; margin-bottom: 0.6rem; }
 .dc-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 1rem; line-height: 1.7; color: var(--text); padding: 1.1rem 1.25rem; border-radius: 12px; background: var(--bg-alt); border: 1px solid var(--line); }
 .dc-text--card { font-family: var(--display); font-size: 1.08rem; }
+/* "Text from the pages": folded away, a scrolling box when opened */
+.dc-pages > summary { display: flex; align-items: center; gap: 0.6rem; cursor: pointer; list-style: none; padding: 0.35rem 0; }
+.dc-pages > summary::-webkit-details-marker { display: none; }
+.dc-pages > summary h2 { margin-bottom: 0 !important; }
+.dc-pages > summary svg { width: 18px; height: 18px; margin-left: auto; color: var(--text-muted); transition: transform 0.2s; }
+.dc-pages[open] > summary svg { transform: rotate(180deg); }
+.dc-pages-count { font-size: 0.82rem; color: var(--text-muted); }
+.dc-pages-hint { font-size: 0.82rem; color: var(--text-muted); margin: 0.35rem 0 0.7rem; }
+.hub .dc-pages h3 { font-family: var(--sans); font-size: 0.88rem; font-weight: 600; color: var(--text-soft); margin: 1rem 0 0.4rem; overflow-wrap: anywhere; }
+.dc-text--pages { font-size: 0.88rem; line-height: 1.6; color: var(--text-soft); max-height: 60vh; overflow-y: auto; }
 .dc-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 2rem; }
 .dc-byline { margin-top: 1.5rem; font-size: 0.8rem; color: var(--text-muted); }
 

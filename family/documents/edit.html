@@ -332,7 +332,7 @@
     function drawFiles() {
       var many = files.length > 1;
       $('#files').innerHTML = files.map(function (it, i) {
-        var label = it.status === 'preparing' ? 'Getting it ready…' : it.status === 'uploading' ? 'Uploading ' + Math.round((it.progress || 0) * 100) + '%' : it.status === 'error' ? 'Didn’t upload' : '';
+        var label = it.status === 'preparing' ? 'Getting it ready…' : it.status === 'uploading' ? uploadLabel(it) : it.status === 'error' ? 'Didn’t upload' : '';
         return '<div class="dc-file' + (it.status === 'error' ? ' is-error' : '') + '" data-key="' + it.key + '" title="' + esc(it.error || it.name) + '">' +
           (it.preview ? '<img src="' + esc(it.preview) + '" alt="" />' : '<div class="dc-file-ph">' + I.file + esc(it.name) + '</div>') +
           '<div class="dc-file-tools"><span>' + (many ? '<button type="button" data-move="-1" aria-label="Move earlier">' + I.left + '</button><button type="button" data-move="1" aria-label="Move later">' + I.right + '</button>' : '') + '</span>' +
@@ -344,11 +344,15 @@
       drawMf();
     }
     function itemFor(key) { return files.filter(function (it) { return it.key === key; })[0]; }
+    // Uploaded, but a long PDF's text is still being read.
+    function uploadLabel(it) {
+      return it.reading && it.progress >= 1 ? 'Reading the pages…' : 'Uploading ' + Math.round((it.progress || 0) * 100) + '%';
+    }
     function progressBar(it) {
       var el = $('.dc-file[data-key="' + it.key + '"] .dc-file-bar');
       if (!el) return;
       var pct = Math.round((it.progress || 0) * 100);
-      el.firstChild.textContent = 'Uploading ' + pct + '%';
+      el.firstChild.textContent = uploadLabel(it);
       var b = el.querySelector('b');
       if (b) b.style.width = pct + '%';
     }
@@ -367,14 +371,18 @@
           return p;
         });
         it.done = it.prepared.then(function (p) {
+          it.reading = !!p.textDone;
           return Promise.all([
             Docs.upload(p.full, Docs.savedName(file, p), function (x) { it.progress = x; progressBar(it); }),
-            p.thumb ? Docs.upload(p.thumb, 'thumb.' + (p.thumb.type === 'image/webp' ? 'webp' : 'jpg')) : null
+            p.thumb ? Docs.upload(p.thumb, 'thumb.' + (p.thumb.type === 'image/webp' ? 'webp' : 'jpg')) : null,
+            // A PDF's page text, for search (read while it uploads).
+            p.textDone && p.textDone.then(function (t) { it.reading = false; progressBar(it); return t; })
           ]);
         }).then(function (refs) {
           it.ref = refs[0];
           it.ref.thumb = refs[1] || null;
           it.ref.w = it.w; it.ref.h = it.h; it.ref.pages = it.pages;
+          if (typeof refs[2] === 'string') it.ref.text = refs[2];
           it.status = 'ready';
           if (files.indexOf(it) < 0) discard([it.ref]); // taken off while it was uploading
           drawFiles();
@@ -634,10 +642,12 @@
         drawFiles();
         it.done = Docs.fetchFile({ url: r.url, size: r.size, type: 'application/pdf' }).then(Docs.prepare).then(function (p) {
           it.read = p.read; it.pages = p.pages; it.ref.pages = p.pages;
-          if (!p.thumb) return;
+          // Its page text, for search.
+          var text = p.textDone && p.textDone.then(function (t) { if (typeof t === 'string') it.ref.text = t; });
+          if (!p.thumb) return text;
           it.preview = URL.createObjectURL(p.thumb);
           drawFiles();
-          return Docs.upload(p.thumb, 'thumb.' + (p.thumb.type === 'image/webp' ? 'webp' : 'jpg')).then(function (t) { it.ref.thumb = t; });
+          return Promise.all([text, Docs.upload(p.thumb, 'thumb.' + (p.thumb.type === 'image/webp' ? 'webp' : 'jpg')).then(function (t) { it.ref.thumb = t; })]);
         }).catch(function () { /* the PDF itself is saved; it just has no thumbnail */ }).then(function () {
           it.status = 'ready';
           drawFiles();
@@ -673,6 +683,9 @@
           it.ref = refs[0];
           it.ref.thumb = refs[1];
           it.ref.pages = res.pages;
+          // Every page's text from the scanner's text reader, for search
+          // (the PDF carries it too, hidden behind each page).
+          it.ref.text = String(res.text || '').slice(0, 200000);
           it.status = 'ready';
           drawFiles();
         }).catch(function (e) {
@@ -734,7 +747,10 @@
       thanksTouched = !!d.id;
       setThanks(d.id ? (d.thanked ? 'done' : d.needsThanks ? 'todo' : 'none') : defaultThanks());
       files = (d.files || []).map(function (f) {
-        return { key: ++seq, name: f.name, status: 'ready', ref: f, kind: Docs.kind(f), preview: f.thumbUrl || (Docs.kind(f) === 'image' ? f.url : null), fresh: false };
+        // A saved file's page text stays on the server: no need to send it back.
+        var ref = Object.assign({}, f);
+        delete ref.text;
+        return { key: ++seq, name: f.name, status: 'ready', ref: ref, kind: Docs.kind(f), preview: f.thumbUrl || (Docs.kind(f) === 'image' ? f.url : null), fresh: false };
       });
       drawFiles();
     }

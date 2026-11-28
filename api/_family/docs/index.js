@@ -5,7 +5,8 @@
 //   GET  docs-status                  -> { total, toThank, review, warrantySoon } for the hub card
 //   GET  docs-get&id=                 -> { doc, drive, related (same model number) }
 //   POST docs-save    {...entry}      -> { doc } (create / update)
-//   POST docs-patch   {id, thanked?, needsThanks?, needsReview?} -> { doc }
+//   POST docs-patch   {id, thanked?, needsThanks?, needsReview?,
+//        fileText? [{id, store, text}] (page text for PDFs that have none)} -> { doc }
 //   POST docs-delete  {id}
 //   POST docs-upload-start {name, type, size} -> { token, chunk }
 //   POST docs-upload-chunk (raw bytes; x-upload-token, x-upload-offset,

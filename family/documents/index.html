@@ -36,7 +36,7 @@
     <div id="drive-note"></div>
 
     <div class="dc-toolbar">
-      <label class="search"><span data-icon="search"></span><input class="input" type="search" id="q" placeholder="Search names, messages, stores…" autocomplete="off" /></label>
+      <label class="search"><span data-icon="search"></span><input class="input" type="search" id="q" placeholder="Search names or any word…" autocomplete="off" /></label>
       <select id="year" aria-label="Year"></select>
     </div>
     <div class="chips dc-colls" id="colls"></div>
@@ -321,11 +321,13 @@
             status(li, 'Uploading…');
             return Promise.all([
               Docs.upload(p.full, Docs.savedName(file, p)),
-              p.thumb ? Docs.upload(p.thumb, 'thumb.' + (p.thumb.type === 'image/webp' ? 'webp' : 'jpg')) : null
+              p.thumb ? Docs.upload(p.thumb, 'thumb.' + (p.thumb.type === 'image/webp' ? 'webp' : 'jpg')) : null,
+              p.textDone // a PDF's page text, for search
             ]);
           }).then(function (refs) {
             var f = refs[0];
             f.thumb = refs[1]; f.w = p.w; f.h = p.h; f.pages = p.pages;
+            if (typeof refs[2] === 'string') f.text = refs[2];
             status(li, 'Reading it…');
             var reading = p.read.length ? Docs.read(p.read, collection).catch(function () { return {}; }) : Promise.resolve({});
             return reading.then(function (s) {

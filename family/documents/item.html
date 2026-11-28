@@ -160,6 +160,45 @@
       return { cards: 'What it says', manuals: 'Summary', receipts: 'Items', other: 'Details' }[doc.collection];
     }
 
+    /* ---------- text from the pages ----------
+       Every page's text of its PDFs (what search looks through), folded
+       away under the details. It stays open across re-draws. */
+    var pagesOpen = false;
+    function pagesBlock() {
+      var withText = doc.files.filter(function (f) { return f.text; });
+      if (!withText.length) return '';
+      var words = withText.reduce(function (n, f) { return n + f.text.split(/\s+/).length; }, 0);
+      return '<details class="dc-block dc-pages"' + (pagesOpen ? ' open' : '') + '><summary><h2>Text from the pages</h2>' +
+          '<span class="dc-pages-count">' + words.toLocaleString('en-US') + (words === 1 ? ' word' : ' words') + '</span>' + I.down + '</summary>' +
+        '<p class="dc-pages-hint">Read from the pages, so search can find any word on them. Scanned pages can have a few misread words.</p>' +
+        withText.map(function (f) {
+          return (withText.length > 1 ? '<h3>' + esc(f.name) + '</h3>' : '') + '<div class="dc-text dc-text--pages">' + esc(f.text) + '</div>';
+        }).join('') +
+      '</details>';
+    }
+    function drawPages() { var el = $('#pages-text'); if (el) el.innerHTML = pagesBlock(); }
+    $('#view').addEventListener('toggle', function (e) { if (e.target.matches('.dc-pages')) pagesOpen = e.target.open; }, true);
+
+    // A PDF saved before page text was kept: read its text here, once, so
+    // search finds its words too. It has to be downloaded, so not one over
+    // 20 MB. Nothing is written if it can't be fetched (it's tried again
+    // next time); a damaged PDF is saved as having no text.
+    function fillPageText() {
+      var todo = doc.files.filter(function (f) { return Docs.kind(f) === 'pdf' && typeof f.text !== 'string' && (f.size || 0) <= 20e6; });
+      if (!todo.length) return;
+      todo.reduce(function (chain, f) {
+        return chain.then(function (list) {
+          return Docs.storedPdfText(f).then(function (t) { list.push({ id: f.id, store: f.store, text: t }); return list; }, function () { return list; });
+        });
+      }, Promise.resolve([])).then(function (list) {
+        if (!list.length) return;
+        return Hub.api('docs-patch', { body: { id: doc.id, fileText: list } }).then(function (r) {
+          doc.files = r.doc.files;
+          drawPages();
+        });
+      }).catch(function () { /* tried again next time */ });
+    }
+
     function render() {
       var c = Docs.coll(doc.collection);
       document.title = doc.name + ' · Documents · Randall Family';
@@ -183,6 +222,7 @@
             facts() +
             (doc.text ? '<section class="dc-block"><h2>' + textHeading() + '</h2><div class="dc-text' + (doc.collection === 'cards' ? ' dc-text--card' : '') + '">' + esc(doc.text) + '</div></section>' : '') +
             (doc.notes ? '<section class="dc-block"><h2>Notes</h2><div class="dc-text">' + esc(doc.notes) + '</div></section>' : '') +
+            '<div id="pages-text">' + pagesBlock() + '</div>' +
             relatedBlock() +
             '<div class="dc-actions">' +
               '<a class="btn btn-ghost" href="/family/documents/edit?id=' + encodeURIComponent(doc.id) + '">' + I.edit + 'Edit</a>' +
@@ -281,7 +321,7 @@
         Docs.showFlash();
         if (drive && !drive.connected && !drive.local && doc.files.some(function (f) { return f.store === 'drive'; })) {
           $('#view').insertAdjacentHTML('afterbegin', Docs.driveNote(drive));
-        }
+        } else fillPageText();
       }).catch(function (e) {
         $('#view').innerHTML = '<div class="hub-empty"><h3>Couldn’t open this</h3><p>' + esc(e.message) + '</p><a class="btn btn-ghost" href="' + esc(backHref()) + '">Back to Documents</a></div>';
       });
