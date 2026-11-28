@@ -68,11 +68,12 @@
 
       <section class="ed-section">
         <h2>Cover photo</h2>
-        <p class="ed-hint">Shows on the cookbook card and at the top of the recipe.</p>
+        <p class="ed-hint">Shows on the cookbook card and at the top of the recipe, cropped to this shape.</p>
         <div class="ed-cover">
-          <div class="ed-cover-img" id="cover-img">No photo yet</div>
+          <button class="ed-cover-img" type="button" id="cover-img" disabled>No photo yet</button>
           <div class="hub-actions">
             <button class="btn btn-ghost btn-sm" type="button" id="cover-pick">Choose photo</button>
+            <button class="btn btn-ghost btn-sm" type="button" id="cover-crop" hidden><span data-icon="crop" style="display:contents"></span>Crop</button>
             <button class="btn btn-ghost btn-sm" type="button" id="cover-remove" hidden>Remove</button>
           </div>
           <input type="file" accept="image/*" id="cover-file" hidden />
@@ -174,12 +175,16 @@
   <script src="/js/recipe-scale.js"></script>
   <script src="/js/recipe-text.js"></script>
   <script src="/family/assets/hub.js"></script>
+  <script src="/family/assets/photo-crop.js"></script>
   <script>
   (function () {
     var $ = Hub.$, $$ = Hub.$$, esc = Hub.esc, I = Hub.icons;
     var form = $('#form');
     var id = new URLSearchParams(location.search).get('id');
     var recipe = null, cover = null, dirty = false, saving = false, pendingPhoto = null;
+    // The cover as shown (cropped), the photo it was cropped from and where
+    // the frame was, so cropping again can start from the whole photo.
+    var coverFull = null, coverCrop = null;
     $$('[data-icon]').forEach(function (el) { el.innerHTML = I[el.getAttribute('data-icon')]; });
 
     /* ---------- ingredient rows ---------- */
@@ -289,19 +294,51 @@
     };
 
     /* ---------- cover photo ---------- */
-    function showCover() {
-      $('#cover-img').innerHTML = cover ? '<img src="' + Hub.mediaUrl(cover) + '" alt="" />' : 'No photo yet';
+    // A new photo is cropped before it's added (the 3:2 the cookbook card,
+    // the recipe page and the shared page all show); Crop, or tapping the
+    // photo, frames it again, from the whole photo when there is one (a
+    // photo filled in from a link has none: it's cropped as it is).
+    var COVER_RATIO = 3 / 2;
+    function showCover(text) {
+      $('#cover-img').innerHTML = text ? esc(text) : cover ? '<img src="' + Hub.mediaUrl(cover) + '" alt="" />' : 'No photo yet';
+      $('#cover-img').disabled = !cover || !!text;
+      $('#cover-img').setAttribute('aria-label', cover ? 'Crop the cover photo' : 'No cover photo yet');
       $('#cover-pick').textContent = cover ? 'Change photo' : 'Choose photo';
-      $('#cover-remove').hidden = !cover;
+      $('#cover-crop').hidden = $('#cover-remove').hidden = !cover;
+      $('#cover-pick').disabled = $('#cover-crop').disabled = !!text;
+    }
+    function uploadBlob(blob) { return Hub.api('upload', { raw: blob, contentType: blob.type }).then(function (r) { return r.name; }); }
+    function cropCover() {
+      if (!cover) return;
+      var from = coverFull || cover;
+      PhotoCrop.open({ src: Hub.mediaUrl(from), ratio: COVER_RATIO, crop: coverFull ? coverCrop : null, title: 'Crop the cover photo' }).then(function (res) {
+        if (!res) return;
+        showCover('Saving…');
+        return uploadBlob(res.blob).then(function (name) {
+          cover = name; coverFull = from; coverCrop = res.crop; dirty = true;
+          showCover();
+        });
+      }).catch(function (e) { Hub.toast(e.message, true); showCover(); });
     }
     $('#cover-pick').onclick = function () { $('#cover-file').click(); };
-    $('#cover-remove').onclick = function () { cover = null; dirty = true; showCover(); };
+    $('#cover-crop').onclick = $('#cover-img').onclick = cropCover;
+    $('#cover-remove').onclick = function () { cover = coverFull = coverCrop = null; dirty = true; showCover(); };
     $('#cover-file').onchange = function () {
       var f = this.files[0]; this.value = '';
       if (!f) return;
-      $('#cover-img').textContent = 'Uploading…';
-      Hub.upload(f).then(function (res) { cover = res.name; dirty = true; showCover(); })
-        .catch(function (e) { Hub.toast(e.message, true); showCover(); });
+      showCover('Opening…');
+      // The whole photo is kept too (shrunk to 2000px), for cropping again.
+      Hub.downscale(f, 2000).then(function (whole) {
+        showCover();
+        return PhotoCrop.open({ src: whole, ratio: COVER_RATIO, title: 'Crop the cover photo' }).then(function (res) {
+          if (!res) return;
+          showCover('Uploading…');
+          return Promise.all([uploadBlob(res.blob), uploadBlob(whole)]).then(function (names) {
+            cover = names[0]; coverFull = names[1]; coverCrop = res.crop; dirty = true;
+            showCover();
+          });
+        });
+      }).catch(function (e) { Hub.toast(e.message, true); showCover(); });
     };
 
     /* ---------- formatting toolbars ----------
@@ -629,7 +666,8 @@
       // Older notes have numbered lines inside bullets ("- 1. ..."): unwrap them.
       notes.value = notes.value.replace(/^(\s*)[-*+•]\s+(\d+[.)]\s)/gm, '$1$2');
       setTags(r.tags);
-      cover = r.cover || null; showCover();
+      cover = r.cover || null; coverFull = cover && r.coverFull || null; coverCrop = coverFull && r.coverCrop || null;
+      showCover();
       $('#ings').innerHTML = ''; (r.ingredients && r.ingredients.length ? r.ingredients : [{}]).forEach(function (i) { addIng(i); });
       $('#steps').innerHTML = ''; (r.steps && r.steps.length ? r.steps : ['']).forEach(addStep);
       growAll();
@@ -644,7 +682,8 @@
         id: recipe ? recipe.id : undefined,
         title: form.elements.title.value.trim(), summary: form.elements.summary.value.trim(), source: form.elements.source.value.trim(),
         tags: currentTags(), servings: form.elements.servings.value, yieldUnit: form.elements.yieldUnit.value.trim(),
-        prepMinutes: form.elements.prepMinutes.value, cookMinutes: form.elements.cookMinutes.value, cover: cover,
+        prepMinutes: form.elements.prepMinutes.value, cookMinutes: form.elements.cookMinutes.value,
+        cover: cover, coverFull: coverFull, coverCrop: coverCrop,
         ingredients: ingredients,
         steps: $$('#steps textarea').map(function (t) { return t.value.trim(); }).filter(Boolean),
         story: story.value, notes: notesValue()
@@ -686,6 +725,9 @@
         if (v == null || v === '' || (Array.isArray(v) && !v.length)) return;
         merged[k] = v;
       });
+      // A photo from the link replaces the cover, and with it the whole
+      // photo an earlier cover was cropped from.
+      if (found.cover) { merged.coverFull = null; merged.coverCrop = null; }
       merged.tags = currentTags().concat((found.tags || []).filter(function (t) {
         return currentTags().map(function (c) { return c.toLowerCase(); }).indexOf(t.toLowerCase()) < 0;
       }));

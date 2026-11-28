@@ -1607,7 +1607,7 @@
         var z = cropSize();
         if (!z.w) return;
         var stage = el.querySelector('.sc-crop-stage'), box = el.querySelector('.sc-crop-box'), svg = box.querySelector('svg');
-        var r = stage.getBoundingClientRect(), s = Math.min((r.width - 32) / z.w, (r.height - 32) / z.h);
+        var r = stage.getBoundingClientRect(), s = Math.min((r.width - 64) / z.w, (r.height - 64) / z.h); // room for the corner wedges
         box.style.width = Math.round(z.w * s) + 'px';
         box.style.height = Math.round(z.h * s) + 'px';
         svg.setAttribute('viewBox', '0 0 ' + z.w + ' ' + z.h);
@@ -1615,7 +1615,7 @@
       }
       function drawCrop() {
         var box = el.querySelector('.sc-crop-box'), svg = box.querySelector('svg');
-        Array.prototype.forEach.call(svg.querySelectorAll('circle, line'), function (c) { c.remove(); });
+        Array.prototype.forEach.call(svg.querySelectorAll('.sc-wedge, line'), function (c) { c.remove(); });
         if (!cropping.quad) { svg.querySelector('polygon').removeAttribute('points'); return; }
         var per = cropSize().w / (box.getBoundingClientRect().width || 1);
         svg.querySelector('polygon').setAttribute('points', cropping.quad.map(function (p) { return p.join(','); }).join(' '));
@@ -1624,14 +1624,38 @@
           var t = mid(q[0], q[1]), b = mid(q[3], q[2]);
           svg.insertAdjacentHTML('beforeend', '<line x1="' + t[0] + '" y1="' + t[1] + '" x2="' + b[0] + '" y2="' + b[1] + '" stroke-width="' + 2 * per + '" />');
         }
-        cropping.quad.forEach(function (p, i) {
-          svg.insertAdjacentHTML('beforeend', '<circle data-corner="' + i + '" cx="' + p[0] + '" cy="' + p[1] + '" r="' + 16 * per + '" stroke-width="' + 3 * per + '" />');
+        // Each corner: a pie wedge outside the outline, its point on the
+        // corner and its sides carrying on from the two edges, so nothing
+        // inside the page is covered and the corner itself stays in view.
+        var q4 = cropping.quad, r = 26 * per;
+        q4.forEach(function (p, i) {
+          var u = unit(p, q4[(i + 3) % 4]), v = unit(p, q4[(i + 1) % 4]), sweep = u[0] * v[1] - u[1] * v[0] > 0 ? 1 : 0;
+          var a = [p[0] - u[0] * r, p[1] - u[1] * r], b = [p[0] - v[0] * r, p[1] - v[1] * r];
+          svg.insertAdjacentHTML('beforeend', '<path class="sc-wedge" data-corner="' + i + '" d="M' + p[0] + ' ' + p[1] + 'L' + a[0] + ' ' + a[1] +
+            'A' + r + ' ' + r + ' 0 0 ' + sweep + ' ' + b[0] + ' ' + b[1] + 'Z" stroke-width="' + 2 * per + '" />');
         });
+      }
+      // The direction from p towards q (straight down if they meet).
+      function unit(p, q) {
+        var dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy);
+        return l > 1e-6 ? [dx / l, dy / l] : [0, 1];
       }
       function drawCropModes() {
         Array.prototype.forEach.call(el.querySelectorAll('[data-cmode]'), function (b) { b.classList.toggle('on', b.getAttribute('data-cmode') === cropping.mode); });
       }
-      var dragging = null;
+      // Dragging a corner. With a finger, the corner sits LIFT px above it,
+      // so the finger never hides where it's going (it jumps up as soon as
+      // it's touched; a tap that doesn't drag puts it back). A mouse or pen
+      // drags it right where the pointer is.
+      var LIFT = 64, dragging = null;
+      function dragTo(svg, e) {
+        var r = svg.getBoundingClientRect(), per = cropping.shot.w / r.width;
+        cropping.quad[dragging.i] = [
+          Math.max(0, Math.min(cropping.shot.w, (e.clientX - r.left) * per)),
+          Math.max(0, Math.min(cropping.shot.h, (e.clientY - dragging.lift - r.top) * per))
+        ];
+        drawCrop();
+      }
       el.querySelector('.sc-crop-box svg').addEventListener('pointerdown', function (e) {
         if (!cropping || !cropping.quad) return;
         var svg = this, r = svg.getBoundingClientRect(), per = cropping.shot.w / r.width;
@@ -1640,21 +1664,21 @@
         var best = -1, bestD = 60 * per;
         cropping.quad.forEach(function (p, i) { var d = dist(p, [x, y]); if (d < bestD) { bestD = d; best = i; } });
         if (best < 0) return;
-        dragging = best;
+        dragging = { i: best, lift: e.pointerType === 'touch' ? LIFT : 0, was: cropping.quad[best].slice(), at: [e.clientX, e.clientY], moved: false };
+        if (dragging.lift) dragTo(svg, e);
         svg.setPointerCapture(e.pointerId);
         e.preventDefault();
       });
       el.querySelector('.sc-crop-box svg').addEventListener('pointermove', function (e) {
-        if (dragging == null || !cropping || !cropping.quad) return;
-        var r = this.getBoundingClientRect(), per = cropping.shot.w / r.width;
-        cropping.quad[dragging] = [
-          Math.max(0, Math.min(cropping.shot.w, (e.clientX - r.left) * per)),
-          Math.max(0, Math.min(cropping.shot.h, (e.clientY - r.top) * per))
-        ];
-        drawCrop();
+        if (!dragging || !cropping || !cropping.quad) return;
+        if (Math.hypot(e.clientX - dragging.at[0], e.clientY - dragging.at[1]) > 4) dragging.moved = true;
+        dragTo(this, e);
       });
       ['pointerup', 'pointercancel'].forEach(function (ev) {
-        el.querySelector('.sc-crop-box svg').addEventListener(ev, function () { dragging = null; });
+        el.querySelector('.sc-crop-box svg').addEventListener(ev, function () {
+          if (dragging && dragging.lift && !dragging.moved && cropping && cropping.quad) { cropping.quad[dragging.i] = dragging.was; drawCrop(); }
+          dragging = null;
+        });
       });
       window.addEventListener('resize', function () { if (cropping) fitCrop(); });
 

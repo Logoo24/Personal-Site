@@ -134,7 +134,7 @@ async function route(request) {
       if (!recipe) return fail(404, 'Recipe not found');
       if (recipe.published) await unshareRecipe(recipe);
       await deleteRecipe(recipe.id);
-      await Promise.all(mediaIn(recipe).map(f => remove('media/' + f).catch(() => {})));
+      await Promise.all(mediaIn(recipe, true).map(f => remove('media/' + f).catch(() => {})));
       return json({ ok: true });
     }
     case 'POST upload': {

@@ -242,7 +242,8 @@ body.hub { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction:
   transition: transform .3s var(--ease-out), box-shadow .3s var(--ease-out), border-color .3s var(--ease-out);
 }
 .cb-card:hover { transform: translateY(-4px); box-shadow: var(--shadow); border-color: var(--hub-cookbook); color: var(--text); }
-.cb-thumb { aspect-ratio: 4 / 3; background: var(--bg-deep); overflow: hidden; position: relative; }
+/* Cover photos are cropped 3:2 (photo-crop.js), and shown 3:2 everywhere. */
+.cb-thumb { aspect-ratio: 3 / 2; background: var(--bg-deep); overflow: hidden; position: relative; }
 .cb-thumb img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s var(--ease-out); }
 .cb-card:hover .cb-thumb img { transform: scale(1.04); }
 .cb-placeholder { width: 100%; height: 100%; display: grid; place-items: center; font-family: var(--display); font-size: 3.2rem; font-weight: 700; color: rgba(255, 255, 255, 0.92); }
@@ -261,7 +262,15 @@ body.hub { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction:
 
 /* ---------- recipe (view, print and cookbook export share this) ---------- */
 .rc-hero { margin-bottom: 2rem; }
-.rc-cover { width: 100%; max-height: 440px; aspect-ratio: 16 / 8; object-fit: cover; border-radius: 16px; margin-bottom: 1.75rem; background: var(--bg-deep); }
+.rc-cover { display: block; width: min(100%, 660px); aspect-ratio: 3 / 2; object-fit: cover; border-radius: 16px; margin-bottom: 1.75rem; background: var(--bg-deep); }
+/* Wide screens: the title and details on the left, the 3:2 photo beside
+   them (any height it has beyond the text goes to the last, flexible row,
+   so the text doesn't spread out). */
+@media (min-width: 900px) {
+  .rc-hero:has(> .rc-cover) { display: grid; grid-template-columns: minmax(0, 1fr) min(48%, 600px); grid-template-rows: repeat(5, auto) 1fr; column-gap: 3rem; }
+  .rc-hero:has(> .rc-cover) > * { grid-column: 1; }
+  .rc-hero > .rc-cover { grid-column: 2; grid-row: 1 / -1; width: 100%; margin-bottom: 0; }
+}
 .rc-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.8rem; }
 .rc-tag { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: var(--hub-cookbook); }
 .rc-title { font-size: clamp(2rem, 5vw, 3.2rem) !important; }
@@ -436,8 +445,13 @@ body.hub { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction:
 .ed-grid .col-quarter { grid-column: span 3; }
 @media (max-width: 640px) { .ed-grid .col-half { grid-column: span 12; } .ed-grid .col-quarter { grid-column: span 6; } }
 .ed-cover { display: flex; gap: 1.25rem; align-items: center; flex-wrap: wrap; }
-.ed-cover-img { width: 220px; aspect-ratio: 4 / 3; border-radius: 12px; object-fit: cover; background: var(--bg-deep); border: 1px dashed var(--line-strong); display: grid; place-items: center; color: var(--text-muted); font-size: 0.85rem; overflow: hidden; }
+.ed-cover-img { width: 240px; aspect-ratio: 3 / 2; border-radius: 12px; object-fit: cover; background: var(--bg-deep); border: 1px dashed var(--line-strong); display: grid; place-items: center; color: var(--text-muted); font-size: 0.85rem; overflow: hidden; }
 .ed-cover-img img { width: 100%; height: 100%; object-fit: cover; }
+/* A button: tapping the photo crops it. */
+button.ed-cover-img { padding: 0; font: inherit; cursor: pointer; }
+button.ed-cover-img:disabled { cursor: default; }
+button.ed-cover-img:not(:disabled):hover { border-color: var(--hub-cookbook); }
+.ed-cover .btn svg { width: 15px; height: 15px; }
 .ed-rows { display: grid; gap: 0.5rem; margin-bottom: 0.9rem; }
 .ed-ing { display: grid; grid-template-columns: auto 5.5rem 6.5rem minmax(0, 1fr) minmax(0, 0.8fr) auto; gap: 0.45rem; align-items: center; }
 .ed-ing.is-section { grid-template-columns: auto minmax(0, 1fr) auto; }
@@ -602,6 +616,45 @@ body.hub-cal .hub-main { display: flex; flex-direction: column; min-height: 0; m
 }
 
 /* ============================================================
+   CROPPING A PHOTO (photo-crop.js): the cookbook's cover photos
+   ============================================================ */
+html.pc-open, html.pc-open body { overflow: hidden; }
+.pc { position: fixed; inset: 0; z-index: 400; display: flex; flex-direction: column; background: #0b0b0d; color: #fff; }
+.pc-head { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; padding: max(0.9rem, env(safe-area-inset-top)) 1rem 0.5rem; text-align: center; }
+.pc-head strong { font-size: 1rem; font-weight: 600; }
+.pc-head span { font-size: 0.8rem; color: rgba(255, 255, 255, 0.65); }
+.pc-stage { flex: 1; min-height: 0; display: grid; place-items: center; touch-action: none; user-select: none; -webkit-user-select: none; }
+/* The photo, with the frame on top. Outside the frame is dimmed by the
+   shade's shadow, clipped to the photo; the frame isn't clipped, so its
+   corner handles can reach past the photo's edge. */
+.pc-box { position: relative; }
+.pc-box img { display: block; width: 100%; height: 100%; pointer-events: none; -webkit-user-drag: none; }
+.pc-clip { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.pc-shade { position: absolute; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.58); }
+.pc-frame { position: absolute; cursor: move; outline: 2px solid #fff;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.35)), linear-gradient(rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.35)),
+    linear-gradient(rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.35)), linear-gradient(rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.35));
+  background-size: 1px 100%, 1px 100%, 100% 1px, 100% 1px; background-position: 33.33% 0, 66.67% 0, 0 33.33%, 0 66.67%; background-repeat: no-repeat; }
+.pc-frame:focus-visible { outline: 3px solid var(--accent); }
+/* Corner handles: each catches a finger-sized area centred on the corner,
+   and shows as a pie wedge outside the frame, its point on the corner, so
+   nothing inside the frame is covered. */
+.pc-h { position: absolute; width: 48px; height: 48px; margin: -24px; z-index: 1; }
+.pc-h::after { content: ''; position: absolute; width: 22px; height: 22px; background: rgba(255, 255, 255, 0.9); filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55)); }
+.pc-h[data-h="0"] { left: 0; top: 0; cursor: nwse-resize; }
+.pc-h[data-h="1"] { left: 100%; top: 0; cursor: nesw-resize; }
+.pc-h[data-h="2"] { left: 100%; top: 100%; cursor: nwse-resize; }
+.pc-h[data-h="3"] { left: 0; top: 100%; cursor: nesw-resize; }
+.pc-h[data-h="0"]::after { right: 24px; bottom: 24px; border-top-left-radius: 100%; }
+.pc-h[data-h="1"]::after { left: 24px; bottom: 24px; border-top-right-radius: 100%; }
+.pc-h[data-h="2"]::after { left: 24px; top: 24px; border-bottom-right-radius: 100%; }
+.pc-h[data-h="3"]::after { right: 24px; top: 24px; border-bottom-left-radius: 100%; }
+.pc-foot { display: flex; gap: 0.75rem; width: 100%; max-width: 560px; margin: 0 auto; padding: 0.6rem 1rem max(1rem, env(safe-area-inset-bottom)); }
+.pc-foot .btn { flex: 1; justify-content: center; min-height: 48px; font-size: 1rem; }
+.pc-foot .btn-ghost { color: #fff; border-color: rgba(255, 255, 255, 0.4); }
+.pc-foot .pc-reset { flex: 0 0 auto; }
+
+/* ============================================================
    TOUCH SCREENS (phones, iPads)
    ============================================================ */
 @media (pointer: coarse) {
@@ -638,7 +691,7 @@ body.hub-cal .hub-main { display: flex; flex-direction: column; min-height: 0; m
   body.hub { background: #fff; display: block; }
   .no-print, .hub-bar, .hub-toast, .rc-share, .rc-scale .chips, .rc-scale-count button, .rc-awake, .ed-savebar, .px-panel { display: none !important; }
   .hub-main { padding: 0; max-width: none; }
-  .rc-cover { max-height: 260px; border-radius: 8px; }
+  .rc-cover { width: min(100%, 390px); border-radius: 8px; }
   .rc-title { font-size: 26pt !important; }
   .rc-body { grid-template-columns: 34% minmax(0, 1fr); gap: 8mm; }
   .rc-ingredients { position: static; border: 0; padding: 0; background: none; }

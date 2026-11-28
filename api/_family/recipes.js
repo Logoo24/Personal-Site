@@ -23,6 +23,15 @@ const str = (v, max = 400) => String(v == null ? '' : v).slice(0, max).trim();
 const int = v => { const n = parseInt(v, 10); return Number.isFinite(n) && n >= 0 ? Math.min(n, 100000) : null; };
 const media = v => (/^[a-z0-9]{6,32}\.(webp|jpg|png|gif)$/.test(String(v || '')) ? String(v) : null);
 
+function coverSource(input) {
+  const cover = media(input.cover), full = media(input.coverFull);
+  if (!cover || !full || full === cover) return { coverFull: null, coverCrop: null };
+  const c = input.coverCrop || {}, n = k => Number(c[k]);
+  const ok = ['x', 'y', 'w', 'h'].every(k => Number.isFinite(n(k))) && n('x') >= 0 && n('y') >= 0 && n('w') > 0 && n('h') > 0 && n('x') + n('w') <= 1.001 && n('y') + n('h') <= 1.001;
+  const round = v => Math.round(v * 10000) / 10000;
+  return { coverFull: full, coverCrop: ok ? { x: round(n('x')), y: round(n('y')), w: round(n('w')), h: round(n('h')) } : null };
+}
+
 // Cleans up whatever the editor sent into the stored recipe shape.
 function normalize(input) {
   const ingredients = (Array.isArray(input.ingredients) ? input.ingredients : []).slice(0, 200).map(i =>
@@ -49,6 +58,9 @@ function normalize(input) {
     prepMinutes: int(input.prepMinutes),
     cookMinutes: int(input.cookMinutes),
     cover: media(input.cover),
+    // The whole photo the cover was cropped from, and where the frame was
+    // (fractions of it), so it can be cropped again. Only with a cover.
+    ...coverSource(input),
     ingredients,
     steps,
     story: str(input.story, 40000),
@@ -141,10 +153,13 @@ export async function saveMedia(bytes, contentType) {
   return name;
 }
 
-// Every media file a recipe uses: its cover plus photos in the story/notes.
-export function mediaIn(recipe) {
+// Every media file a recipe shows: its cover plus photos in the story/notes.
+// withOriginal adds the uncropped photo the cover came from (deleting a
+// recipe removes it too; a public link never serves it).
+export function mediaIn(recipe, withOriginal) {
   const found = new Set();
   if (recipe.cover) found.add(recipe.cover);
+  if (withOriginal && recipe.coverFull) found.add(recipe.coverFull);
   const re = /\/api\/family\?r=media&(?:amp;)?f=([a-z0-9]{6,32}\.(?:webp|jpg|png|gif))/g;
   for (const text of [recipe.story, recipe.notes]) {
     let m;
